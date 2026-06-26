@@ -1,0 +1,45 @@
+﻿@page
+@model DigitalBanking.Dashboard.Pages.Admin.Users.CreateModel
+@{
+    ViewData["Title"] = "Create User";
+}
+
+<h3 class="mb-3">Create User</h3>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+@if (!string.IsNullOrEmpty(Model.Success))
+{
+    <div class="alert alert-success">@Model.Success</div>
+}
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="post">
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input class="form-control" asp-for="Username" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input class="form-control" asp-for="Password" type="password" />
+                <div class="form-text">Min 4 karakter.</div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Role</label>
+                <select class="form-select" asp-for="Role">
+                    <option value="BankUser">BankUser</option>
+                    <option value="Admin">Admin</option>
+                </select>
+            </div>
+
+            <button class="btn btn-primary" type="submit">Create</button>
+            <a class="btn btn-outline-secondary" href="/Admin/Users">Back</a>
+        </form>
+    </div>
+</div>

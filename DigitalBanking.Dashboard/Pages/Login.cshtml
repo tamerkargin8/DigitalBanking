@@ -1,0 +1,38 @@
+﻿@page
+@model DigitalBanking.Dashboard.Pages.LoginModel
+@{
+    ViewData["Title"] = "Login";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h4 class="mb-3">Login</h4>
+
+                @if (!string.IsNullOrEmpty(Model.Error))
+                {
+                    <div class="alert alert-danger">@Model.Error</div>
+                }
+
+                <form method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input class="form-control" asp-for="Username" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input class="form-control" asp-for="Password" type="password" />
+                    </div>
+
+                    <button class="btn btn-primary w-100" type="submit">Login</button>
+                </form>
+
+                <div class="text-muted mt-3 small">
+                    Default: admin / 1234
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

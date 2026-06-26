@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="DigitalBanking.API/DigitalBanking.API.csproj" />
+  <Project Path="DigitalBanking.Application/DigitalBanking.Application.csproj" />
+  <Project Path="DigitalBanking.Dashboard/DigitalBanking.Dashboard.csproj" Id="133930fb-20b3-4b8c-938e-2f9720d2bea6" />
+  <Project Path="DigitalBanking.Domain/DigitalBanking.Domain.csproj" />
+  <Project Path="DigitalBanking.Infrastructure/DigitalBanking.Infrastructure.csproj" />
+</Solution>
