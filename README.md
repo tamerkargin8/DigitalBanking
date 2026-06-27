@@ -108,6 +108,19 @@ Provides reporting and monitoring capabilities.
 
 ## Core Features
 
+## Payment Approval Workflow
+
+Implemented a maker-checker payment approval workflow inspired by real banking operations.
+
+Features:
+
+- Create payment approval requests
+- Pending payment queue
+- Approve / reject operations
+- Maker-checker segregation of duties
+- Risk-based approval levels
+- Automatic transaction generation after approval
+
 ### Account Management
 
 * Create Account
