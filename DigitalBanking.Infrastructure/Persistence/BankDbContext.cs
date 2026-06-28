@@ -42,6 +42,17 @@ public class BankDbContext : DbContext
             .Property(a => a.RowVersion)
             .IsRowVersion();
 
+        modelBuilder.Entity<Account>(entity =>
+        {
+            entity.Property(x => x.Balance)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.Currency)
+                .HasMaxLength(3)
+                .IsRequired()
+                .HasDefaultValue("TRY");
+        });
+
         modelBuilder.Entity<PaymentApproval>(entity =>
         {
             entity.HasKey(x => x.Id);

@@ -14,7 +14,7 @@ namespace DigitalBanking.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+//[Authorize]
 public class AccountsController : ControllerBase
 {
     private readonly IAccountService _accountService;
