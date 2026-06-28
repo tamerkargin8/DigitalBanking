@@ -1,4 +1,5 @@
 using DigitalBanking.Application.Abstractions.Services;
+using DigitalBanking.Application.Mappings;
 using DigitalBanking.Domain.Entities;
 using DigitalBanking.Domain.Enums;
 using DigitalBanking.Infrastructure;
@@ -40,6 +41,7 @@ try
     // Swagger / OpenAPI
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
+    builder.Services.AddAutoMapper(typeof(MappingProfile));
 
     builder.Services.AddScoped<JwtTokenService>();
     builder.Services.AddSingleton<PasswordHasher>();
@@ -92,7 +94,7 @@ try
         var hasher = scope.ServiceProvider.GetRequiredService<PasswordHasher>();
 
         // ✅ Önce migration’ları uygula / DB’yi güncelle
-        db.Database.Migrate();
+        // db.Database.Migrate();
 
         if (!db.Users.Any())
         {

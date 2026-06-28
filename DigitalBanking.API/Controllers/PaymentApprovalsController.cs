@@ -27,7 +27,7 @@ public class PaymentApprovalsController : ControllerBase
             request.RequestedByUserId);
 
         return CreatedAtAction(
-            nameof(GetPendingApprovals),
+            nameof(GetById),
             new { id = approval.Id },
             approval);
     }

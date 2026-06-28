@@ -1,9 +1,9 @@
 ﻿using DigitalBanking.Application.Abstractions.Services;
 using DigitalBanking.Application.DTOs.Account;
+using DigitalBanking.Application.DTOs.Accounts;
 using DigitalBanking.Application.DTOs.Common;
 using DigitalBanking.Application.DTOs.Transaction;
 using DigitalBanking.Application.Exceptions;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DigitalBanking.API.Controllers;
@@ -137,14 +137,6 @@ public class AccountsController : ControllerBase
     }
 }
 
-/// <summary>
-/// Request model for opening a new account.
-/// </summary>
-public record OpenAccountRequest(Guid CustomerId);
-
-/// <summary>
-/// DTO for transfer operation result containing both transaction records.
-/// </summary>
 public class TransferResultDto
 {
     public TransactionDto? OutgoingTransaction { get; set; }

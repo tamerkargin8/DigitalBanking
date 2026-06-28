@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DigitalBanking.Infrastructure.Migrations
 {
     [DbContext(typeof(BankDbContext))]
-    [Migration("20260628210923_AddCurrencyColumnToAccounts")]
+    [Migration("20260628212612_AddCurrencyColumnToAccounts")]
     partial class AddCurrencyColumnToAccounts
     {
         /// <inheritdoc />

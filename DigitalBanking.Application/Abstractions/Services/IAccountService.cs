@@ -1,4 +1,5 @@
 using DigitalBanking.Application.DTOs.Account;
+using DigitalBanking.Application.DTOs.Accounts;
 
 namespace DigitalBanking.Application.Abstractions.Services;
 
