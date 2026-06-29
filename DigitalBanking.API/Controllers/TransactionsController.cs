@@ -2,10 +2,8 @@
 using DigitalBanking.Application.DTOs.Common;
 using DigitalBanking.Application.DTOs.Transaction;
 using DigitalBanking.Application.Exceptions;
-using DigitalBanking.Domain.Entities;
 using DigitalBanking.Domain.Enums;
 using DigitalBanking.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 

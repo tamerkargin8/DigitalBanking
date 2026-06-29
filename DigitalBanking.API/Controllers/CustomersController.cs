@@ -22,6 +22,7 @@ public class CustomersController : ControllerBase
 
     // GET: api/customers
     [HttpGet]
+    [HttpGet]
     public async Task<ActionResult<List<CustomerResponse>>> GetAll()
     {
         var customers = await _db.Customers
@@ -37,8 +38,8 @@ public class CustomersController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<CustomerResponse>> GetById(Guid id)
     {
-        var customer = await _db.Customers.FindAsync(id);
 
+        var customer = await _db.Customers.FindAsync(id);
         if (customer is null)
             return NotFound();
 
@@ -53,6 +54,7 @@ public class CustomersController : ControllerBase
         [FromBody] CreateCustomerRequest request)
     {
         var customer = _mapper.Map<Customer>(request);
+
         customer.Id = Guid.NewGuid();
         customer.CreatedDate = DateTime.UtcNow;
 
@@ -61,7 +63,8 @@ public class CustomersController : ControllerBase
 
         var response = _mapper.Map<CustomerResponse>(customer);
 
-        return CreatedAtAction(nameof(GetById),
+        return CreatedAtAction(
+            nameof(GetById),
             new { id = customer.Id },
             response);
     }

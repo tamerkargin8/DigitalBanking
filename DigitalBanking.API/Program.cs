@@ -9,7 +9,6 @@ using DigitalBanking.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
 using Serilog;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -41,7 +40,10 @@ try
     // Swagger / OpenAPI
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
-    builder.Services.AddAutoMapper(typeof(MappingProfile));
+    builder.Services.AddAutoMapper(cfg =>
+    {
+        cfg.AddProfile<MappingProfile>();
+    });
 
     builder.Services.AddScoped<JwtTokenService>();
     builder.Services.AddSingleton<PasswordHasher>();
