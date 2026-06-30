@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
 using System.Text.Json.Serialization;
+using DigitalBanking.API.Middleware;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -73,6 +74,7 @@ try
 
 
     var app = builder.Build();
+    app.UseMiddleware<ExceptionMiddleware>();
 
     if (app.Environment.IsDevelopment())
     {
