@@ -15,7 +15,7 @@ public interface IPaymentApprovalService
 
     Task<List<PaymentApprovalResponse>> GetPendingApprovalsAsync();
 
-    Task<PaymentApprovalResponse?> GetByIdAsync(int approvalId);
+    Task<PaymentApprovalResponse> GetByIdAsync(int approvalId);
 
     Task ApprovePaymentAsync(
         int approvalId,

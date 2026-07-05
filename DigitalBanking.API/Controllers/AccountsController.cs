@@ -1,9 +1,9 @@
-﻿using DigitalBanking.Application.Abstractions.Services;
+﻿using AutoMapper;
+using DigitalBanking.Application.Abstractions.Services;
 using DigitalBanking.Application.DTOs.Account;
 using DigitalBanking.Application.DTOs.Accounts;
 using DigitalBanking.Application.DTOs.Common;
 using DigitalBanking.Application.DTOs.Transaction;
-using DigitalBanking.Application.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DigitalBanking.API.Controllers;
@@ -19,11 +19,16 @@ public class AccountsController : ControllerBase
 {
     private readonly IAccountService _accountService;
     private readonly ITransactionService _transactionService;
+    private readonly IMapper _mapper;
 
-    public AccountsController(IAccountService accountService, ITransactionService transactionService)
+    public AccountsController(
+        IAccountService accountService,
+        ITransactionService transactionService,
+        IMapper mapper)
     {
         _accountService = accountService;
         _transactionService = transactionService;
+        _mapper = mapper;
     }
 
     /// <summary>
@@ -34,22 +39,19 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<AccountDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> OpenAccount([FromBody] OpenAccountRequest request, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> OpenAccount(
+    [FromBody] OpenAccountRequest request,
+    CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var createRequest = new CreateAccountRequest { CustomerId = request.CustomerId };
-            var account = await _accountService.OpenAccountAsync(createRequest, cancellationToken);
-            return Ok(ApiResponse<AccountDto>.SuccessWith(account, "Account opened successfully."));
-        }
-        catch (NotFoundException ex)
-        {
-            return NotFound(ApiResponse.Failure(ex.Message));
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ApiResponse.Failure(ex.Message));
-        }
+        var createRequest = _mapper.Map<CreateAccountRequest>(request);
+
+        var account = await _accountService.OpenAccountAsync(
+            createRequest,
+            cancellationToken);
+
+        return Ok(ApiResponse<AccountDto>.SuccessWith(
+            account,
+            "Account opened successfully."));
     }
 
     /// <summary>
@@ -58,18 +60,23 @@ public class AccountsController : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<PaginatedResponse<AccountDto>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var (accounts, totalCount) = await _accountService.GetAllAccountsAsync(page, pageSize, cancellationToken);
-            var paginated = new PaginatedResponse<AccountDto>(accounts, page, pageSize, totalCount);
-            return Ok(ApiResponse<PaginatedResponse<AccountDto>>.SuccessWith(paginated));
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ApiResponse.Failure(ex.Message));
-        }
+        var (accounts, totalCount) = await _accountService.GetAllAccountsAsync(
+            page,
+            pageSize,
+            cancellationToken);
+
+        var paginated = new PaginatedResponse<AccountDto>(
+            accounts,
+            page,
+            pageSize,
+            totalCount);
+
+        return Ok(ApiResponse<PaginatedResponse<AccountDto>>.SuccessWith(paginated));
     }
 
     /// <summary>
@@ -79,21 +86,16 @@ public class AccountsController : ControllerBase
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(ApiResponse<AccountDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetById(
+        Guid id,
+        CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var account = await _accountService.GetAccountDetailAsync(id, recentTransactionCount: 10, cancellationToken);
-            return Ok(ApiResponse<AccountDetailDto>.SuccessWith(account));
-        }
-        catch (NotFoundException ex)
-        {
-            return NotFound(ApiResponse.Failure(ex.Message));
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ApiResponse.Failure(ex.Message));
-        }
+        var account = await _accountService.GetAccountDetailAsync(
+            id,
+            recentTransactionCount: 10,
+            cancellationToken);
+
+        return Ok(ApiResponse<AccountDetailDto>.SuccessWith(account));
     }
 
     /// <summary>
@@ -105,40 +107,16 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Transfer([FromBody] TransferRequest request, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Transfer(
+        [FromBody] TransferRequest request,
+        CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var result = await _transactionService.TransferAsync(request, cancellationToken);
-            return Ok(ApiResponse<TransferResultDto>.SuccessWith(
-                new TransferResultDto
-                {
-                    OutgoingTransaction = result.OutgoingTransaction,
-                    IncomingTransaction = result.IncomingTransaction
-                },
-                "Transfer completed successfully."));
-        }
-        catch (NotFoundException ex)
-        {
-            return NotFound(ApiResponse.Failure(ex.Message));
-        }
-        catch (ConcurrencyException ex)
-        {
-            return Conflict(ApiResponse.Failure(ex.Message));
-        }
-        catch (BusinessRuleException ex)
-        {
-            return BadRequest(ApiResponse.Failure(ex.Message));
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ApiResponse.Failure(ex.Message));
-        }
-    }
-}
+        var result = await _transactionService.TransferAsync(request, cancellationToken);
 
-public class TransferResultDto
-{
-    public TransactionDto? OutgoingTransaction { get; set; }
-    public TransactionDto? IncomingTransaction { get; set; }
+        var response = _mapper.Map<TransferResultDto>(result);
+
+        return Ok(ApiResponse<TransferResultDto>.SuccessWith(
+            response,
+            "Transfer completed successfully."));
+    }
 }

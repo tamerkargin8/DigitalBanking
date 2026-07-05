@@ -1,9 +1,7 @@
-﻿using DigitalBanking.Domain.Entities;
-using DigitalBanking.Infrastructure;
-using DigitalBanking.Infrastructure.Persistence;
-using DigitalBanking.Infrastructure.Security;
+﻿using DigitalBanking.Application.Abstractions.Services;
+using DigitalBanking.Application.DTOs.Auth;
+using DigitalBanking.Application.DTOs.Common;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace DigitalBanking.API.Controllers;
 
@@ -11,32 +9,26 @@ namespace DigitalBanking.API.Controllers;
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
-    private readonly BankDbContext _db;
-    private readonly JwtTokenService _jwt;
-    private readonly PasswordHasher _hasher;
+    private readonly IAuthService _authService;
 
-    public AuthController(BankDbContext db, JwtTokenService jwt, PasswordHasher hasher)
+    public AuthController(IAuthService authService)
     {
-        _db = db;
-        _jwt = jwt;
-        _hasher = hasher;
+        _authService = authService;
     }
 
-    // POST /api/auth/login?username=admin&password=1234
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromQuery] string username, [FromQuery] string password)
+    [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Login(
+        [FromBody] LoginRequest request,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-            return BadRequest("username/password required");
+        var response = await _authService.LoginAsync(
+            request,
+            cancellationToken);
 
-        var user = await _db.Users.FirstOrDefaultAsync(x => x.Username == username);
-        if (user == null)
-            return Unauthorized("User not found");
-
-        if (!_hasher.Verify(password, user.PasswordHash))
-            return Unauthorized("Invalid password");
-
-        var token = _jwt.GenerateToken(user);
-        return Ok(new { token });
+        return Ok(ApiResponse<LoginResponse>.SuccessWith(
+            response,
+            "Login successful."));
     }
 }

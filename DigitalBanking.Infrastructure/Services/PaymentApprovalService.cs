@@ -1,5 +1,7 @@
-﻿using DigitalBanking.Application.Abstractions.Services;
+﻿using AutoMapper;
+using DigitalBanking.Application.Abstractions.Services;
 using DigitalBanking.Application.DTOs.PaymentApprovals;
+using DigitalBanking.Application.Exceptions;
 using DigitalBanking.Domain.Entities;
 using DigitalBanking.Domain.Enums;
 using DigitalBanking.Infrastructure.Persistence;
@@ -11,10 +13,14 @@ namespace DigitalBanking.Infrastructure.Services
     public class PaymentApprovalService : IPaymentApprovalService
     {
         private readonly BankDbContext _context;
+        private readonly IMapper _mapper;
 
-        public PaymentApprovalService(BankDbContext context)
+        public PaymentApprovalService(
+            BankDbContext context,
+            IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         public async Task<PaymentApprovalResponse> CreateApprovalRequestAsync(
@@ -41,7 +47,7 @@ namespace DigitalBanking.Infrastructure.Services
             };
             _context.PaymentApprovals.Add(approval);
             await _context.SaveChangesAsync();
-            return MapToResponse(approval);
+            return _mapper.Map<PaymentApprovalResponse>(approval);
         }
         public async Task<List<PaymentApprovalResponse>> GetPendingApprovalsAsync()
         {
@@ -50,35 +56,36 @@ namespace DigitalBanking.Infrastructure.Services
                 .OrderByDescending(x => x.CreatedAt)
                 .ToListAsync();
 
-            return approvals.Select(MapToResponse).ToList();
+            return _mapper.Map<List<PaymentApprovalResponse>>(approvals);
         }
         public async Task ApprovePaymentAsync(int approvalId, int reviewedByUserId)
         {
             var approval = await _context.PaymentApprovals
                 .FirstOrDefaultAsync(x => x.Id == approvalId);
 
-            if (approval == null)
-                throw new InvalidOperationException("Payment approval request not found.");
+            if (approval is null)
+                throw new NotFoundException($"Payment approval request with id {approvalId} was not found.");
 
             if (approval.Status != PaymentApprovalStatus.Pending)
-                throw new InvalidOperationException("Only pending payment approvals can be approved.");
+                throw new BusinessRuleException("Only pending payment approvals can be approved.");
 
-            // Maker-Checker Principle
             if (approval.RequestedByUserId == reviewedByUserId)
-                throw new InvalidOperationException(
-                    "Users cannot approve their own payment requests.");
+                throw new BusinessRuleException("Users cannot approve their own payment requests.");
 
             var fromAccount = await _context.Accounts
                 .FirstOrDefaultAsync(x => x.Id == approval.FromAccountId);
 
-            if (fromAccount == null)
-                throw new InvalidOperationException("Sender account not found.");
+            if (fromAccount is null)
+                throw new NotFoundException($"Sender account with id {approval.FromAccountId} was not found.");
+
+            if (fromAccount.Balance < approval.Amount)
+                throw new BusinessRuleException("Insufficient balance.");
 
             var toAccount = await _context.Accounts
                 .FirstOrDefaultAsync(x => x.Id == approval.ToAccountId);
 
-            if (toAccount == null)
-                throw new InvalidOperationException("Receiver account not found.");
+            if (toAccount is null)
+                throw new NotFoundException($"Receiver account with id {approval.ToAccountId} was not found.");
 
             if (fromAccount.Balance < approval.Amount)
                 throw new InvalidOperationException("Insufficient balance.");
@@ -129,11 +136,11 @@ namespace DigitalBanking.Infrastructure.Services
             var approval = await _context.PaymentApprovals
                 .FirstOrDefaultAsync(x => x.Id == approvalId);
 
-            if (approval == null)
-                throw new InvalidOperationException("Payment approval request not found.");
+            if (approval is null)
+                throw new NotFoundException($"Payment approval request with id {approvalId} was not found.");
 
             if (approval.Status != PaymentApprovalStatus.Pending)
-                throw new InvalidOperationException("Only pending payment approvals can be rejected.");
+                throw new BusinessRuleException("Only pending payment approvals can be rejected.");
 
             approval.Status = PaymentApprovalStatus.Rejected;
             approval.ReviewedByUserId = reviewedByUserId;
@@ -167,34 +174,15 @@ namespace DigitalBanking.Infrastructure.Services
                 _ => "Low risk payment approval request created."
             };
         }
-        private PaymentApprovalResponse MapToResponse(PaymentApproval approval)
-        {
-            return new PaymentApprovalResponse
-            {
-                Id = approval.Id,
-                FromAccountId = approval.FromAccountId,
-                ToAccountId = approval.ToAccountId,
-                Amount = approval.Amount,
-                Currency = approval.Currency,
-                Description = approval.Description,
-                Status = approval.Status.ToString(),
-                RiskLevel = approval.RiskLevel.ToString(),
-                ApprovalReason = approval.ApprovalReason,
-                RequestedByUserId = approval.RequestedByUserId,
-                ReviewedByUserId = approval.ReviewedByUserId,
-                CreatedAt = approval.CreatedAt,
-                ReviewedAt = approval.ReviewedAt,
-                RejectionReason = approval.RejectionReason,
-                RelatedTransactionId = approval.RelatedTransactionId
-            };
-        }
-        public async Task<PaymentApprovalResponse?> GetByIdAsync(int approvalId)
+        public async Task<PaymentApprovalResponse> GetByIdAsync(int approvalId)
         {
             var approval = await _context.PaymentApprovals
                 .FirstOrDefaultAsync(x => x.Id == approvalId);
-            if (approval == null)
-                return null;
-            return MapToResponse(approval);
+
+            if (approval is null)
+                throw new NotFoundException($"Payment approval request with id {approvalId} was not found.");
+
+            return _mapper.Map<PaymentApprovalResponse>(approval);
         }
     }
 }

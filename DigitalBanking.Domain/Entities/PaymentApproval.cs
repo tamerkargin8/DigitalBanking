@@ -19,8 +19,8 @@ namespace DigitalBanking.Domain.Entities
         public PaymentRiskLevel RiskLevel { get; set; } = PaymentRiskLevel.Low;
 
         public string? ApprovalReason { get; set; }
-        public int RequestedByUserId { get; set; }
-        public int? ReviewedByUserId { get; set; }
+        public Guid RequestedByUserId { get; set; }
+        public Guid? ReviewedByUserId { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? ReviewedAt { get; set; }
