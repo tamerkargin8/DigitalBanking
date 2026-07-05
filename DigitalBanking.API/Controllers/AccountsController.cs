@@ -4,6 +4,7 @@ using DigitalBanking.Application.DTOs.Account;
 using DigitalBanking.Application.DTOs.Accounts;
 using DigitalBanking.Application.DTOs.Common;
 using DigitalBanking.Application.DTOs.Transaction;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DigitalBanking.API.Controllers;
@@ -14,7 +15,7 @@ namespace DigitalBanking.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-//[Authorize]
+[Authorize]
 public class AccountsController : ControllerBase
 {
     private readonly IAccountService _accountService;

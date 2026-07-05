@@ -1,12 +1,14 @@
 using DigitalBanking.API.Middleware;
 using DigitalBanking.Application.Abstractions.Services;
+using DigitalBanking.Application.DTOs.Auth;
 using DigitalBanking.Application.Mappings;
-using DigitalBanking.Domain.Entities;
-using DigitalBanking.Domain.Enums;
+using DigitalBanking.Application.Validators.Auth;
 using DigitalBanking.Infrastructure;
 using DigitalBanking.Infrastructure.Persistence;
 using DigitalBanking.Infrastructure.Security;
 using DigitalBanking.Infrastructure.Services;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -70,10 +72,14 @@ try
         cfg.AddProfile<MappingProfile>();
     });
 
+    builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
+    builder.Services.AddFluentValidationAutoValidation();
+
     builder.Services.AddScoped<JwtTokenService>();
     builder.Services.AddSingleton<PasswordHasher>();
     builder.Services.AddScoped<IPaymentApprovalService, PaymentApprovalService>();
     builder.Services.AddScoped<IAuthService, AuthService>();
+    builder.Services.AddScoped<IValidator<LoginRequest>, LoginRequestValidator>();
 
     var app = builder.Build();
 
@@ -97,21 +103,7 @@ try
         var db = scope.ServiceProvider.GetRequiredService<BankDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<PasswordHasher>();
 
-        // db.Database.Migrate();
-
-        if (!db.Users.Any())
-        {
-            db.Users.Add(new User
-            {
-                Id = Guid.NewGuid(),
-                Username = "admin",
-                PasswordHash = hasher.Hash("1234"),
-                Role = UserRole.Admin,
-                CreatedDate = DateTime.UtcNow
-            });
-
-            db.SaveChanges();
-        }
+        await DatabaseSeeder.SeedAsync(db, hasher);
     }
 
     app.Run();

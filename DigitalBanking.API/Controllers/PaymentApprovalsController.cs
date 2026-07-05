@@ -2,12 +2,14 @@
 using DigitalBanking.Application.DTOs.Common;
 using DigitalBanking.Application.DTOs.PaymentApprovals;
 using DigitalBanking.Application.Exceptions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DigitalBanking.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class PaymentApprovalsController : ControllerBase
 {
     private readonly IPaymentApprovalService _paymentApprovalService;
@@ -62,6 +64,7 @@ public class PaymentApprovalsController : ControllerBase
     }
 
     [HttpPost("{id:int}/approve")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
@@ -78,6 +81,7 @@ public class PaymentApprovalsController : ControllerBase
     }
 
     [HttpPost("{id:int}/reject")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]

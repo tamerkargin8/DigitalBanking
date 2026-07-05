@@ -16,6 +16,8 @@ public class BankDbContext : DbContext
 
     public DbSet<PaymentApproval> PaymentApprovals {  get; set; }
 
+    public DbSet<AuditLog> AuditLogs { get; set; }
+
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

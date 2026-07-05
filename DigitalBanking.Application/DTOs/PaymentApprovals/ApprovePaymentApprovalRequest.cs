@@ -2,10 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace DigitalBanking.Application.DTOs.PaymentApprovals
+namespace DigitalBanking.Application.DTOs.PaymentApprovals;
+
+public class ApprovePaymentApprovalRequest
 {
-    public class ApprovePaymentApprovalRequest
-    {
-        public int ReviewedByUserId { get; set; }
-    }
+    public int ReviewedByUserId { get; set; }
 }

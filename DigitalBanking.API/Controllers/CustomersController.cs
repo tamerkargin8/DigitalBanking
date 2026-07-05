@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DigitalBanking.Application.DTOs.Customers;
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 
 namespace DigitalBanking.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class CustomersController : ControllerBase
 {
     private readonly BankDbContext _db;

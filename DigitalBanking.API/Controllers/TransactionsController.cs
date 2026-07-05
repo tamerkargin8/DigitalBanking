@@ -4,6 +4,7 @@ using DigitalBanking.Application.DTOs.Transaction;
 using DigitalBanking.Application.Exceptions;
 using DigitalBanking.Domain.Enums;
 using DigitalBanking.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,7 +16,7 @@ namespace DigitalBanking.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-//[Authorize]
+[Authorize]
 public class TransactionsController : ControllerBase
 {
     private readonly ITransactionService _transactionService;
