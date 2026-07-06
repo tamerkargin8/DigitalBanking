@@ -18,9 +18,11 @@ public static class InfrastructureServiceCollectionExtensions
     /// </example>
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
     {
-        // Account and Transaction services
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<ITransactionService, TransactionService>();
+        services.AddScoped<IPaymentApprovalService, PaymentApprovalService>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IAuditService, AuditService>();
 
         return services;
     }
