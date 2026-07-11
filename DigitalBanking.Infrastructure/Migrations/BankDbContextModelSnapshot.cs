@@ -82,7 +82,6 @@ namespace DigitalBanking.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("EntityId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("EntityName")
@@ -93,7 +92,6 @@ namespace DigitalBanking.Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("Username")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");

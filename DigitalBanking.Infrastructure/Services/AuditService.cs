@@ -12,13 +12,12 @@ public class AuditService : IAuditService
     {
         _context = context;
     }
-
     public async Task LogAsync(
         string action,
         string entityName,
-        string? entityId,
-        string? userId,
+        string? entityId = null,
         string? username = null,
+        bool isSuccess = true,
         string? details = null)
     {
         var auditLog = new AuditLog
@@ -28,6 +27,7 @@ public class AuditService : IAuditService
             EntityName = entityName,
             EntityId = entityId,
             Username = username,
+            IsSuccess = isSuccess,
             Details = details,
             CreatedDate = DateTime.UtcNow
         };

@@ -4,24 +4,14 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DigitalBanking.Infrastructure;
 
-/// <summary>
-/// Extension methods for registering Infrastructure services in dependency injection.
-/// </summary>
 public static class InfrastructureServiceCollectionExtensions
 {
-    /// <summary>
-    /// Adds Infrastructure services (business logic layer).
-    /// Currently includes: AccountService, TransactionService
-    /// </summary>
-    /// <example>
-    /// builder.Services.AddInfrastructureServices();
-    /// </example>
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
     {
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<ITransactionService, TransactionService>();
-        services.AddScoped<IPaymentApprovalService, PaymentApprovalService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IPaymentApprovalService, PaymentApprovalService>();
         services.AddScoped<IAuditService, AuditService>();
 
         return services;

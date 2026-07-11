@@ -12,15 +12,18 @@ public class AuthService : IAuthService
     private readonly BankDbContext _context;
     private readonly PasswordHasher _passwordHasher;
     private readonly JwtTokenService _jwtTokenService;
+    private readonly IAuditService _auditService;
 
     public AuthService(
         BankDbContext context,
         PasswordHasher passwordHasher,
-        JwtTokenService jwtTokenService)
+        JwtTokenService jwtTokenService,
+        IAuditService auditService)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
+        _auditService = auditService;
     }
 
     public async Task<LoginResponse> LoginAsync(
@@ -31,16 +34,40 @@ public class AuthService : IAuthService
             .FirstOrDefaultAsync(x => x.Username == request.Username, cancellationToken);
 
         if (user is null)
+        {
+            await _auditService.LogAsync(
+                action: "LOGIN_FAILED",
+                entityName: "User",
+                username: request.Username,
+                details: "Login failed. User not found.");
+
             throw new BusinessRuleException("Invalid username or password.");
+        }
 
         var isPasswordValid = _passwordHasher.Verify(
             request.Password,
             user.PasswordHash);
 
         if (!isPasswordValid)
+        {
+            await _auditService.LogAsync(
+                action: "LOGIN_FAILED",
+                entityName: "User",
+                entityId: user.Id.ToString(),
+                username: user.Username,
+                details: "Login failed. Invalid password.");
+
             throw new BusinessRuleException("Invalid username or password.");
+        }
 
         var token = _jwtTokenService.GenerateToken(user);
+
+        await _auditService.LogAsync(
+            action: "LOGIN_SUCCESS",
+            entityName: "User",
+            entityId: user.Id.ToString(),
+            username: user.Username,
+            details: "User logged in successfully.");
 
         return new LoginResponse
         {

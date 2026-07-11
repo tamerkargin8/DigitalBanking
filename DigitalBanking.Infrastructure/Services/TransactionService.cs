@@ -17,10 +17,14 @@ public class TransactionService : ITransactionService
 {
     private readonly BankDbContext _db;
     private readonly ILogger _logger;
+    private readonly IAuditService _auditService;
 
-    public TransactionService(BankDbContext db)
+    public TransactionService(
+        BankDbContext db,
+        IAuditService auditService)
     {
         _db = db;
+        _auditService = auditService;
         _logger = Log.ForContext<TransactionService>();
     }
 
@@ -28,36 +32,49 @@ public class TransactionService : ITransactionService
     /// Deposits money into an account.
     /// Runs in a database transaction for atomicity.
     /// </summary>
-    public async Task<TransactionDto> DepositAsync(DepositRequest request, CancellationToken cancellationToken = default)
+    public async Task<TransactionDto> DepositAsync(
+    DepositRequest request,
+    CancellationToken cancellationToken = default)
     {
-        _logger.Information("Deposit initiated. AccountId: {AccountId}, Amount: {Amount}", 
-            request.AccountId, request.Amount);
+        _logger.Information(
+            "Deposit initiated. AccountId: {AccountId}, Amount: {Amount}",
+            request.AccountId,
+            request.Amount);
 
         // Validate amount
         if (request.Amount <= 0)
         {
-            _logger.Warning("Deposit rejected: Amount must be > 0. Amount: {Amount}", request.Amount);
+            _logger.Warning(
+                "Deposit rejected: Amount must be > 0. Amount: {Amount}",
+                request.Amount);
+
             throw new BusinessRuleException("Amount must be greater than 0.");
         }
 
-        await using var dbTransaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        await using var dbTransaction =
+            await _db.Database.BeginTransactionAsync(cancellationToken);
 
         try
         {
-            // Fetch account with lock (pessimistic)
+            // Fetch account
             var account = await _db.Accounts
-                .FirstOrDefaultAsync(a => a.Id == request.AccountId, cancellationToken);
+                .FirstOrDefaultAsync(
+                    a => a.Id == request.AccountId,
+                    cancellationToken);
 
             if (account is null)
             {
-                _logger.Warning("Account not found for deposit. AccountId: {AccountId}", request.AccountId);
+                _logger.Warning(
+                    "Account not found for deposit. AccountId: {AccountId}",
+                    request.AccountId);
+
                 throw new NotFoundException("Account", request.AccountId);
             }
 
             // Update balance
             account.Balance += request.Amount;
 
-            // Create transaction record
+            // Create transaction
             var transaction = new Transaction
             {
                 Id = Guid.NewGuid(),
@@ -70,24 +87,54 @@ public class TransactionService : ITransactionService
             };
 
             _db.Transactions.Add(transaction);
+
             await _db.SaveChangesAsync(cancellationToken);
+
             await dbTransaction.CommitAsync(cancellationToken);
 
-            _logger.Information("Deposit completed successfully. TransactionId: {TransactionId}, Amount: {Amount}, NewBalance: {NewBalance}",
-                transaction.Id, request.Amount, account.Balance);
+            // Audit Log
+            await _auditService.LogAsync(
+            action: "DEPOSIT_SUCCESS",
+            entityName: "Transaction",
+            entityId: transaction.Id.ToString(),
+            username: null,
+            isSuccess: true,
+            details:
+                $"Deposit completed. " +
+                $"AccountId: {account.Id}, " +
+                $"Amount: {request.Amount}, " +
+                $"BalanceAfter: {account.Balance}");
+
+            _logger.Information(
+                "Deposit completed successfully. TransactionId: {TransactionId}, Amount: {Amount}, NewBalance: {NewBalance}",
+                transaction.Id,
+                request.Amount,
+                account.Balance);
 
             return MapToDto(transaction);
         }
         catch (DbUpdateConcurrencyException)
         {
             await dbTransaction.RollbackAsync(cancellationToken);
-            _logger.Warning("Deposit failed due to concurrency conflict. AccountId: {AccountId}", request.AccountId);
+
+            _logger.Warning(
+                "Deposit failed due to concurrency conflict. AccountId: {AccountId}",
+                request.AccountId);
+
             throw new ConcurrencyException("Account", request.AccountId);
         }
-        catch (Exception ex) when (!(ex is BusinessRuleException) && !(ex is NotFoundException) && !(ex is ConcurrencyException))
+        catch (Exception ex)
+            when (ex is not BusinessRuleException &&
+                  ex is not NotFoundException &&
+                  ex is not ConcurrencyException)
         {
             await dbTransaction.RollbackAsync(cancellationToken);
-            _logger.Error(ex, "Deposit failed with exception. AccountId: {AccountId}", request.AccountId);
+
+            _logger.Error(
+                ex,
+                "Deposit failed with exception. AccountId: {AccountId}",
+                request.AccountId);
+
             throw;
         }
     }

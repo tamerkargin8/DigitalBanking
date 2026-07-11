@@ -1,6 +1,4 @@
-﻿using System.Threading.Tasks;
-
-namespace DigitalBanking.Application.Abstractions.Services;
+﻿namespace DigitalBanking.Application.Abstractions.Services;
 
 public interface IAuditService
 {
@@ -8,7 +6,7 @@ public interface IAuditService
         string action,
         string entityName,
         string? entityId = null,
-        string? userId = null,
         string? username = null,
-        string? description = null);
+        bool isSuccess = true,
+        string? details = null);
 }
