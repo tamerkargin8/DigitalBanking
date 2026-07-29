@@ -193,11 +193,27 @@ public class TransactionService : ITransactionService
             };
 
             _db.Transactions.Add(transaction);
+
             await _db.SaveChangesAsync(cancellationToken);
             await dbTransaction.CommitAsync(cancellationToken);
 
-            _logger.Information("Withdrawal completed successfully. TransactionId: {TransactionId}, Amount: {Amount}, NewBalance: {NewBalance}",
-                transaction.Id, request.Amount, account.Balance);
+            await _auditService.LogAsync(
+                action: "WITHDRAW_SUCCESS",
+                entityName: "Transaction",
+                entityId: transaction.Id.ToString(),
+                username: null,
+                isSuccess: true,
+                details:
+                    $"Withdrawal completed. " +
+                    $"AccountId: {account.Id}, " +
+                    $"Amount: {request.Amount}, " +
+                    $"BalanceAfter: {account.Balance}");
+
+            _logger.Information(
+                "Withdrawal completed successfully. TransactionId: {TransactionId}, Amount: {Amount}, NewBalance: {NewBalance}",
+                transaction.Id,
+                request.Amount,
+                account.Balance);
 
             return MapToDto(transaction);
         }
@@ -305,11 +321,31 @@ public class TransactionService : ITransactionService
 
             _db.Transactions.Add(outgoingTx);
             _db.Transactions.Add(incomingTx);
+
             await _db.SaveChangesAsync(cancellationToken);
             await dbTransaction.CommitAsync(cancellationToken);
 
-            _logger.Information("Transfer completed successfully. OutgoingTxId: {OutgoingTxId}, IncomingTxId: {IncomingTxId}, Amount: {Amount}",
-                outgoingTx.Id, incomingTx.Id, request.Amount);
+            await _auditService.LogAsync(
+                action: "TRANSFER_SUCCESS",
+                entityName: "Transfer",
+                entityId: outgoingTx.Id.ToString(),
+                username: null,
+                isSuccess: true,
+                details:
+                    $"Transfer completed. " +
+                    $"FromAccountId: {fromAccount.Id}, " +
+                    $"ToAccountId: {toAccount.Id}, " +
+                    $"Amount: {request.Amount}, " +
+                    $"FromBalanceAfter: {fromAccount.Balance}, " +
+                    $"ToBalanceAfter: {toAccount.Balance}, " +
+                    $"OutgoingTransactionId: {outgoingTx.Id}, " +
+                    $"IncomingTransactionId: {incomingTx.Id}");
+
+            _logger.Information(
+                "Transfer completed successfully. OutgoingTxId: {OutgoingTxId}, IncomingTxId: {IncomingTxId}, Amount: {Amount}",
+                outgoingTx.Id,
+                incomingTx.Id,
+                request.Amount);
 
             return new TransferResult
             {

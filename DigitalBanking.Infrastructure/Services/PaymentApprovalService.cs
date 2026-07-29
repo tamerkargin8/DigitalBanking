@@ -14,13 +14,16 @@ namespace DigitalBanking.Infrastructure.Services
     {
         private readonly BankDbContext _context;
         private readonly IMapper _mapper;
+        private readonly IAuditService _auditService;
 
         public PaymentApprovalService(
             BankDbContext context,
-            IMapper mapper)
+            IMapper mapper,
+            IAuditService auditService)
         {
             _context = context;
             _mapper = mapper;
+            _auditService = auditService;
         }
 
         public async Task<PaymentApprovalResponse> CreateApprovalRequestAsync(
@@ -47,6 +50,22 @@ namespace DigitalBanking.Infrastructure.Services
             };
             _context.PaymentApprovals.Add(approval);
             await _context.SaveChangesAsync();
+
+            await _auditService.LogAsync(
+                action: "PAYMENT_CREATED",
+                entityName: "PaymentApproval",
+                entityId: approval.Id.ToString(),
+                username: null,
+                isSuccess: true,
+                details:
+                    $"Payment approval request created. " +
+                    $"FromAccountId: {approval.FromAccountId}, " +
+                    $"ToAccountId: {approval.ToAccountId}, " +
+                    $"Amount: {approval.Amount}, " +
+                    $"Currency: {approval.Currency}, " +
+                    $"RiskLevel: {approval.RiskLevel}, " +
+                    $"RequestedByUserId: {approval.RequestedByUserId}");
+
             return _mapper.Map<PaymentApprovalResponse>(approval);
         }
         public async Task<List<PaymentApprovalResponse>> GetPendingApprovalsAsync()
@@ -126,7 +145,22 @@ namespace DigitalBanking.Infrastructure.Services
             approval.ReviewedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-        }
+
+            await _auditService.LogAsync(
+                action: "PAYMENT_APPROVED",
+                entityName: "PaymentApproval",
+                entityId: approval.Id.ToString(),
+                username: null,
+                isSuccess: true,
+                details:
+                $"Payment approved. " +
+                $"FromAccountId: {approval.FromAccountId}, " +
+                $"ToAccountId: {approval.ToAccountId}, " +
+                $"Amount: {approval.Amount}, " +
+                $"ReviewedByUserId: {reviewedByUserId}, " +
+                $"DebitTransactionId: {debitTransaction.Id}, " +
+                $"CreditTransactionId: {creditTransaction.Id}");
+            }
 
         public async Task RejectPaymentAsync(
             int approvalId,
@@ -148,6 +182,19 @@ namespace DigitalBanking.Infrastructure.Services
             approval.RejectionReason = rejectionReason;
 
             await _context.SaveChangesAsync();
+            await _auditService.LogAsync(
+    action: "PAYMENT_REJECTED",
+    entityName: "PaymentApproval",
+    entityId: approval.Id.ToString(),
+    username: null,
+    isSuccess: true,
+    details:
+        $"Payment rejected. " +
+        $"FromAccountId: {approval.FromAccountId}, " +
+        $"ToAccountId: {approval.ToAccountId}, " +
+        $"Amount: {approval.Amount}, " +
+        $"ReviewedByUserId: {reviewedByUserId}, " +
+        $"RejectionReason: {rejectionReason}");
         }
 
         private PaymentRiskLevel CalculateRiskLevel(decimal amount)
