@@ -19,7 +19,9 @@ internal static class LedgerOperations
         decimal amount,
         string? description,
         DateTime now,
-        string defaultDescription)
+        string defaultDescription,
+        Guid? correlationId = null,
+        bool isDemo = false)
     {
         Money.EnsurePositive(amount);
 
@@ -32,6 +34,8 @@ internal static class LedgerOperations
             Amount = amount,
             BalanceAfter = account.Balance,
             Description = string.IsNullOrWhiteSpace(description) ? defaultDescription : description,
+            CorrelationId = correlationId,
+            IsDemo = isDemo,
             CreatedDate = now
         };
         db.Transactions.Add(transaction);
@@ -44,7 +48,9 @@ internal static class LedgerOperations
         decimal amount,
         string? description,
         DateTime now,
-        string defaultDescription)
+        string defaultDescription,
+        Guid? correlationId = null,
+        bool isDemo = false)
     {
         Money.EnsurePositive(amount);
 
@@ -60,6 +66,8 @@ internal static class LedgerOperations
             Amount = amount,
             BalanceAfter = account.Balance,
             Description = string.IsNullOrWhiteSpace(description) ? defaultDescription : description,
+            CorrelationId = correlationId,
+            IsDemo = isDemo,
             CreatedDate = now
         };
         db.Transactions.Add(transaction);
@@ -72,7 +80,9 @@ internal static class LedgerOperations
         Account toAccount,
         decimal amount,
         string? description,
-        DateTime now)
+        DateTime now,
+        Guid? correlationId = null,
+        bool isDemo = false)
     {
         Money.EnsurePositive(amount);
 
@@ -100,6 +110,8 @@ internal static class LedgerOperations
             Amount = amount,
             BalanceAfter = fromAccount.Balance,
             Description = "OUT: " + resolvedDescription,
+            CorrelationId = correlationId,
+            IsDemo = isDemo,
             CreatedDate = now
         };
 
@@ -111,6 +123,8 @@ internal static class LedgerOperations
             Amount = amount,
             BalanceAfter = toAccount.Balance,
             Description = "IN: " + resolvedDescription,
+            CorrelationId = correlationId,
+            IsDemo = isDemo,
             CreatedDate = now
         };
 

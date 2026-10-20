@@ -49,6 +49,9 @@ namespace DigitalBanking.Infrastructure.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("bit");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -116,17 +119,30 @@ namespace DigitalBanking.Infrastructure.Migrations
 
                     b.Property<string>("FirstName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("IdentityNumber")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("bit");
 
                     b.Property<string>("LastName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IdentityNumber");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Customers");
                 });
@@ -193,6 +209,9 @@ namespace DigitalBanking.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -207,6 +226,9 @@ namespace DigitalBanking.Infrastructure.Migrations
 
                     b.Property<Guid>("FromAccountId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("bit");
 
                     b.Property<string>("RejectionReason")
                         .HasMaxLength(500)
@@ -241,9 +263,320 @@ namespace DigitalBanking.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CorrelationId");
+
                     b.HasIndex("Status", "CreatedAt");
 
                     b.ToTable("PaymentApprovals");
+                });
+
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.PaymentTimelineEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActorRole")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActorUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PaymentApprovalId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CorrelationId");
+
+                    b.HasIndex("OccurredAtUtc");
+
+                    b.HasIndex("PaymentApprovalId");
+
+                    b.ToTable("PaymentTimelineEvents");
+                });
+
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.ReconciliationBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AmountMismatchCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CurrencyMismatchCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CurrencyScope")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<int?>("DirectionScope")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DuplicateReferenceCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FileHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime?>("FromDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("HasErrors")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ImportedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ImportedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ImportedByUsername")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MatchedCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OnlyExternalCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OnlySystemCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PendingApprovalCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RowCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ScopeKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ToDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ValidationSummary")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("FileHash", "ScopeKey")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("ReconciliationBatches");
+                });
+
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.ReconciliationException", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AssignedToUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AssignedToUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ExternalReference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("InternalReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ProposedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ProposedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProposedByUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReviewedByUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("RowId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("RowId");
+
+                    b.HasIndex("Status", "UpdatedAt");
+
+                    b.ToTable("ReconciliationExceptions");
+                });
+
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.ReconciliationRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<decimal?>("DifferenceAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ExternalReference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("InternalReference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsValid")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MatchStatus")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("MatchedTransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("SystemAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SystemCurrency")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTime?>("SystemDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("TransactionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ValidationError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("MatchStatus");
+
+                    b.HasIndex("BatchId", "ExternalReference", "Direction");
+
+                    b.ToTable("ReconciliationRows");
                 });
 
             modelBuilder.Entity("DigitalBanking.Domain.Entities.Transaction", b =>
@@ -263,11 +596,18 @@ namespace DigitalBanking.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("bit");
 
                     b.Property<int>("Type")
                         .HasColumnType("int");
@@ -275,6 +615,8 @@ namespace DigitalBanking.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId");
+
+                    b.HasIndex("CorrelationId");
 
                     b.ToTable("Transactions");
                 });
@@ -315,6 +657,35 @@ namespace DigitalBanking.Infrastructure.Migrations
                     b.Navigation("Customer");
                 });
 
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.ReconciliationException", b =>
+                {
+                    b.HasOne("DigitalBanking.Domain.Entities.ReconciliationBatch", "Batch")
+                        .WithMany("Exceptions")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DigitalBanking.Domain.Entities.ReconciliationRow", "Row")
+                        .WithMany("Exceptions")
+                        .HasForeignKey("RowId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Row");
+                });
+
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.ReconciliationRow", b =>
+                {
+                    b.HasOne("DigitalBanking.Domain.Entities.ReconciliationBatch", "Batch")
+                        .WithMany("Rows")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+                });
+
             modelBuilder.Entity("DigitalBanking.Domain.Entities.Transaction", b =>
                 {
                     b.HasOne("DigitalBanking.Domain.Entities.Account", "Account")
@@ -329,6 +700,18 @@ namespace DigitalBanking.Infrastructure.Migrations
             modelBuilder.Entity("DigitalBanking.Domain.Entities.Customer", b =>
                 {
                     b.Navigation("Accounts");
+                });
+
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.ReconciliationBatch", b =>
+                {
+                    b.Navigation("Exceptions");
+
+                    b.Navigation("Rows");
+                });
+
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.ReconciliationRow", b =>
+                {
+                    b.Navigation("Exceptions");
                 });
 #pragma warning restore 612, 618
         }

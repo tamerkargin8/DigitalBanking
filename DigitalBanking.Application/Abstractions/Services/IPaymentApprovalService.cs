@@ -17,6 +17,18 @@ public interface IPaymentApprovalService
         ActorContext actor,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Customer self-service request. The source account must belong to the caller's
+    /// customer profile; the same risk/maker-checker policy is applied.
+    /// </summary>
+    Task<PaymentApprovalResponse> CreateCustomerTransferRequestAsync(
+        Guid fromAccountId,
+        Guid toAccountId,
+        decimal amount,
+        string? description,
+        ActorContext actor,
+        CancellationToken cancellationToken = default);
+
     Task<List<PaymentApprovalResponse>> GetPendingApprovalsAsync(CancellationToken cancellationToken = default);
 
     Task<PaymentApprovalResponse> GetByIdAsync(int approvalId, CancellationToken cancellationToken = default);

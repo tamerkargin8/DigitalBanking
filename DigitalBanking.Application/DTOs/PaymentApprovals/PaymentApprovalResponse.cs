@@ -3,6 +3,8 @@ namespace DigitalBanking.Application.DTOs.PaymentApprovals;
 public class PaymentApprovalResponse
 {
     public int Id { get; set; }
+    public string Reference { get; set; } = string.Empty;
+    public Guid CorrelationId { get; set; }
 
     public Guid FromAccountId { get; set; }
     public Guid ToAccountId { get; set; }
@@ -24,4 +26,5 @@ public class PaymentApprovalResponse
 
     public string? RejectionReason { get; set; }
     public Guid? RelatedTransactionId { get; set; }
+    public bool IsDemo { get; set; }
 }

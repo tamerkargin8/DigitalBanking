@@ -1,4 +1,4 @@
-﻿using DigitalBanking.Domain.Enums;
+using DigitalBanking.Domain.Enums;
 
 namespace DigitalBanking.Domain.Entities;
 
@@ -16,6 +16,12 @@ public class Transaction
     public decimal BalanceAfter { get; set; }
 
     public string? Description { get; set; }
+
+    /// <summary>Links the ledger row to the payment approval/timeline correlation.</summary>
+    public Guid? CorrelationId { get; set; }
+
+    /// <summary>Marks deterministic synthetic demo data for scoped reset.</summary>
+    public bool IsDemo { get; set; }
 
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 }

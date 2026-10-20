@@ -96,3 +96,25 @@ kabul ölçütleri var.
 - Commit'ler worktree dışındaki `.git` index'i nedeniyle sandbox yükseltmesi
   gerektirdi; global git kimliği değiştirilmedi, commit başına `-c user.name=Codex
   -c user.email=codex@local.invalid` kullanıldı.
+
+## 2026-10-21 — Yeni geliştirme aşaması (dilim A/B/C backend)
+
+Kullanıcı üç yeni özelliği onayladı; bekleme kapısı kalktı. Devam noktası
+`a327f48`; bu worktree temizdi, parent dal aynı ağacı merge etmişti.
+
+- **Dilim A — sahiplik:** `Customer.UserId` (+ SQL Server filtered unique index),
+  `ICustomerAccessService`, `/api/me/*` (profil, hesaplar, hareketler, alıcılar,
+  ödemeler, transfer talebi), IDOR için 404, Admin için 403. `User` artık yalnız
+  kendi verisine erişir.
+- **Dilim B — timeline/dekont:** `PaymentTimelineEvent`, `CorrelationId`,
+  gerçek olaylardan timeline; tamamlanmış işlem için yazdırılabilir demo dekont
+  (tamamlanmamışta durum özeti), maskeli hesaplar, Europe/Istanbul.
+- **Dilim C — mutabakat backend:** CSV parser (boyut/satır/başlık/UTF-8/tarih/
+  decimal/para birimi), preview+import, deterministik referans eşleme,
+  eşleşen/yalnız dış/yalnız sistem/tutar/para birimi/mükerrer, pending ayrımı,
+  batch kalıcılığı, formül enjeksiyonuna dayanıklı export, istisna iş akışı
+  (Open→InReview→Proposed→Closed/Rejected, reopen), farklı Admin onayı, RowVersion,
+  audit. Bakiye düzeltmesi yok.
+- Testler: **128 xUnit** (95 baseline korunarak). Migration:
+  `20261020212050_AddCustomerOwnershipTimelineReconciliation` (SQL Server'da
+  uygulanmadı).

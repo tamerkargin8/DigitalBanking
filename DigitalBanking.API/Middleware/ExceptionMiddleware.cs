@@ -48,6 +48,7 @@ public class ExceptionMiddleware
                 BusinessRuleException => exception.Message,
                 ConcurrencyException => exception.Message,
                 TooManyRequestsException => exception.Message,
+                ForbiddenException => exception.Message,
                 UnauthorizedAccessException => "Authentication is required.",
                 _ => "Internal server error."
             }
@@ -59,6 +60,7 @@ public class ExceptionMiddleware
             BusinessRuleException => (int)HttpStatusCode.BadRequest,
             ConcurrencyException => (int)HttpStatusCode.Conflict,
             TooManyRequestsException => (int)HttpStatusCode.TooManyRequests,
+            ForbiddenException => (int)HttpStatusCode.Forbidden,
             UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
             _ => (int)HttpStatusCode.InternalServerError
         };

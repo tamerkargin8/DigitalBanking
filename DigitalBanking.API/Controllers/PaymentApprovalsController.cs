@@ -2,6 +2,7 @@ using DigitalBanking.API.Extensions;
 using DigitalBanking.API.Filters;
 using DigitalBanking.Application.Abstractions.Services;
 using DigitalBanking.Application.DTOs.Common;
+using DigitalBanking.Application.DTOs.CustomerPortal;
 using DigitalBanking.Application.DTOs.PaymentApprovals;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,10 +19,14 @@ namespace DigitalBanking.API.Controllers;
 public class PaymentApprovalsController : ControllerBase
 {
     private readonly IPaymentApprovalService _paymentApprovalService;
+    private readonly IPaymentTimelineService _timelineService;
 
-    public PaymentApprovalsController(IPaymentApprovalService paymentApprovalService)
+    public PaymentApprovalsController(
+        IPaymentApprovalService paymentApprovalService,
+        IPaymentTimelineService timelineService)
     {
         _paymentApprovalService = paymentApprovalService;
+        _timelineService = timelineService;
     }
 
     /// <summary>
@@ -69,6 +74,24 @@ public class PaymentApprovalsController : ControllerBase
     {
         var approval = await _paymentApprovalService.GetByIdAsync(id, cancellationToken);
         return Ok(ApiResponse<PaymentApprovalResponse>.SuccessWith(approval));
+    }
+
+    [HttpGet("{id:int}/timeline")]
+    [ProducesResponseType(typeof(ApiResponse<PaymentTimelineDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTimeline(int id, CancellationToken cancellationToken = default)
+    {
+        var timeline = await _timelineService.GetTimelineAsync(id, cancellationToken);
+        return Ok(ApiResponse<PaymentTimelineDto>.SuccessWith(timeline));
+    }
+
+    [HttpGet("{id:int}/receipt")]
+    [ProducesResponseType(typeof(ApiResponse<PaymentReceiptDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetReceipt(int id, CancellationToken cancellationToken = default)
+    {
+        var receipt = await _timelineService.GetReceiptAsync(id, cancellationToken);
+        return Ok(ApiResponse<PaymentReceiptDto>.SuccessWith(receipt));
     }
 
     [HttpPost("{id:int}/approve")]

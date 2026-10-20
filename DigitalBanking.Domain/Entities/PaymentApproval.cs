@@ -24,14 +24,20 @@ public class PaymentApproval
     public Guid RequestedByUserId { get; set; }
     public Guid? ReviewedByUserId { get; set; }
 
+    /// <summary>Stable correlation id used by timeline, receipt and reconciliation.</summary>
+    public Guid CorrelationId { get; set; }
+
+    /// <summary>Marks deterministic synthetic demo data for scoped reset.</summary>
+    public bool IsDemo { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ReviewedAt { get; set; }
 
     public string? RejectionReason { get; set; }
 
     /// <summary>
-    /// Outgoing ledger transaction created when the request is applied (auto-approved
-    /// or approved). Null while the request is pending.
+    /// Outgoing (debit) ledger transaction created when the request is applied
+    /// (auto-approved or approved). Null while the request is pending.
     /// </summary>
     public Guid? RelatedTransactionId { get; set; }
 

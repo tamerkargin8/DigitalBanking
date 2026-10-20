@@ -19,7 +19,7 @@ namespace DigitalBanking.Infrastructure.Services;
 /// - medium/high/critical: Pending until a different Admin approves or rejects;
 /// - requester and reviewer must differ (maker-checker);
 /// - both accounts must exist, share a currency and have sufficient funds;
-/// - ledger rows, approval state and audit record are committed atomically;
+/// - ledger rows, approval state, timeline and audit record are committed atomically;
 /// - a rowversion token prevents two concurrent approvals from both applying money.
 /// </summary>
 public class PaymentApprovalService : IPaymentApprovalService
@@ -27,25 +27,55 @@ public class PaymentApprovalService : IPaymentApprovalService
     private readonly BankDbContext _context;
     private readonly IMapper _mapper;
     private readonly IAuditService _auditService;
+    private readonly ICustomerAccessService _customerAccess;
     private readonly ILogger _logger;
 
-    public PaymentApprovalService(BankDbContext context, IMapper mapper, IAuditService auditService)
+    public PaymentApprovalService(
+        BankDbContext context,
+        IMapper mapper,
+        IAuditService auditService,
+        ICustomerAccessService customerAccess)
     {
         _context = context;
         _mapper = mapper;
         _auditService = auditService;
+        _customerAccess = customerAccess;
         _logger = Log.ForContext<PaymentApprovalService>();
     }
 
-    public async Task<PaymentApprovalResponse> CreateApprovalRequestAsync(
+    public Task<PaymentApprovalResponse> CreateApprovalRequestAsync(
         Guid fromAccountId,
         Guid toAccountId,
         decimal amount,
         string? description,
         ActorContext actor,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        CreateCoreAsync(fromAccountId, toAccountId, amount, description, actor, requireAdmin: true, isDemo: false, cancellationToken);
+
+    public Task<PaymentApprovalResponse> CreateCustomerTransferRequestAsync(
+        Guid fromAccountId,
+        Guid toAccountId,
+        decimal amount,
+        string? description,
+        ActorContext actor,
+        CancellationToken cancellationToken = default) =>
+        CreateCoreAsync(fromAccountId, toAccountId, amount, description, actor, requireAdmin: false, isDemo: false, cancellationToken);
+
+    private async Task<PaymentApprovalResponse> CreateCoreAsync(
+        Guid fromAccountId,
+        Guid toAccountId,
+        decimal amount,
+        string? description,
+        ActorContext actor,
+        bool requireAdmin,
+        bool isDemo,
+        CancellationToken cancellationToken)
     {
-        EnsureAdmin(actor);
+        if (requireAdmin)
+            EnsureAdmin(actor);
+        else if (!await _customerAccess.UserOwnsAccountAsync(actor.UserId, fromAccountId, cancellationToken))
+            throw new NotFoundException("Account", fromAccountId);
+
         Money.EnsurePositive(amount);
 
         if (fromAccountId == toAccountId)
@@ -76,6 +106,7 @@ public class PaymentApprovalService : IPaymentApprovalService
             var riskLevel = PaymentPolicy.RiskFor(amount);
             var requiresChecker = PaymentPolicy.RequiresMakerChecker(amount);
             var now = DateTime.UtcNow;
+            var correlationId = Guid.NewGuid();
 
             var approval = new PaymentApproval
             {
@@ -85,6 +116,8 @@ public class PaymentApprovalService : IPaymentApprovalService
                 Currency = fromAccount.Currency,
                 Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
                 RequestedByUserId = actor.UserId,
+                CorrelationId = correlationId,
+                IsDemo = isDemo,
                 RiskLevel = riskLevel,
                 Status = requiresChecker ? PaymentApprovalStatus.Pending : PaymentApprovalStatus.AutoApproved,
                 ApprovalReason = PaymentPolicy.DescribeRisk(riskLevel),
@@ -99,12 +132,27 @@ public class PaymentApprovalService : IPaymentApprovalService
             if (!requiresChecker)
             {
                 (debit, credit) = LedgerOperations.ApplyTransfer(
-                    _context, fromAccount, toAccount, amount, approval.Description, now);
+                    _context, fromAccount, toAccount, amount, approval.Description, now, correlationId, isDemo);
                 approval.RelatedTransactionId = debit.Id;
             }
 
-            // First save assigns the identity id and persists the optional ledger rows.
+            // First save assigns the identity id before timeline rows reference it.
             await _context.SaveChangesAsync(cancellationToken);
+
+            AddTimeline(approval, PaymentTimelineEventType.Created, now, actor, isSystem: false,
+                "Payment request created.");
+            if (requiresChecker)
+            {
+                AddTimeline(approval, PaymentTimelineEventType.Pending, now.AddTicks(1), actor, isSystem: true,
+                    "Awaiting a different Admin (maker-checker).");
+            }
+            else
+            {
+                AddTimeline(approval, PaymentTimelineEventType.AutoApproved, now.AddTicks(1), actor, isSystem: true,
+                    "Low risk policy auto-approved the request.");
+                AddTimeline(approval, PaymentTimelineEventType.Completed, now.AddTicks(2), actor, isSystem: true,
+                    "Ledger movement completed.");
+            }
 
             _auditService.Add(
                 action: requiresChecker ? "PAYMENT_CREATED" : "PAYMENT_AUTO_APPROVED",
@@ -116,7 +164,7 @@ public class PaymentApprovalService : IPaymentApprovalService
                     $"Payment request {(requiresChecker ? "created" : "auto-approved")}. " +
                     $"FromAccountId: {approval.FromAccountId}, ToAccountId: {approval.ToAccountId}, " +
                     $"Amount: {approval.Amount}, Currency: {approval.Currency}, RiskLevel: {approval.RiskLevel}, " +
-                    $"RequestedByUserId: {approval.RequestedByUserId}" +
+                    $"CorrelationId: {approval.CorrelationId}, RequestedByUserId: {approval.RequestedByUserId}" +
                     (debit is null ? string.Empty : $", DebitTransactionId: {debit.Id}, CreditTransactionId: {credit!.Id}"));
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -198,13 +246,19 @@ public class PaymentApprovalService : IPaymentApprovalService
 
             var now = DateTime.UtcNow;
             var (debit, credit) = LedgerOperations.ApplyTransfer(
-                _context, fromAccount, toAccount, approval.Amount, approval.Description, now);
+                _context, fromAccount, toAccount, approval.Amount, approval.Description, now,
+                approval.CorrelationId, approval.IsDemo);
 
             approval.Status = PaymentApprovalStatus.Approved;
             approval.ReviewedByUserId = reviewer.UserId;
             approval.ReviewedAt = now;
             approval.RejectionReason = null;
             approval.RelatedTransactionId = debit.Id;
+
+            AddTimeline(approval, PaymentTimelineEventType.Approved, now, reviewer, isSystem: false,
+                "Payment approved by checker.");
+            AddTimeline(approval, PaymentTimelineEventType.Completed, now.AddTicks(1), reviewer, isSystem: true,
+                "Ledger movement completed.");
 
             _auditService.Add(
                 action: "PAYMENT_APPROVED",
@@ -215,7 +269,8 @@ public class PaymentApprovalService : IPaymentApprovalService
                 details:
                     $"Payment approved. FromAccountId: {approval.FromAccountId}, ToAccountId: {approval.ToAccountId}, " +
                     $"Amount: {approval.Amount}, Currency: {approval.Currency}, " +
-                    $"ReviewedByUserId: {reviewer.UserId}, DebitTransactionId: {debit.Id}, CreditTransactionId: {credit.Id}");
+                    $"CorrelationId: {approval.CorrelationId}, ReviewedByUserId: {reviewer.UserId}, " +
+                    $"DebitTransactionId: {debit.Id}, CreditTransactionId: {credit.Id}");
 
             await _context.SaveChangesAsync(cancellationToken);
             await dbTransaction.CommitAsync(cancellationToken);
@@ -262,10 +317,14 @@ public class PaymentApprovalService : IPaymentApprovalService
             if (approval.RequestedByUserId == reviewer.UserId)
                 throw new BusinessRuleException("Users cannot review their own payment requests.");
 
+            var now = DateTime.UtcNow;
             approval.Status = PaymentApprovalStatus.Rejected;
             approval.ReviewedByUserId = reviewer.UserId;
-            approval.ReviewedAt = DateTime.UtcNow;
+            approval.ReviewedAt = now;
             approval.RejectionReason = rejectionReason.Trim();
+
+            AddTimeline(approval, PaymentTimelineEventType.Rejected, now, reviewer, isSystem: false,
+                "Payment rejected by checker.");
 
             _auditService.Add(
                 action: "PAYMENT_REJECTED",
@@ -276,7 +335,8 @@ public class PaymentApprovalService : IPaymentApprovalService
                 details:
                     $"Payment rejected. FromAccountId: {approval.FromAccountId}, ToAccountId: {approval.ToAccountId}, " +
                     $"Amount: {approval.Amount}, Currency: {approval.Currency}, " +
-                    $"ReviewedByUserId: {reviewer.UserId}, RejectionReason: {approval.RejectionReason}");
+                    $"CorrelationId: {approval.CorrelationId}, ReviewedByUserId: {reviewer.UserId}, " +
+                    $"RejectionReason: {approval.RejectionReason}");
 
             await _context.SaveChangesAsync(cancellationToken);
             await dbTransaction.CommitAsync(cancellationToken);
@@ -296,6 +356,29 @@ public class PaymentApprovalService : IPaymentApprovalService
             await dbTransaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    private void AddTimeline(
+        PaymentApproval approval,
+        PaymentTimelineEventType eventType,
+        DateTime occurredAtUtc,
+        ActorContext actor,
+        bool isSystem,
+        string description)
+    {
+        _context.PaymentTimelineEvents.Add(new PaymentTimelineEvent
+        {
+            Id = Guid.NewGuid(),
+            PaymentApprovalId = approval.Id,
+            CorrelationId = approval.CorrelationId,
+            EventType = eventType,
+            OccurredAtUtc = occurredAtUtc,
+            ActorUserId = isSystem ? null : actor.UserId,
+            ActorUsername = isSystem ? "system" : actor.Username,
+            ActorRole = isSystem ? "System" : actor.Role.ToString(),
+            Description = description,
+            IsSystem = isSystem
+        });
     }
 
     private static void EnsureAdmin(ActorContext actor)

@@ -1,4 +1,4 @@
-﻿namespace DigitalBanking.Domain.Entities;
+namespace DigitalBanking.Domain.Entities;
 
 public class Account
 {
@@ -8,6 +8,7 @@ public class Account
     public string Currency { get; set; } = "TRY";
     public Guid CustomerId { get; set; }
     public Customer Customer { get; set; } = null!;
+    public bool IsDemo { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 }

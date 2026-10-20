@@ -97,11 +97,17 @@ public class AuthService : IAuthService
             isSuccess: true,
             details: "User logged in successfully.");
 
+        var customer = await _context.Customers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.UserId == user.Id, cancellationToken);
+
         return new LoginResponse
         {
             Token = token,
             Username = user.Username,
-            Role = user.Role.ToString()
+            Role = user.Role.ToString(),
+            CustomerId = customer?.Id,
+            DisplayName = customer is null ? null : $"{customer.FirstName} {customer.LastName}"
         };
     }
 }

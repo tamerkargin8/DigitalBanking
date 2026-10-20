@@ -15,6 +15,10 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IPaymentApprovalService, PaymentApprovalService>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IIdempotencyStore, IdempotencyStore>();
+        services.AddScoped<ICustomerAccessService, CustomerAccessService>();
+        services.AddScoped<ICustomerPortalService, CustomerPortalService>();
+        services.AddScoped<IPaymentTimelineService, PaymentTimelineService>();
+        services.AddScoped<IReconciliationService, ReconciliationService>();
 
         services.AddSingleton<ILoginAttemptLimiter, InMemoryLoginAttemptLimiter>();
 

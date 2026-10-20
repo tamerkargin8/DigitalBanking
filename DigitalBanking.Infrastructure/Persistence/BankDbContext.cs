@@ -12,12 +12,25 @@ public class BankDbContext : DbContext
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<User> Users => Set<User>();
     public DbSet<PaymentApproval> PaymentApprovals => Set<PaymentApproval>();
+    public DbSet<PaymentTimelineEvent> PaymentTimelineEvents => Set<PaymentTimelineEvent>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<ReconciliationBatch> ReconciliationBatches => Set<ReconciliationBatch>();
+    public DbSet<ReconciliationRow> ReconciliationRows => Set<ReconciliationRow>();
+    public DbSet<ReconciliationException> ReconciliationExceptions => Set<ReconciliationException>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<Customer>(entity =>
+        {
+            entity.Property(x => x.FirstName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.LastName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.IdentityNumber).HasMaxLength(50).IsRequired();
+            entity.HasIndex(x => x.UserId);
+            entity.HasIndex(x => x.IdentityNumber);
+        });
 
         modelBuilder.Entity<Account>(entity =>
         {
@@ -27,6 +40,7 @@ public class BankDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue("TRY");
             entity.HasIndex(x => x.AccountNumber).IsUnique();
+            entity.HasIndex(x => x.CustomerId);
 
             entity.Property(x => x.RowVersion).IsRowVersion();
             if (Database.IsSqlite())
@@ -37,6 +51,9 @@ public class BankDbContext : DbContext
         {
             entity.Property(x => x.Amount).HasPrecision(18, 2);
             entity.Property(x => x.BalanceAfter).HasPrecision(18, 2);
+            entity.Property(x => x.Description).HasMaxLength(500);
+            entity.HasIndex(x => x.AccountId);
+            entity.HasIndex(x => x.CorrelationId);
         });
 
         modelBuilder.Entity<PaymentApproval>(entity =>
@@ -57,12 +74,23 @@ public class BankDbContext : DbContext
             entity.Property(x => x.Status).IsRequired();
             entity.Property(x => x.RiskLevel).IsRequired();
             entity.Property(x => x.CreatedAt).IsRequired();
+            entity.HasIndex(x => x.CorrelationId);
+            entity.HasIndex(x => new { x.Status, x.CreatedAt });
 
             entity.Property(x => x.RowVersion).IsRowVersion();
             if (Database.IsSqlite())
                 entity.Property(x => x.RowVersion).IsConcurrencyToken().ValueGeneratedNever();
+        });
 
-            entity.HasIndex(x => new { x.Status, x.CreatedAt });
+        modelBuilder.Entity<PaymentTimelineEvent>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.ActorUsername).HasMaxLength(100);
+            entity.Property(x => x.ActorRole).HasMaxLength(50);
+            entity.Property(x => x.Description).HasMaxLength(500);
+            entity.HasIndex(x => x.PaymentApprovalId);
+            entity.HasIndex(x => x.CorrelationId);
+            entity.HasIndex(x => x.OccurredAtUtc);
         });
 
         modelBuilder.Entity<IdempotencyRecord>(entity =>
@@ -84,6 +112,66 @@ public class BankDbContext : DbContext
             entity.Property(x => x.Username).HasMaxLength(100);
             entity.HasIndex(x => x.CreatedDate);
         });
+
+        modelBuilder.Entity<ReconciliationBatch>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.FileName).HasMaxLength(255).IsRequired();
+            entity.Property(x => x.FileHash).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.ScopeKey).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.CurrencyScope).HasMaxLength(3);
+            entity.Property(x => x.ImportedByUsername).HasMaxLength(100).IsRequired();
+            entity.HasIndex(x => new { x.FileHash, x.ScopeKey }).IsUnique();
+            entity.HasIndex(x => x.CreatedAt);
+            entity.HasIndex(x => new { x.Status, x.CreatedAt });
+            entity.HasMany(x => x.Rows)
+                .WithOne(x => x.Batch)
+                .HasForeignKey(x => x.BatchId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(x => x.Exceptions)
+                .WithOne(x => x.Batch)
+                .HasForeignKey(x => x.BatchId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ReconciliationRow>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.ExternalReference).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.InternalReference).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Amount).HasPrecision(18, 2);
+            entity.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(x => x.ValidationError).HasMaxLength(500);
+            entity.Property(x => x.SystemCurrency).HasMaxLength(3);
+            entity.Property(x => x.SystemAmount).HasPrecision(18, 2);
+            entity.Property(x => x.DifferenceAmount).HasPrecision(18, 2);
+            entity.HasIndex(x => x.BatchId);
+            entity.HasIndex(x => new { x.BatchId, x.ExternalReference, x.Direction });
+            entity.HasIndex(x => x.MatchStatus);
+        });
+
+        modelBuilder.Entity<ReconciliationException>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.ExternalReference).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.InternalReference).HasMaxLength(100);
+            entity.Property(x => x.Description).HasMaxLength(1000).IsRequired();
+            entity.Property(x => x.AssignedToUsername).HasMaxLength(100);
+            entity.Property(x => x.ResolutionNote).HasMaxLength(1000);
+            entity.Property(x => x.ProposedByUsername).HasMaxLength(100);
+            entity.Property(x => x.ReviewedByUsername).HasMaxLength(100);
+            entity.Property(x => x.RejectionReason).HasMaxLength(500);
+            entity.HasIndex(x => x.BatchId);
+            entity.HasIndex(x => new { x.Status, x.UpdatedAt });
+            entity.HasOne(x => x.Row)
+                .WithMany(x => x.Exceptions)
+                .HasForeignKey(x => x.RowId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            if (Database.IsSqlite())
+                entity.Property(x => x.RowVersion).IsConcurrencyToken().ValueGeneratedNever();
+        });
     }
 
     private void RefreshLocalConcurrencyTokens()
@@ -95,6 +183,10 @@ public class BankDbContext : DbContext
             entry.Entity.RowVersion = Guid.NewGuid().ToByteArray();
 
         foreach (var entry in ChangeTracker.Entries<PaymentApproval>()
+                     .Where(e => e.State is EntityState.Added or EntityState.Modified))
+            entry.Entity.RowVersion = Guid.NewGuid().ToByteArray();
+
+        foreach (var entry in ChangeTracker.Entries<ReconciliationException>()
                      .Where(e => e.State is EntityState.Added or EntityState.Modified))
             entry.Entity.RowVersion = Guid.NewGuid().ToByteArray();
     }

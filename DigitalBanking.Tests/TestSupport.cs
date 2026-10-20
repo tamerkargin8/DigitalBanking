@@ -71,7 +71,8 @@ public static class TestSupport
     public static async Task<Customer> AddCustomerAsync(
         BankDbContext context,
         string firstName = "Synthetic",
-        string lastName = "Customer")
+        string lastName = "Customer",
+        Guid? userId = null)
     {
         var customer = new Customer
         {
@@ -79,6 +80,7 @@ public static class TestSupport
             FirstName = firstName,
             LastName = lastName,
             IdentityNumber = "SYNTHETIC-" + Guid.NewGuid().ToString("N")[..8],
+            UserId = userId,
             CreatedDate = DateTime.UtcNow
         };
         context.Customers.Add(customer);

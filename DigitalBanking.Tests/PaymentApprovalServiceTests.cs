@@ -9,7 +9,7 @@ namespace DigitalBanking.Tests;
 public class PaymentApprovalServiceTests
 {
     private static PaymentApprovalService CreateService(DigitalBanking.Infrastructure.Persistence.BankDbContext context) =>
-        new(context, TestSupport.CreateMapper(), new AuditService(context));
+        new(context, TestSupport.CreateMapper(), new AuditService(context), new CustomerAccessService(context));
 
     [Fact]
     public async Task LowRiskRequestIsAutoApprovedAndMovesMoney()
