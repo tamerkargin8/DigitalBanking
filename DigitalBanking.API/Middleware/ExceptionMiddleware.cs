@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text.Json;
 using DigitalBanking.Application.DTOs.Common;
 using DigitalBanking.Application.Exceptions;
@@ -7,12 +7,12 @@ namespace DigitalBanking.API.Middleware;
 
 public class ExceptionMiddleware
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionMiddleware> _logger;
 
-    public ExceptionMiddleware(
-        RequestDelegate next,
-        ILogger<ExceptionMiddleware> logger)
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
     {
         _next = next;
         _logger = logger;
@@ -26,47 +26,31 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, ex.Message);
+            _logger.LogError(ex, "Unhandled request exception.");
+
+            if (context.Response.HasStarted)
+                throw;
 
             await HandleExceptionAsync(context, ex);
         }
     }
 
-    private static async Task HandleExceptionAsync(
-        HttpContext context,
-        Exception exception)
+    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        context.Response.ContentType = "application/json";
+        context.Response.ContentType = "application/json; charset=utf-8";
 
-        var response = exception switch
+        var response = new ApiResponse
         {
-            NotFoundException =>
-                new ApiResponse
-                {
-                    Success = false,
-                    Message = exception.Message
-                },
-
-            BusinessRuleException =>
-                new ApiResponse
-                {
-                    Success = false,
-                    Message = exception.Message
-                },
-
-            ConcurrencyException =>
-                new ApiResponse
-                {
-                    Success = false,
-                    Message = exception.Message
-                },
-
-            _ =>
-                new ApiResponse
-                {
-                    Success = false,
-                    Message = "Internal server error."
-                }
+            Success = false,
+            Message = exception switch
+            {
+                NotFoundException => exception.Message,
+                BusinessRuleException => exception.Message,
+                ConcurrencyException => exception.Message,
+                TooManyRequestsException => exception.Message,
+                UnauthorizedAccessException => "Authentication is required.",
+                _ => "Internal server error."
+            }
         };
 
         context.Response.StatusCode = exception switch
@@ -74,11 +58,11 @@ public class ExceptionMiddleware
             NotFoundException => (int)HttpStatusCode.NotFound,
             BusinessRuleException => (int)HttpStatusCode.BadRequest,
             ConcurrencyException => (int)HttpStatusCode.Conflict,
+            TooManyRequestsException => (int)HttpStatusCode.TooManyRequests,
+            UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
             _ => (int)HttpStatusCode.InternalServerError
         };
 
-        var json = JsonSerializer.Serialize(response);
-
-        await context.Response.WriteAsync(json);
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, SerializerOptions));
     }
 }

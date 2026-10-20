@@ -1,5 +1,5 @@
+using DigitalBanking.Application.Common;
 using DigitalBanking.Application.DTOs.Account;
-using DigitalBanking.Application.DTOs.Accounts;
 
 namespace DigitalBanking.Application.Abstractions.Services;
 
@@ -10,48 +10,24 @@ namespace DigitalBanking.Application.Abstractions.Services;
 public interface IAccountService
 {
     /// <summary>
-    /// Opens a new account for a customer.
+    /// Opens a new account for a customer. Admin only; an optional opening deposit
+    /// is recorded as a ledger transaction by the implementation.
     /// </summary>
-    /// <param name="request">Create account request with customer ID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Newly created account DTO.</returns>
-    /// <exception cref="NotFoundException">If customer not found.</exception>
-    Task<AccountDto> OpenAccountAsync(CreateAccountRequest request, CancellationToken cancellationToken = default);
+    Task<AccountDto> OpenAccountAsync(CreateAccountRequest request, ActorContext actor, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Retrieves all accounts with optional pagination.
-    /// </summary>
-    /// <param name="page">Page number (1-based). Default is 1.</param>
-    /// <param name="pageSize">Number of items per page. Default is 10.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>List of account DTOs.</returns>
-    Task<(List<AccountDto> Accounts, int TotalCount)> GetAllAccountsAsync(int page = 1, int pageSize = 10, CancellationToken cancellationToken = default);
+    /// <summary>Retrieves accounts with pagination, optionally filtered by customer.</summary>
+    Task<(List<AccountDto> Accounts, int TotalCount)> GetAllAccountsAsync(
+        int page = 1,
+        int pageSize = 10,
+        Guid? customerId = null,
+        CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Retrieves account details by ID including recent transactions.
-    /// </summary>
-    /// <param name="accountId">Account ID.</param>
-    /// <param name="recentTransactionCount">Number of recent transactions to include. Default is 10.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Account detail DTO with transactions.</returns>
-    /// <exception cref="NotFoundException">If account not found.</exception>
+    /// <summary>Retrieves account details by ID including recent transactions.</summary>
     Task<AccountDetailDto> GetAccountDetailAsync(Guid accountId, int recentTransactionCount = 10, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Retrieves basic account information by ID.
-    /// </summary>
-    /// <param name="accountId">Account ID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Account DTO.</returns>
-    /// <exception cref="NotFoundException">If account not found.</exception>
+    /// <summary>Retrieves basic account information by ID.</summary>
     Task<AccountDto> GetAccountByIdAsync(Guid accountId, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Retrieves all accounts for a specific customer.
-    /// </summary>
-    /// <param name="customerId">Customer ID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>List of account DTOs for the customer.</returns>
-    /// <exception cref="NotFoundException">If customer not found.</exception>
+    /// <summary>Retrieves all accounts for a specific customer.</summary>
     Task<List<AccountDto>> GetAccountsByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default);
 }

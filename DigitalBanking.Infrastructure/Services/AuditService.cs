@@ -1,4 +1,4 @@
-﻿using DigitalBanking.Application.Abstractions.Services;
+using DigitalBanking.Application.Abstractions.Services;
 using DigitalBanking.Domain.Entities;
 using DigitalBanking.Infrastructure.Persistence;
 
@@ -12,7 +12,8 @@ public class AuditService : IAuditService
     {
         _context = context;
     }
-    public async Task LogAsync(
+
+    public void Add(
         string action,
         string entityName,
         string? entityId = null,
@@ -20,7 +21,7 @@ public class AuditService : IAuditService
         bool isSuccess = true,
         string? details = null)
     {
-        var auditLog = new AuditLog
+        _context.AuditLogs.Add(new AuditLog
         {
             Id = Guid.NewGuid(),
             Action = action,
@@ -30,9 +31,18 @@ public class AuditService : IAuditService
             IsSuccess = isSuccess,
             Details = details,
             CreatedDate = DateTime.UtcNow
-        };
+        });
+    }
 
-        await _context.AuditLogs.AddAsync(auditLog);
+    public async Task LogAsync(
+        string action,
+        string entityName,
+        string? entityId = null,
+        string? username = null,
+        bool isSuccess = true,
+        string? details = null)
+    {
+        Add(action, entityName, entityId, username, isSuccess, details);
         await _context.SaveChangesAsync();
     }
 }

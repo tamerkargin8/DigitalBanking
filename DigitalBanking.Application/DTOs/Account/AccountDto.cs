@@ -8,6 +8,7 @@ public class AccountDto
     public Guid Id { get; set; }
     public string AccountNumber { get; set; } = string.Empty;
     public decimal Balance { get; set; }
+    public string Currency { get; set; } = "TRY";
     public Guid CustomerId { get; set; }
     public DateTime CreatedDate { get; set; }
 }

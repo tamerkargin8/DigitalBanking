@@ -1,6 +1,10 @@
+using System.Security.Cryptography;
 using DigitalBanking.Application.Abstractions.Services;
+using DigitalBanking.Application.Common;
 using DigitalBanking.Application.DTOs.Account;
 using DigitalBanking.Application.Exceptions;
+using DigitalBanking.Domain.Entities;
+using DigitalBanking.Domain.Enums;
 using DigitalBanking.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -8,95 +12,128 @@ using Serilog;
 namespace DigitalBanking.Infrastructure.Services;
 
 /// <summary>
-/// Account service implementation.
-/// Handles account creation, retrieval, and management.
+/// Account service implementation. Currency and opening balance are honored and
+/// recorded as an auditable opening deposit; amounts stay decimal throughout.
 /// </summary>
 public class AccountService : IAccountService
 {
     private readonly BankDbContext _db;
+    private readonly IAuditService _auditService;
     private readonly ILogger _logger;
 
-    public AccountService(BankDbContext db)
+    public AccountService(BankDbContext db, IAuditService auditService)
     {
         _db = db;
+        _auditService = auditService;
         _logger = Log.ForContext<AccountService>();
     }
 
-    /// <summary>
-    /// Opens a new account for a customer.
-    /// Generates a unique account number.
-    /// </summary>
-    public async Task<AccountDto> OpenAccountAsync(CreateAccountRequest request, CancellationToken cancellationToken = default)
+    public async Task<AccountDto> OpenAccountAsync(CreateAccountRequest request, ActorContext actor, CancellationToken cancellationToken = default)
     {
-        _logger.Information("Opening new account for customer {CustomerId}", request.CustomerId);
+        if (!actor.IsAdmin)
+            throw new BusinessRuleException("Only an Admin can open accounts.");
 
-        // Verify customer exists
+        var currency = CurrencyCodes.Normalize(request.Currency);
+        Money.EnsureNonNegative(request.InitialBalance, "Initial balance");
+
         var customer = await _db.Customers
             .FirstOrDefaultAsync(c => c.Id == request.CustomerId, cancellationToken);
 
         if (customer is null)
-        {
-            _logger.Warning("Customer not found: {CustomerId}", request.CustomerId);
             throw new NotFoundException("Customer", request.CustomerId);
-        }
 
-        var accountNumber = GenerateUniqueAccountNumber();
-        var account = new Domain.Entities.Account
+        await using var dbTransaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            Id = Guid.NewGuid(),
-            AccountNumber = accountNumber,
-            CustomerId = request.CustomerId,
-            Balance = 0,
-            CreatedDate = DateTime.UtcNow
-        };
+            var account = new Account
+            {
+                Id = Guid.NewGuid(),
+                AccountNumber = await GenerateUniqueAccountNumberAsync(cancellationToken),
+                CustomerId = request.CustomerId,
+                Currency = currency,
+                Balance = request.InitialBalance,
+                CreatedDate = DateTime.UtcNow
+            };
 
-        _db.Accounts.Add(account);
-        await _db.SaveChangesAsync(cancellationToken);
+            _db.Accounts.Add(account);
 
-        _logger.Information("Account opened successfully. AccountId: {AccountId}, AccountNumber: {AccountNumber}, CustomerId: {CustomerId}",
-            account.Id, account.AccountNumber, request.CustomerId);
+            if (request.InitialBalance > 0)
+            {
+                _db.Transactions.Add(new Transaction
+                {
+                    Id = Guid.NewGuid(),
+                    AccountId = account.Id,
+                    Type = TransactionType.Deposit,
+                    Amount = request.InitialBalance,
+                    BalanceAfter = request.InitialBalance,
+                    Description = "Opening deposit",
+                    CreatedDate = DateTime.UtcNow
+                });
+            }
 
-        return MapToDto(account);
+            _auditService.Add(
+                action: "ACCOUNT_OPENED",
+                entityName: "Account",
+                entityId: account.Id.ToString(),
+                username: actor.Username,
+                isSuccess: true,
+                details: $"Account opened. Currency: {account.Currency}, InitialBalance: {account.Balance}");
+
+            await _db.SaveChangesAsync(cancellationToken);
+            await dbTransaction.CommitAsync(cancellationToken);
+
+            _logger.Information(
+                "Account opened. AccountId: {AccountId}, CustomerId: {CustomerId}, Currency: {Currency}, OpeningBalance: {Balance}",
+                account.Id, account.CustomerId, account.Currency, account.Balance);
+
+            return MapToDto(account);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await dbTransaction.RollbackAsync(cancellationToken);
+            throw new ConcurrencyException("Account", request.CustomerId);
+        }
+        catch
+        {
+            await dbTransaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
-    /// <summary>
-    /// Retrieves all accounts with pagination.
-    /// </summary>
-    public async Task<(List<AccountDto> Accounts, int TotalCount)> GetAllAccountsAsync(int page = 1, int pageSize = 10, CancellationToken cancellationToken = default)
+    public async Task<(List<AccountDto> Accounts, int TotalCount)> GetAllAccountsAsync(
+        int page = 1,
+        int pageSize = 10,
+        Guid? customerId = null,
+        CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
         var query = _db.Accounts.AsNoTracking();
+        if (customerId is { } id)
+            query = query.Where(a => a.CustomerId == id);
+
         var totalCount = await query.CountAsync(cancellationToken);
 
         var accounts = await query
-            .OrderBy(a => a.CreatedDate)
+            .OrderByDescending(a => a.CreatedDate)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        var dtos = accounts.Select(MapToDto).ToList();
-
-        _logger.Information("Retrieved {Count} accounts from page {Page}", dtos.Count, page);
-
-        return (dtos, totalCount);
+        return (accounts.Select(MapToDto).ToList(), totalCount);
     }
 
-    /// <summary>
-    /// Retrieves account details with recent transactions.
-    /// </summary>
     public async Task<AccountDetailDto> GetAccountDetailAsync(Guid accountId, int recentTransactionCount = 10, CancellationToken cancellationToken = default)
     {
+        recentTransactionCount = Math.Clamp(recentTransactionCount, 1, 100);
+
         var account = await _db.Accounts
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == accountId, cancellationToken);
 
         if (account is null)
-        {
-            _logger.Warning("Account not found: {AccountId}", accountId);
             throw new NotFoundException("Account", accountId);
-        }
 
         var customer = await _db.Customers
             .AsNoTracking()
@@ -123,16 +160,14 @@ public class AccountService : IAccountService
             Id = account.Id,
             AccountNumber = account.AccountNumber,
             Balance = account.Balance,
+            Currency = account.Currency,
             CustomerId = account.CustomerId,
             CreatedDate = account.CreatedDate,
-            CustomerName = customer != null ? $"{customer.FirstName} {customer.LastName}" : null,
+            CustomerName = customer is null ? null : $"{customer.FirstName} {customer.LastName}",
             RecentTransactions = transactions
         };
     }
 
-    /// <summary>
-    /// Retrieves basic account information by ID.
-    /// </summary>
     public async Task<AccountDto> GetAccountByIdAsync(Guid accountId, CancellationToken cancellationToken = default)
     {
         var account = await _db.Accounts
@@ -140,63 +175,48 @@ public class AccountService : IAccountService
             .FirstOrDefaultAsync(a => a.Id == accountId, cancellationToken);
 
         if (account is null)
-        {
-            _logger.Warning("Account not found: {AccountId}", accountId);
             throw new NotFoundException("Account", accountId);
-        }
 
         return MapToDto(account);
     }
 
-    /// <summary>
-    /// Retrieves all accounts for a specific customer.
-    /// </summary>
     public async Task<List<AccountDto>> GetAccountsByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default)
     {
-        // Verify customer exists
         var customerExists = await _db.Customers
             .AnyAsync(c => c.Id == customerId, cancellationToken);
 
         if (!customerExists)
-        {
-            _logger.Warning("Customer not found: {CustomerId}", customerId);
             throw new NotFoundException("Customer", customerId);
-        }
 
         var accounts = await _db.Accounts
             .AsNoTracking()
             .Where(a => a.CustomerId == customerId)
-            .OrderBy(a => a.CreatedDate)
+            .OrderByDescending(a => a.CreatedDate)
             .ToListAsync(cancellationToken);
-
-        _logger.Information("Retrieved {Count} accounts for customer {CustomerId}", accounts.Count, customerId);
 
         return accounts.Select(MapToDto).ToList();
     }
 
-    /// <summary>
-    /// Maps domain Account entity to AccountDto.
-    /// </summary>
-    private static AccountDto MapToDto(Domain.Entities.Account account)
+    private static AccountDto MapToDto(Account account) => new()
     {
-        return new AccountDto
-        {
-            Id = account.Id,
-            AccountNumber = account.AccountNumber,
-            Balance = account.Balance,
-            CustomerId = account.CustomerId,
-            CreatedDate = account.CreatedDate
-        };
-    }
+        Id = account.Id,
+        AccountNumber = account.AccountNumber,
+        Balance = account.Balance,
+        Currency = account.Currency,
+        CustomerId = account.CustomerId,
+        CreatedDate = account.CreatedDate
+    };
 
-    /// <summary>
-    /// Generates a unique account number.
-    /// Format: ACC + timestamp + random suffix (e.g., ACC20250225123456789ABC)
-    /// </summary>
-    private string GenerateUniqueAccountNumber()
+    private async Task<string> GenerateUniqueAccountNumberAsync(CancellationToken cancellationToken)
     {
-        var timestamp = DateTime.UtcNow.Ticks.ToString("D19");
-        var random = new Random().Next(10000, 99999).ToString();
-        return $"ACC{timestamp.Substring(timestamp.Length - 10)}{random}";
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var suffix = RandomNumberGenerator.GetInt32(100000, 999999);
+            var candidate = $"ACC{DateTime.UtcNow:yyyyMMddHHmmss}{suffix}";
+            if (!await _db.Accounts.AnyAsync(a => a.AccountNumber == candidate, cancellationToken))
+                return candidate;
+        }
+
+        throw new BusinessRuleException("Could not generate a unique account number. Please retry.");
     }
 }

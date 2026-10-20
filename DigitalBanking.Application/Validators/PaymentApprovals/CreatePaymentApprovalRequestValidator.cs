@@ -1,4 +1,4 @@
-﻿using DigitalBanking.Application.DTOs.PaymentApprovals;
+using DigitalBanking.Application.DTOs.PaymentApprovals;
 using FluentValidation;
 
 namespace DigitalBanking.Application.Validators.PaymentApprovals;
@@ -22,14 +22,12 @@ public class CreatePaymentApprovalRequestValidator
 
         RuleFor(x => x.Amount)
             .GreaterThan(0)
-            .WithMessage("Amount must be greater than zero.");
+            .WithMessage("Amount must be greater than zero.")
+            .Must(amount => decimal.Round(amount, 2) == amount)
+            .WithMessage("Amount cannot have more than 2 decimal places.");
 
         RuleFor(x => x.Description)
             .MaximumLength(250)
             .WithMessage("Description cannot exceed 250 characters.");
-
-        RuleFor(x => x.RequestedByUserId)
-            .GreaterThan(0)
-            .WithMessage("Requested user id is required.");
     }
 }

@@ -9,6 +9,7 @@ public class AccountDetailDto
     public Guid Id { get; set; }
     public string AccountNumber { get; set; } = string.Empty;
     public decimal Balance { get; set; }
+    public string Currency { get; set; } = "TRY";
     public Guid CustomerId { get; set; }
     public DateTime CreatedDate { get; set; }
 
@@ -25,7 +26,7 @@ public class AccountDetailDto
     public class TransactionSummary
     {
         public Guid Id { get; set; }
-        public string Type { get; set; } = string.Empty; // "Deposit" or "Withdraw"
+        public string Type { get; set; } = string.Empty; // "Deposit", "Withdraw", "TransferIn", "TransferOut"
         public decimal Amount { get; set; }
         public decimal BalanceAfter { get; set; }
         public string? Description { get; set; }

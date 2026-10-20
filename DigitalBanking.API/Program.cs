@@ -1,6 +1,12 @@
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using DigitalBanking.API.Filters;
 using DigitalBanking.API.Middleware;
 using DigitalBanking.Application.Abstractions.Services;
 using DigitalBanking.Application.DTOs.Auth;
+using DigitalBanking.Application.DTOs.Common;
 using DigitalBanking.Application.Mappings;
 using DigitalBanking.Application.Validators.Auth;
 using DigitalBanking.Infrastructure;
@@ -10,12 +16,11 @@ using DigitalBanking.Infrastructure.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
-using System.Text;
-using System.Text.Json.Serialization;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -39,6 +44,11 @@ try
     if (string.IsNullOrWhiteSpace(secretKey) || Encoding.UTF8.GetByteCount(secretKey) < 32)
         throw new InvalidOperationException("Configure Jwt:SecretKey with at least 32 bytes using environment variables or user secrets.");
 
+    var issuer = jwtSettings["Issuer"];
+    var audience = jwtSettings["Audience"];
+    if (string.IsNullOrWhiteSpace(issuer) || string.IsNullOrWhiteSpace(audience))
+        throw new InvalidOperationException("Configure Jwt:Issuer and Jwt:Audience.");
+
     builder.Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -52,15 +62,40 @@ try
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-
-            ValidIssuer = jwtSettings["Issuer"],
-            ValidAudience = jwtSettings["Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(secretKey!))
+            ClockSkew = TimeSpan.FromSeconds(30),
+            ValidIssuer = issuer,
+            ValidAudience = audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
         };
     });
 
     builder.Services.AddAuthorization();
+
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.AddPolicy("auth", httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                }));
+
+        options.OnRejected = async (context, cancellationToken) =>
+        {
+            context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
+            await context.HttpContext.Response.WriteAsync(
+                JsonSerializer.Serialize(
+                    ApiResponse.Failure("Too many login requests. Please wait and try again."),
+                    new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+                cancellationToken);
+        };
+    });
 
     var useSqlite = string.Equals(builder.Configuration["Database:Provider"], "Sqlite", StringComparison.OrdinalIgnoreCase);
     if (useSqlite && !builder.Environment.IsDevelopment())
@@ -74,6 +109,7 @@ try
     });
 
     builder.Services.AddInfrastructureServices();
+    builder.Services.AddScoped<IdempotencyFilter>();
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
@@ -96,26 +132,22 @@ try
         });
 
         options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
         {
-            new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
+                new OpenApiSecurityScheme
                 {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-    });
-
-    builder.Services.AddAutoMapper(cfg =>
-    {
-        cfg.AddProfile<MappingProfile>();
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
+            }
+        });
     });
 
+    builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
     builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
     builder.Services.AddFluentValidationAutoValidation();
 
@@ -137,6 +169,7 @@ try
 
     if (!useSqlite) app.UseHttpsRedirection();
 
+    app.UseRateLimiter();
     app.UseAuthentication();
     app.UseAuthorization();
 

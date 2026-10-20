@@ -16,6 +16,11 @@ public class TransactionHistoryDto
     public string AccountNumber { get; set; } = string.Empty;
 
     /// <summary>
+    /// Account currency.
+    /// </summary>
+    public string Currency { get; set; } = "TRY";
+
+    /// <summary>
     /// Current account balance.
     /// </summary>
     public decimal CurrentBalance { get; set; }

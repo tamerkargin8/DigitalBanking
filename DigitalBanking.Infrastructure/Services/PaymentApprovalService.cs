@@ -1,86 +1,177 @@
-﻿using AutoMapper;
+using AutoMapper;
 using DigitalBanking.Application.Abstractions.Services;
+using DigitalBanking.Application.Common;
 using DigitalBanking.Application.DTOs.PaymentApprovals;
 using DigitalBanking.Application.Exceptions;
 using DigitalBanking.Domain.Entities;
 using DigitalBanking.Domain.Enums;
 using DigitalBanking.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
+namespace DigitalBanking.Infrastructure.Services;
 
-namespace DigitalBanking.Infrastructure.Services
+/// <summary>
+/// Maker-checker payment approval workflow.
+///
+/// Policy (see docs/adr/0001-payment-and-role-policy.md):
+/// - low risk (&lt; 50,000 in the account currency): auto-approved by the system;
+/// - medium/high/critical: Pending until a different Admin approves or rejects;
+/// - requester and reviewer must differ (maker-checker);
+/// - both accounts must exist, share a currency and have sufficient funds;
+/// - ledger rows, approval state and audit record are committed atomically;
+/// - a rowversion token prevents two concurrent approvals from both applying money.
+/// </summary>
+public class PaymentApprovalService : IPaymentApprovalService
 {
-    public class PaymentApprovalService : IPaymentApprovalService
+    private readonly BankDbContext _context;
+    private readonly IMapper _mapper;
+    private readonly IAuditService _auditService;
+    private readonly ILogger _logger;
+
+    public PaymentApprovalService(BankDbContext context, IMapper mapper, IAuditService auditService)
     {
-        private readonly BankDbContext _context;
-        private readonly IMapper _mapper;
-        private readonly IAuditService _auditService;
+        _context = context;
+        _mapper = mapper;
+        _auditService = auditService;
+        _logger = Log.ForContext<PaymentApprovalService>();
+    }
 
-        public PaymentApprovalService(
-            BankDbContext context,
-            IMapper mapper,
-            IAuditService auditService)
-        {
-            _context = context;
-            _mapper = mapper;
-            _auditService = auditService;
-        }
+    public async Task<PaymentApprovalResponse> CreateApprovalRequestAsync(
+        Guid fromAccountId,
+        Guid toAccountId,
+        decimal amount,
+        string? description,
+        ActorContext actor,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAdmin(actor);
+        Money.EnsurePositive(amount);
 
-        public async Task<PaymentApprovalResponse> CreateApprovalRequestAsync(
-            Guid fromAccountId,
-            Guid toAccountId,
-            decimal amount,
-            string description,
-            int requestedByUserId)
+        if (fromAccountId == toAccountId)
+            throw new BusinessRuleException("Sender and receiver accounts cannot be the same.");
+
+        if (description is { Length: > 250 })
+            throw new BusinessRuleException("Description cannot exceed 250 characters.");
+
+        await using var dbTransaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
-            var riskLevel = CalculateRiskLevel(amount);
+            var fromAccount = await _context.Accounts
+                .FirstOrDefaultAsync(a => a.Id == fromAccountId, cancellationToken);
+            if (fromAccount is null)
+                throw new NotFoundException("Account", fromAccountId);
+
+            var toAccount = await _context.Accounts
+                .FirstOrDefaultAsync(a => a.Id == toAccountId, cancellationToken);
+            if (toAccount is null)
+                throw new NotFoundException("Account", toAccountId);
+
+            if (!string.Equals(fromAccount.Currency, toAccount.Currency, StringComparison.OrdinalIgnoreCase))
+                throw new BusinessRuleException("Sender and receiver accounts must use the same currency.");
+
+            if (fromAccount.Balance < amount)
+                throw new BusinessRuleException("Insufficient balance in source account.");
+
+            var riskLevel = PaymentPolicy.RiskFor(amount);
+            var requiresChecker = PaymentPolicy.RequiresMakerChecker(amount);
+            var now = DateTime.UtcNow;
 
             var approval = new PaymentApproval
             {
                 FromAccountId = fromAccountId,
                 ToAccountId = toAccountId,
                 Amount = amount,
-                Currency = "TRY", // Assuming the currency is Turkish Lira for this example
-                Description = description,
-                RequestedByUserId = requestedByUserId,
+                Currency = fromAccount.Currency,
+                Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                RequestedByUserId = actor.UserId,
                 RiskLevel = riskLevel,
-                Status = PaymentApprovalStatus.Pending,
-                ApprovalReason = GetApprovalReason(riskLevel, amount),
-                CreatedAt = DateTime.UtcNow
+                Status = requiresChecker ? PaymentApprovalStatus.Pending : PaymentApprovalStatus.AutoApproved,
+                ApprovalReason = PaymentPolicy.DescribeRisk(riskLevel),
+                CreatedAt = now,
+                ReviewedAt = requiresChecker ? null : now
             };
-            _context.PaymentApprovals.Add(approval);
-            await _context.SaveChangesAsync();
 
-            await _auditService.LogAsync(
-                action: "PAYMENT_CREATED",
+            _context.PaymentApprovals.Add(approval);
+
+            Transaction? debit = null;
+            Transaction? credit = null;
+            if (!requiresChecker)
+            {
+                (debit, credit) = LedgerOperations.ApplyTransfer(
+                    _context, fromAccount, toAccount, amount, approval.Description, now);
+                approval.RelatedTransactionId = debit.Id;
+            }
+
+            // First save assigns the identity id and persists the optional ledger rows.
+            await _context.SaveChangesAsync(cancellationToken);
+
+            _auditService.Add(
+                action: requiresChecker ? "PAYMENT_CREATED" : "PAYMENT_AUTO_APPROVED",
                 entityName: "PaymentApproval",
                 entityId: approval.Id.ToString(),
-                username: null,
+                username: actor.Username,
                 isSuccess: true,
                 details:
-                    $"Payment approval request created. " +
-                    $"FromAccountId: {approval.FromAccountId}, " +
-                    $"ToAccountId: {approval.ToAccountId}, " +
-                    $"Amount: {approval.Amount}, " +
-                    $"Currency: {approval.Currency}, " +
-                    $"RiskLevel: {approval.RiskLevel}, " +
-                    $"RequestedByUserId: {approval.RequestedByUserId}");
+                    $"Payment request {(requiresChecker ? "created" : "auto-approved")}. " +
+                    $"FromAccountId: {approval.FromAccountId}, ToAccountId: {approval.ToAccountId}, " +
+                    $"Amount: {approval.Amount}, Currency: {approval.Currency}, RiskLevel: {approval.RiskLevel}, " +
+                    $"RequestedByUserId: {approval.RequestedByUserId}" +
+                    (debit is null ? string.Empty : $", DebitTransactionId: {debit.Id}, CreditTransactionId: {credit!.Id}"));
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await dbTransaction.CommitAsync(cancellationToken);
+
+            _logger.Information(
+                "Payment approval {ApprovalId} {Status}. Amount: {Amount}, Risk: {Risk}, Requester: {Requester}",
+                approval.Id, approval.Status, approval.Amount, approval.RiskLevel, approval.RequestedByUserId);
 
             return _mapper.Map<PaymentApprovalResponse>(approval);
         }
-        public async Task<List<PaymentApprovalResponse>> GetPendingApprovalsAsync()
+        catch (DbUpdateConcurrencyException)
         {
-            var approvals = await _context.PaymentApprovals
-                .Where(x => x.Status == PaymentApprovalStatus.Pending)
-                .OrderByDescending(x => x.CreatedAt)
-                .ToListAsync();
-
-            return _mapper.Map<List<PaymentApprovalResponse>>(approvals);
+            await dbTransaction.RollbackAsync(cancellationToken);
+            throw new ConcurrencyException("PaymentApproval", fromAccountId);
         }
-        public async Task ApprovePaymentAsync(int approvalId, int reviewedByUserId)
+        catch
+        {
+            await dbTransaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<List<PaymentApprovalResponse>> GetPendingApprovalsAsync(CancellationToken cancellationToken = default)
+    {
+        var approvals = await _context.PaymentApprovals
+            .AsNoTracking()
+            .Where(x => x.Status == PaymentApprovalStatus.Pending)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return _mapper.Map<List<PaymentApprovalResponse>>(approvals);
+    }
+
+    public async Task<PaymentApprovalResponse> GetByIdAsync(int approvalId, CancellationToken cancellationToken = default)
+    {
+        var approval = await _context.PaymentApprovals
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == approvalId, cancellationToken);
+
+        if (approval is null)
+            throw new NotFoundException($"Payment approval request with id {approvalId} was not found.");
+
+        return _mapper.Map<PaymentApprovalResponse>(approval);
+    }
+
+    public async Task ApprovePaymentAsync(int approvalId, ActorContext reviewer, CancellationToken cancellationToken = default)
+    {
+        EnsureAdmin(reviewer);
+
+        await using var dbTransaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
             var approval = await _context.PaymentApprovals
-                .FirstOrDefaultAsync(x => x.Id == approvalId);
+                .FirstOrDefaultAsync(x => x.Id == approvalId, cancellationToken);
 
             if (approval is null)
                 throw new NotFoundException($"Payment approval request with id {approvalId} was not found.");
@@ -88,87 +179,79 @@ namespace DigitalBanking.Infrastructure.Services
             if (approval.Status != PaymentApprovalStatus.Pending)
                 throw new BusinessRuleException("Only pending payment approvals can be approved.");
 
-            if (approval.RequestedByUserId == reviewedByUserId)
-                throw new BusinessRuleException("Users cannot approve their own payment requests.");
+            if (approval.RequestedByUserId == reviewer.UserId)
+                throw new BusinessRuleException("Users cannot review their own payment requests.");
 
             var fromAccount = await _context.Accounts
-                .FirstOrDefaultAsync(x => x.Id == approval.FromAccountId);
-
+                .FirstOrDefaultAsync(x => x.Id == approval.FromAccountId, cancellationToken);
             if (fromAccount is null)
                 throw new NotFoundException($"Sender account with id {approval.FromAccountId} was not found.");
 
-            if (fromAccount.Balance < approval.Amount)
-                throw new BusinessRuleException("Insufficient balance.");
-
             var toAccount = await _context.Accounts
-                .FirstOrDefaultAsync(x => x.Id == approval.ToAccountId);
-
+                .FirstOrDefaultAsync(x => x.Id == approval.ToAccountId, cancellationToken);
             if (toAccount is null)
                 throw new NotFoundException($"Receiver account with id {approval.ToAccountId} was not found.");
 
-            if (fromAccount.Balance < approval.Amount)
-                throw new InvalidOperationException("Insufficient balance.");
+            if (!string.Equals(fromAccount.Currency, approval.Currency, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(toAccount.Currency, approval.Currency, StringComparison.OrdinalIgnoreCase))
+                throw new BusinessRuleException("Payment currency no longer matches the account currencies.");
 
-            // Transfer operation
-            fromAccount.Balance -= approval.Amount;
-            toAccount.Balance += approval.Amount;
-
-            // Sender transaction
-            var debitTransaction = new Transaction
-            {
-                Id = Guid.NewGuid(),
-                AccountId = fromAccount.Id,
-                Type = TransactionType.TransferOut,
-                Amount = approval.Amount,
-                BalanceAfter = fromAccount.Balance,
-                Description = approval.Description,
-                CreatedDate = DateTime.UtcNow
-            };
-
-            // Receiver transaction
-            var creditTransaction = new Transaction
-            {
-                Id = Guid.NewGuid(),
-                AccountId = toAccount.Id,
-                Type = TransactionType.TransferIn,
-                Amount = approval.Amount,
-                BalanceAfter = toAccount.Balance,
-                Description = approval.Description,
-                CreatedDate = DateTime.UtcNow
-            };
-
-            _context.Transactions.Add(debitTransaction);
-            _context.Transactions.Add(creditTransaction);
+            var now = DateTime.UtcNow;
+            var (debit, credit) = LedgerOperations.ApplyTransfer(
+                _context, fromAccount, toAccount, approval.Amount, approval.Description, now);
 
             approval.Status = PaymentApprovalStatus.Approved;
-            approval.ReviewedByUserId = reviewedByUserId;
-            approval.ReviewedAt = DateTime.UtcNow;
+            approval.ReviewedByUserId = reviewer.UserId;
+            approval.ReviewedAt = now;
+            approval.RejectionReason = null;
+            approval.RelatedTransactionId = debit.Id;
 
-            await _context.SaveChangesAsync();
-
-            await _auditService.LogAsync(
+            _auditService.Add(
                 action: "PAYMENT_APPROVED",
                 entityName: "PaymentApproval",
                 entityId: approval.Id.ToString(),
-                username: null,
+                username: reviewer.Username,
                 isSuccess: true,
                 details:
-                $"Payment approved. " +
-                $"FromAccountId: {approval.FromAccountId}, " +
-                $"ToAccountId: {approval.ToAccountId}, " +
-                $"Amount: {approval.Amount}, " +
-                $"ReviewedByUserId: {reviewedByUserId}, " +
-                $"DebitTransactionId: {debitTransaction.Id}, " +
-                $"CreditTransactionId: {creditTransaction.Id}");
-            }
+                    $"Payment approved. FromAccountId: {approval.FromAccountId}, ToAccountId: {approval.ToAccountId}, " +
+                    $"Amount: {approval.Amount}, Currency: {approval.Currency}, " +
+                    $"ReviewedByUserId: {reviewer.UserId}, DebitTransactionId: {debit.Id}, CreditTransactionId: {credit.Id}");
 
-        public async Task RejectPaymentAsync(
-            int approvalId,
-            int reviewedByUserId,
-            string rejectionReason)
+            await _context.SaveChangesAsync(cancellationToken);
+            await dbTransaction.CommitAsync(cancellationToken);
+
+            _logger.Information(
+                "Payment approval {ApprovalId} approved by {ReviewerId}. Amount: {Amount}",
+                approval.Id, reviewer.UserId, approval.Amount);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await dbTransaction.RollbackAsync(cancellationToken);
+            throw new ConcurrencyException(
+                $"Payment approval {approvalId} was processed by another reviewer. Please refresh.");
+        }
+        catch
+        {
+            await dbTransaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task RejectPaymentAsync(int approvalId, ActorContext reviewer, string rejectionReason, CancellationToken cancellationToken = default)
+    {
+        EnsureAdmin(reviewer);
+
+        if (string.IsNullOrWhiteSpace(rejectionReason))
+            throw new BusinessRuleException("A rejection reason is required.");
+
+        if (rejectionReason.Length > 500)
+            throw new BusinessRuleException("Rejection reason cannot exceed 500 characters.");
+
+        await using var dbTransaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
         {
             var approval = await _context.PaymentApprovals
-                .FirstOrDefaultAsync(x => x.Id == approvalId);
+                .FirstOrDefaultAsync(x => x.Id == approvalId, cancellationToken);
 
             if (approval is null)
                 throw new NotFoundException($"Payment approval request with id {approvalId} was not found.");
@@ -176,60 +259,48 @@ namespace DigitalBanking.Infrastructure.Services
             if (approval.Status != PaymentApprovalStatus.Pending)
                 throw new BusinessRuleException("Only pending payment approvals can be rejected.");
 
+            if (approval.RequestedByUserId == reviewer.UserId)
+                throw new BusinessRuleException("Users cannot review their own payment requests.");
+
             approval.Status = PaymentApprovalStatus.Rejected;
-            approval.ReviewedByUserId = reviewedByUserId;
+            approval.ReviewedByUserId = reviewer.UserId;
             approval.ReviewedAt = DateTime.UtcNow;
-            approval.RejectionReason = rejectionReason;
+            approval.RejectionReason = rejectionReason.Trim();
 
-            await _context.SaveChangesAsync();
-            await _auditService.LogAsync(
-    action: "PAYMENT_REJECTED",
-    entityName: "PaymentApproval",
-    entityId: approval.Id.ToString(),
-    username: null,
-    isSuccess: true,
-    details:
-        $"Payment rejected. " +
-        $"FromAccountId: {approval.FromAccountId}, " +
-        $"ToAccountId: {approval.ToAccountId}, " +
-        $"Amount: {approval.Amount}, " +
-        $"ReviewedByUserId: {reviewedByUserId}, " +
-        $"RejectionReason: {rejectionReason}");
+            _auditService.Add(
+                action: "PAYMENT_REJECTED",
+                entityName: "PaymentApproval",
+                entityId: approval.Id.ToString(),
+                username: reviewer.Username,
+                isSuccess: true,
+                details:
+                    $"Payment rejected. FromAccountId: {approval.FromAccountId}, ToAccountId: {approval.ToAccountId}, " +
+                    $"Amount: {approval.Amount}, Currency: {approval.Currency}, " +
+                    $"ReviewedByUserId: {reviewer.UserId}, RejectionReason: {approval.RejectionReason}");
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await dbTransaction.CommitAsync(cancellationToken);
+
+            _logger.Information(
+                "Payment approval {ApprovalId} rejected by {ReviewerId}.",
+                approval.Id, reviewer.UserId);
         }
-
-        private PaymentRiskLevel CalculateRiskLevel(decimal amount)
+        catch (DbUpdateConcurrencyException)
         {
-            if (amount >= 1_000_000)
-                return PaymentRiskLevel.Critical;
-
-            if (amount >= 250_000)
-                return PaymentRiskLevel.High;
-
-            if (amount >= 50_000)
-                return PaymentRiskLevel.Medium;
-
-            return PaymentRiskLevel.Low;
+            await dbTransaction.RollbackAsync(cancellationToken);
+            throw new ConcurrencyException(
+                $"Payment approval {approvalId} was processed by another reviewer. Please refresh.");
         }
-
-        private string GetApprovalReason(PaymentRiskLevel riskLevel, decimal amount)
+        catch
         {
-            return riskLevel switch
-            {
-                PaymentRiskLevel.Critical => $"Critical risk payment. Amount {amount:N2} requires senior approval.",
-                PaymentRiskLevel.High => $"High value payment. Amount {amount:N2} requires operational approval.",
-                PaymentRiskLevel.Medium => $"Medium risk payment. Amount {amount:N2} requires review.",
-                _ => "Low risk payment approval request created."
-            };
+            await dbTransaction.RollbackAsync(cancellationToken);
+            throw;
         }
-        public async Task<PaymentApprovalResponse> GetByIdAsync(int approvalId)
-        {
-            var approval = await _context.PaymentApprovals
-                .FirstOrDefaultAsync(x => x.Id == approvalId);
+    }
 
-            if (approval is null)
-                throw new NotFoundException($"Payment approval request with id {approvalId} was not found.");
-
-            return _mapper.Map<PaymentApprovalResponse>(approval);
-        }
+    private static void EnsureAdmin(ActorContext actor)
+    {
+        if (!actor.IsAdmin)
+            throw new BusinessRuleException("Payment approval operations are restricted to the Admin role.");
     }
 }

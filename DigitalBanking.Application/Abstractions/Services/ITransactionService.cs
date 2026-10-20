@@ -1,68 +1,40 @@
+using DigitalBanking.Application.Common;
 using DigitalBanking.Application.DTOs.Transaction;
 
 namespace DigitalBanking.Application.Abstractions.Services;
 
 /// <summary>
 /// Service for transaction-related business operations.
-/// Handles deposits, withdrawals, transfers, and transaction history.
+/// Handles deposits, withdrawals, transfers, transaction history and reports.
 /// </summary>
 public interface ITransactionService
 {
-    /// <summary>
-    /// Deposits money into an account.
-    /// Creates a transaction record and updates account balance.
-    /// </summary>
-    /// <param name="request">Deposit request with account ID and amount.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Transaction DTO for the created deposit transaction.</returns>
-    /// <exception cref="NotFoundException">If account not found.</exception>
-    /// <exception cref="BusinessRuleException">If amount is invalid.</exception>
-    /// <exception cref="ConcurrencyException">If concurrent modification detected.</exception>
-    Task<TransactionDto> DepositAsync(DepositRequest request, CancellationToken cancellationToken = default);
+    /// <summary>Deposits money into an account (Admin only).</summary>
+    Task<TransactionDto> DepositAsync(DepositRequest request, ActorContext actor, CancellationToken cancellationToken = default);
+
+    /// <summary>Withdraws money from an account (Admin only).</summary>
+    Task<TransactionDto> WithdrawAsync(WithdrawRequest request, ActorContext actor, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Withdraws money from an account.
-    /// Creates a transaction record and updates account balance.
+    /// Transfers money directly between accounts (Admin only, below the configured
+    /// direct-transfer limit). Larger or riskier payments must use the approval flow.
     /// </summary>
-    /// <param name="request">Withdraw request with account ID and amount.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Transaction DTO for the created withdraw transaction.</returns>
-    /// <exception cref="NotFoundException">If account not found.</exception>
-    /// <exception cref="BusinessRuleException">If amount is invalid or insufficient balance.</exception>
-    /// <exception cref="ConcurrencyException">If concurrent modification detected.</exception>
-    Task<TransactionDto> WithdrawAsync(WithdrawRequest request, CancellationToken cancellationToken = default);
+    Task<TransferResult> TransferAsync(TransferRequest request, ActorContext actor, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Transfers money between two accounts.
-    /// Creates two transaction records (withdrawal and deposit) and updates both account balances.
-    /// </summary>
-    /// <param name="request">Transfer request with source, destination, and amount.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Transfer result containing both transaction records.</returns>
-    /// <exception cref="NotFoundException">If either account not found.</exception>
-    /// <exception cref="BusinessRuleException">If amount is invalid, insufficient balance, or same account.</exception>
-    /// <exception cref="ConcurrencyException">If concurrent modification detected.</exception>
-    Task<TransferResult> TransferAsync(TransferRequest request, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Retrieves transaction history for an account with pagination.
-    /// </summary>
-    /// <param name="accountId">Account ID.</param>
-    /// <param name="page">Page number (1-based). Default is 1.</param>
-    /// <param name="pageSize">Number of items per page. Default is 10.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Transaction history DTO with pagination.</returns>
-    /// <exception cref="NotFoundException">If account not found.</exception>
+    /// <summary>Retrieves transaction history for an account with pagination.</summary>
     Task<TransactionHistoryDto> GetTransactionHistoryAsync(Guid accountId, int page = 1, int pageSize = 10, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Retrieves a single transaction by ID.
-    /// </summary>
-    /// <param name="transactionId">Transaction ID.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Transaction DTO.</returns>
-    /// <exception cref="NotFoundException">If transaction not found.</exception>
+    /// <summary>Retrieves a single transaction by ID.</summary>
     Task<TransactionDto> GetTransactionByIdAsync(Guid transactionId, CancellationToken cancellationToken = default);
+
+    /// <summary>Date-bounded account statement with an inclusive end-of-day <c>to</c>.</summary>
+    Task<TransactionStatementResponse> GetStatementAsync(Guid accountId, DateTime from, DateTime to, CancellationToken cancellationToken = default);
+
+    /// <summary>Daily debit/credit summary for one account in a date range.</summary>
+    Task<DailyTransactionSummaryResponse> GetDailySummaryAsync(Guid accountId, DateTime from, DateTime to, CancellationToken cancellationToken = default);
+
+    /// <summary>Top accounts by transaction count for one currency in a date range.</summary>
+    Task<List<TopAccountTransactionResponse>> GetTopAccountsAsync(DateTime from, DateTime to, int take, string? currency, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -70,13 +42,6 @@ public interface ITransactionService
 /// </summary>
 public class TransferResult
 {
-    /// <summary>
-    /// Transaction record for withdrawal from source account.
-    /// </summary>
     public TransactionDto OutgoingTransaction { get; set; } = new();
-
-    /// <summary>
-    /// Transaction record for deposit into destination account.
-    /// </summary>
     public TransactionDto IncomingTransaction { get; set; } = new();
 }
