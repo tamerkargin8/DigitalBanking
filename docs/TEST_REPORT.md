@@ -2,7 +2,7 @@
 
 - Ortam: macOS ARM64, .NET SDK **10.0.402** (runtime 10.0.13), EF Core **10.0.3**
 - Dal: `dsh/dsh-mvh4pdzy-u7y7j4`
-- Backend commit: `2316572`; dashboard uyumluluk + smoke commit: `095a31b`
+- Backend commit: `2316572`; dashboard uyumluluk + smoke commit: `095a31b`; güvenlik: `9f6b8ac`
 - Test veritabanı: SQLite in-memory (Development/lab); **SQL Server değil**
 - Demo: API `127.0.0.1:5180`, dashboard `127.0.0.1:5181`
 

@@ -6,6 +6,8 @@ Tarih: **20 Ekim 2026** (Europe/Istanbul). Ortam: macOS ARM64, .NET SDK **10.0.4
 - Dal: `dsh/dsh-mvh4pdzy-u7y7j4` (izole worktree)
 - Backend commit: `2316572`
 - Dashboard uyumluluk + smoke commit: `095a31b`
+- Dokümantasyon/portföy commit: `354fa0f`
+- Deny-by-default güvenlik commit: `9f6b8ac`
 - Ana kopya `../DigitalBanking` / `integration/local-development` değiştirilmedi.
 
 ## Çalıştırılan kontroller

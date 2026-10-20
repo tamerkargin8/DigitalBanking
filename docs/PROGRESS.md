@@ -16,6 +16,8 @@ manuel kabul adımları [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) içinde kayıtlı
 - Dal: `dsh/dsh-mvh4pdzy-u7y7j4` (taban `0ceead9`)
 - Backend commit: `2316572`
 - Dashboard uyumluluk + smoke commit: `095a31b`
+- Dokümantasyon/portföy commit: `354fa0f`
+- Deny-by-default güvenlik commit: `9f6b8ac`
 - Ana kopya: `../DigitalBanking` / `integration/local-development` — **dokunulmadı**
 - Demo: API `http://127.0.0.1:5180`, dashboard `http://127.0.0.1:5181`
 - Smoke/veri: sentetik; `.local/` git dışı; ana kopyanın 5080/5081 süreçlerine

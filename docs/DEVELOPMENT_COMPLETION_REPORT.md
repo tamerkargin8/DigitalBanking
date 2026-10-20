@@ -6,6 +6,8 @@
 - Taban commit: `0ceead9`
 - Backend commit'i: `2316572`
 - Dashboard uyumluluk + smoke commit'i: `095a31b`
+- Dokümantasyon/portföy commit'i: `354fa0f`
+- Deny-by-default güvenlik commit'i: `9f6b8ac`
 - Ana kopya `../DigitalBanking` / `integration/local-development` **değiştirilmedi**
 - Demo: API `http://127.0.0.1:5180`, dashboard `http://127.0.0.1:5181`
 
