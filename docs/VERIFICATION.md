@@ -14,7 +14,7 @@ Tarih: **20 Ekim 2026** (Europe/Istanbul). Ortam: macOS ARM64, .NET SDK **10.0.4
 |---|---|
 | Solution build (`bash scripts/dotnet.sh build DigitalBanking.slnx`) | başarılı, **0 uyarı, 0 hata** |
 | xUnit (`bash scripts/dotnet.sh test DigitalBanking.slnx`) | **95 başarılı, 0 başarısız, 0 atlanan** |
-| Yerel smoke (`python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181`) | **68 kontrol başarılı** |
+| Yerel smoke (`python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181`) | **71 kontrol başarılı** |
 | NuGet audit (`dotnet list ... package --vulnerable --include-transitive`) | 6 proje + geçişli paketlerde bilinen açık yok (mevcut kaynaklar) |
 | `git diff --check` | temiz |
 | VS Code SDK önkoşul script'i (`scripts/verify_vscode_sdk.sh`) | yerel SDK/global.json/.vscode kontrolleri geçti; GUI launchd eksik (uyarı) |
@@ -43,7 +43,7 @@ Ayrıntılı raporlar: [`DEVELOPMENT_COMPLETION_REPORT.md`](DEVELOPMENT_COMPLETI
 - **Kapsamlı dashboard yok.** Mevcut Razor ekranları minimaldir; müşteri/admin
   dashboard'u [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md) ile
   sonraki aşamaya bırakıldı.
-- **User–Customer sahipliği yok.** Standart `User` şu an salt-okunur; müşteri
+- **User–Customer sahipliği yok.** Standart `User` şu an yalnız kimlik doğrular; müşteri
   self-servis güvenli biçimde açılamaz.
 - **VS Code GUI doğrulanmadı.** Bu ajan oturumunda `launchctl setenv` reddedildi; kullanıcı
   `scripts/setup_macos_vscode_env.sh` çalıştırıp VS Code'u yeniden başlatmalı.

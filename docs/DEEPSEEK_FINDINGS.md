@@ -29,8 +29,9 @@ kaydeder. Eski README/refactoring raporları tarihseldir.
   yapılamaz. Migration eski değerleri `LegacyPaymentApprovalIds` tablosuna
   kopyalar, yeni alanları ilk Admin ile doldurur; operatör uzlaştırması gerekir.
 - **Müşteri–kullanıcı sahipliği yok**: Modelde User ile Customer/Account arasında
-  ilişki yok. Bu nedenle standart `User` rolü salt-okunur demo rolüdür; para
-  hareketleri ve onay işlemleri Admin'e kapalıdır. Keyfi sahiplik varsayımı
+  ilişki yok. Bu nedenle standart `User` rolü yalnız kimlik doğrulaması yapar;
+  müşteri/hesap/rapor verisi, para hareketleri ve onay işlemleri Admin'e kapalıdır
+  (deny-by-default). Keyfi sahiplik varsayımı
   kurulmadı. Gelecekte `Customer.UserId` eklenirse satır düzeyi yetki tasarlanmalı.
 - **Tek onay kademesi**: İki rol (Admin/User) korundu. Risk seviyesi iş akışını
   (otomatik vs maker-checker) belirler; ayrı bir "senior approver" rolü yoktur.
@@ -50,7 +51,7 @@ kaydeder. Eski README/refactoring raporları tarihseldir.
 | # | Bulgu | Çözüm / plan | Durum |
 |---|-------|--------------|-------|
 | 13 | Mevcut dashboard eski API sözleşmelerini kullanıyordu (raw users/customers, `int` requester, `Error=ex.Message`) | Dashboard `ApiClient`/`ApiResult` katmanına taşındı; zarf/raw yanıt, 401/403/500 güvenli mesaj, kullanıcı/rol session'ı, çıkış temizliği, rapor filtreleri | Çözüldü (minimal uyumluluk) |
-| 14 | Standart `User` salt-okunur; müşteri self-servis için User–Customer–Account sahipliği yok | Keyfi sahiplik varsayılmadı; güvenli varsayılan korundu. `Customer.UserId` + unique index, sunucu tarafı erişim, yeni endpoint/testler sonraki aşama olarak `DASHBOARD_PRODUCT_BRIEF.md` içinde tasarlandı | Açık / sonraki aşama |
+| 14 | Standart `User` yalnız kimlik doğrulayabiliyor; müşteri self-servis için User–Customer–Account sahipliği yok | Keyfi sahiplik varsayılmadı; tüm müşteri/hesap/rapor okumaları Admin'e kapatıldı (deny-by-default). `Customer.UserId` + unique index, sunucu tarafı erişim, yeni endpoint/testler sonraki aşama olarak `DASHBOARD_PRODUCT_BRIEF.md` içinde tasarlandı | Açık / sonraki aşama |
 | 15 | Dashboard ürün hedefi (4 persona, lacivert/nötr tasarım, erişilebilirlik, mobil, makbuz/durum, para birimi bazlı kartlar) yok | Ürün brief'i, UAT checklist ve kaba efor kaydedildi; kapsamlı ekran geliştirmesi başlatılmadı | Planlandı |
 | 16 | README tarihsel/abartılı özellikler içeriyordu | README İngilizce ana anlatı + Türkçe özet olarak yeniden yazıldı; yalnız uygulanan özellikler, gerçek test sayıları, ekran görüntüsü yerleri ve sınırlar | Çözüldü |
 | 17 | VS Code GUI `dotnet --info` bulamıyor (`launchd` PATH boş) | `.vscode` ayarları + `scripts/setup_macos_vscode_env.sh` + `scripts/verify_vscode_sdk.sh`; ajan oturumunda `launchctl setenv` reddedildi, kullanıcı normal terminalde çalıştırıp VS Code'u yeniden başlatmalı | Kısmi (kullanıcı adımı) |

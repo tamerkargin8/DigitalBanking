@@ -13,7 +13,7 @@
 Bugün backend'de:
 
 - `Admin` operasyonel yetkilere sahiptir; maker-checker akışını kullanabilir.
-- `User` **salt okunurdur** (müşteri/hesap/rapor okuma; para hareketi yok).
+- `User` şu an yalnız kimlik doğrulaması yapabilir; sahiplik olmadığı için müşteri/hesap/rapor verisine erişemez (deny-by-default).
 - `User` ile `Customer`/`Account` arasında **sahiplik ilişkisi yoktur**.
 
 Bu nedenle müşteri self-servis deneyimi yalnızca buton gizleyerek yapılamaz.
@@ -136,7 +136,7 @@ gerekiyorsa Admin teller işlemi yapar. Bu kural UAT'te açıkça test edilir.
 - Testler: sahiplik (A, B'nin hesabını göremez/transfer edemez), Admin tümünü
   görür, self-approval engeli, yetersiz bakiye, aynı hesap, para birimi uyuşmazlığı,
   idempotent çift tıklama, red, oturum bitişi, rapor filtreleri.
-- Mevcut 95 test + 68 smoke korunur; yeni testler eklenir. SQLite testleri SQL
+- Mevcut 95 test + 71 smoke korunur; yeni testler eklenir. SQLite testleri SQL
   Server kanıtı sayılmaz.
 
 ## 5. Ekran envanteri (öneri)
@@ -187,9 +187,9 @@ SQL Server doğrulaması ayrıca ortam gerektirir.
 
 - **Sahiplik olmadan self-servis yasak.** Bu brief'in 4. bölümü uygulanmadan
   müşteri transfer ekranı açılmamalı.
-- **Mevcut `User` rolü değişecek.** Geriye uyum: yeni endpoint'ler; mevcut
-  Admin endpoint'leri korunur; `User`'ın mevcut salt-okunur erişimi daraltılmaz,
-  yalnız kendi verisiyle genişler.
+- **Mevcut `User` rolü değişecek.** Geriye uyum: yeni self-service endpoint'ler;
+  mevcut Admin endpoint'leri korunur. `User` şu an veri erişimine sahip değildir;
+  yeni erişim yalnız kendi müşteri/hesap verisiyle açılır.
 - **Alıcı keşfi** müşteri numarası/hesap numarası enumerasyonuna açık olmamalı;
   kayıtlı beneficiary veya maskeli arama tercih edilmeli.
 - **Para birimi karışımı** raporlarda toplanmamalı; her toplam para birimi bazında.

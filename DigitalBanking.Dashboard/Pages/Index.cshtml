@@ -18,10 +18,21 @@
                     Hoş geldiniz <strong>@Model.CurrentUsername</strong>
                     <span class="badge bg-secondary">@Model.CurrentRole</span>
                 </p>
-                <p class="text-muted mb-0">
-                    Rapor ekranı hazır. Müşteri, hesap, işlem, onay kuyruğu ve audit
-                    ekranları bir sonraki dashboard aşamasında eklenecek.
-                </p>
+                @if (Model.CurrentRole == "Admin")
+                {
+                    <p class="text-muted mb-0">
+                        Admin raporu ve kullanıcı yönetimi hazır. Müşteri, hesap, işlem,
+                        onay kuyruğu ve audit ekranları bir sonraki dashboard aşamasında eklenecek.
+                    </p>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">
+                        Müşteri self-servis ekranları (kendi hesapları, bakiye kartları,
+                        transfer talebi) User–Customer sahipliği eklendikten sonra açılacak.
+                        Şu an standart kullanıcı yalnız oturum bilgisini görür.
+                    </p>
+                }
             </div>
         </div>
     </div>

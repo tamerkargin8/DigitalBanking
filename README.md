@@ -9,7 +9,7 @@ A working, testable simulation of the operational controls behind retail payment
 DigitalBanking is a small banking back office built with ASP.NET Core 10 and EF Core. It demonstrates the parts of banking software that are usually invisible in CRUD demos: a **maker-checker approval workflow**, **risk-based routing**, **idempotent money movement**, **atomic audit**, **role/claim enforcement**, and **decimal/currency correctness**.
 
 - **Stack:** C# / .NET 10, ASP.NET Core Web API, Razor Pages, EF Core 10, SQL Server (default) + SQLite (Development only), xUnit.
-- **Verified locally:** build 0 warnings / 0 errors, **95 automated tests**, **68 end-to-end smoke checks**.
+- **Verified locally:** build 0 warnings / 0 errors, **95 automated tests**, **71 end-to-end smoke checks**.
 - **Try it:** `bash scripts/dotnet.sh build DigitalBanking.slnx` then `python3 scripts/run_local.py --api-port 5180 --dashboard-port 5181`.
 - **API/Swagger:** <http://127.0.0.1:5180/swagger> · **Dashboard:** <http://127.0.0.1:5181>
 
@@ -32,14 +32,14 @@ The target demo (dashboard stage) uses synthetic personas only:
 
 End-to-end story: Admin maker creates a request from Customer A's TRY account to Customer B. Low-risk amounts are auto-approved; medium/high/critical amounts enter the pending queue. Admin checker opens the queue, sees risk/status badges, approves or rejects, and the customer sees the result and ledger entry. A customer can never approve their own request, spend another customer's money, or create money by "depositing" it.
 
-**Current interim state:** the backend supports the full maker-checker flow for Admin users. `User` is currently a read-only demo role because the data model has no User–Customer ownership yet. The ownership extension, customer self-service endpoints and four-persona dashboard are specified but **not implemented**; see the product brief.
+**Current interim state:** the backend supports the full maker-checker flow for Admin users. `User` currently has no business-data access (deny-by-default) because the data model has no User–Customer ownership yet; it can only authenticate and read its own identity. The ownership extension, customer self-service endpoints and four-persona dashboard are specified but **not implemented**; see the product brief.
 
 ## Feature and role matrix
 
 | Capability | Admin | User (current) | User (next dashboard phase, planned) |
 |---|:---:|:---:|:---:|
 | Sign in / JWT identity | ✅ | ✅ | ✅ |
-| Read customers/accounts/reports | ✅ | ✅ | ✅ (own data only) |
+| Read customers/accounts/reports | ✅ | — (yalnız kimlik) | ✅ (own data only) |
 | Open customer / open account | ✅ | — | — |
 | Deposit / withdraw (teller demo) | ✅ | — | — (operations only) |
 | Direct transfer below 50,000 | ✅ | — | — |
@@ -51,7 +51,9 @@ End-to-end story: Admin maker creates a request from Customer A's TRY account to
 | Own profile / balances / statement | — | — | ✅ |
 | Transfer request status tracking | — | — | ✅ |
 
-`✅` = implemented and tested in the API/backend; the current minimal dashboard exposes only login/logout, a small panel, top-account report and Admin user list. `—` = not permitted. Planned items are not implemented yet.
+`✅` = implemented and tested in the API/backend; the current minimal dashboard exposes only login/logout, a small panel, an Admin-only top-account report and Admin user list. `—` = not permitted. Planned items are not implemented yet.
+
+**Current User access:** a standard `User` can authenticate and read only its own identity (`GET /api/auth/me`). Customer/account/report endpoints are Admin-only until User–Customer ownership is implemented. This deny-by-default choice avoids leaking another customer’s synthetic data.
 
 ## Architecture and data flow
 
@@ -115,7 +117,7 @@ Environment: macOS ARM64, .NET SDK **10.0.402**, EF Core **10.0.3**, SQLite Deve
 |---|---|
 | `bash scripts/dotnet.sh build DigitalBanking.slnx` | **0 warnings, 0 errors** |
 | `bash scripts/dotnet.sh test DigitalBanking.slnx` | **95 passed, 0 failed, 0 skipped** |
-| `python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181` | **68 checks passed** |
+| `python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181` | **71 checks passed** |
 | NuGet vulnerable-package audit (6 projects, transitive) | no vulnerable packages reported by current sources |
 | `git diff --check` | clean |
 
@@ -215,7 +217,7 @@ scripts/                      dotnet wrapper, local runner, smoke test, VS Code 
 ## Known limitations
 
 - **SQL Server is not verified.** The new migration is written and documented, but never applied to SQL Server here. SQLite tests are not SQL Server evidence. Production migration/backfill requires an operator; see [`docs/migrations/README.md`](docs/migrations/README.md).
-- **No User–Customer ownership yet.** The current `User` role is read-only; the planned customer self-service experience is specified in the product brief and requires a schema/migration/authorization change. Do not treat the current dashboard as customer-ready.
+- **No User–Customer ownership yet.** The current `User` role can authenticate but has no business-data access (deny-by-default); the planned customer self-service experience is specified in the product brief and requires a schema/migration/authorization change. Do not treat the current dashboard as customer-ready.
 - **No FX conversion.** Risk thresholds use nominal account-currency amounts; multi-currency totals are not converted or summed.
 - **Login throttle is in-memory.** Multiple API instances would need a shared store.
 - **UTC report dates.** No local-time/zone conversion or banking cut-off calendar.
@@ -242,7 +244,7 @@ scripts/                      dotnet wrapper, local runner, smoke test, VS Code 
 DigitalBanking, bankacılık operasyonlarındaki **maker-checker onay akışını**, risk
 seviyelerini, audit izini ve decimal para kurallarını gösteren bir .NET 10 demo
 uygulamasıdır. Backend ve iş kuralları tamamlanmış; **95 otomatik test** ve
-**68 uçtan uca smoke kontrolü** başarılıdır. Mevcut Razor dashboard'u bu teslimde
+**71 uçtan uca smoke kontrolü** başarılıdır. Mevcut Razor dashboard'u bu teslimde
 bilinçli olarak minimaldir; müşteri ve admin için tam deneyim
 [`docs/DASHBOARD_PRODUCT_BRIEF.md`](docs/DASHBOARD_PRODUCT_BRIEF.md) içinde
 tasarlanmıştır ve sonraki aşamada geliştirilecektir.
@@ -253,7 +255,7 @@ adımları için [`docs/UAT_CHECKLIST.md`](docs/UAT_CHECKLIST.md) kullanılabili
 
 **Önemli sınırlar:** SQL Server bağlantısı/migration'ı bu ortamda test edilmedi;
 SQLite yalnızca Development oyun alanıdır. Müşteri–kullanıcı sahipliği henüz yok;
-standart `User` şu an salt okunurdur. Gerçek banka/para/kurum verisi kullanılmaz.
+standart `User` şu an yalnız kimlik doğrulaması yapabilir; müşteri/hesap/rapor verisi okuyamaz. Gerçek banka/para/kurum verisi kullanılmaz.
 Bu bir eğitim/portföy projesidir, üretim sistemi değildir.
 
 ## Author

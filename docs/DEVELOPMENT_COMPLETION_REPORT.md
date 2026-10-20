@@ -26,7 +26,7 @@ kalması için zorunlu uyumluluk düzeltmeleri aldı. Dashboard ürün gereksini
 - `PaymentApproval.RequestedByUserId`/`ReviewedByUserId` **int → Guid**; istemci
   gövdesinden kullanıcı kimliği kabul edilmiyor.
 - Controller + service katmanında rol kontrolü: para hareketleri, onay, audit ve
-  kullanıcı yönetimi Admin; standart `User` salt-okunur.
+  kullanıcı yönetimi Admin; standart `User` yalnız kimlik doğrulaması/`me` (sahiplik olmadığı için müşteri/hesap/rapor verisi yok).
 - Login: PBKDF2-SHA256 600k + legacy SHA-256 rehash, 8+ harf/rakam şifre
   politikası, kullanıcı adı başına 5 hatalı deneme/5 dk kilit, IP başına login
   rate limit. Şifre/token audit veya ekrana yazılmıyor.
@@ -96,7 +96,7 @@ kalması için zorunlu uyumluluk düzeltmeleri aldı. Dashboard ürün gereksini
 - Statement/daily/top yanıtları para birimi ve transfer toplamları içerir.
 - Yetkisiz para/onay/audit/users çağrıları `403`; tokensız `401`.
 - Dashboard bu sözleşmelere uyarlandı; smoke testi silinmedi/gevşetilmedi,
-  21 baseline senaryosu korunarak **68** kontrolle genişletildi.
+  21 baseline senaryosu korunarak **71** kontrolle genişletildi.
 
 ## Doğrulama sonuçları
 
@@ -104,7 +104,7 @@ kalması için zorunlu uyumluluk düzeltmeleri aldı. Dashboard ürün gereksini
 |---|---|---|
 | Build | `bash scripts/dotnet.sh build DigitalBanking.slnx` | **0 uyarı, 0 hata** |
 | Test | `bash scripts/dotnet.sh test DigitalBanking.slnx` | **95 geçti, 0 kaldı, 0 atlandı** |
-| Smoke | `python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181` | **68 kontrol geçti** |
+| Smoke | `python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181` | **71 kontrol geçti** |
 | NuGet audit | `dotnet list ... package --vulnerable --include-transitive` | 6 projede bilinen açık yok |
 | Diff kontrol | `git diff --check` | temiz |
 
@@ -128,7 +128,7 @@ Kanıt dosyaları:
    durum. Tasarım: [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md).
 2. **User–Customer–Account sahipliği**: Müşteri self-servis için zorunlu.
    `Customer.UserId` + unique index, yeni migration, sunucu tarafı erişim
-   kontrolleri, yeni testler. Şu an `User` salt-okunur; buton gizleyerek
+   kontrolleri, yeni testler. Şu an `User` veri erişimine sahip değil; buton gizleyerek
    çözülmemeli.
 3. **SQL Server doğrulaması**: bağlantı, migration, decimal, concurrency ve
    rollback testleri bu ortamda yapılmadı. Migration operatör adımları hazır ama

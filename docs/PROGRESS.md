@@ -38,7 +38,7 @@ manuel kabul adımları [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) içinde kayıtlı
 6. **Dashboard uyumluluğu**: mevcut minimal Razor ekranları yeni sözleşmelere
    uyarlandı; güvenli 401/403/500 mesajları; kullanıcı adı/rol session'ı;
    çıkışta temizlik; Admin kullanıcı listesi zarfı; rapor filtreleri.
-7. **Testler**: 95 xUnit + 68 smoke; baseline 10 test / 21 smoke korundu.
+7. **Testler**: 95 xUnit + 71 smoke; baseline 10 test / 21 smoke korundu.
 8. **VS Code SDK önkoşulu**: `.vscode` ayarları, `setup_macos_vscode_env.sh`,
    `verify_vscode_sdk.sh`; ajan oturumu launchd kısıtı nedeniyle GUI adımı kullanıcıda.
 
@@ -46,7 +46,7 @@ manuel kabul adımları [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) içinde kayıtlı
 
 - Build: **0 uyarı, 0 hata**.
 - xUnit: **95 geçti, 0 kaldı, 0 atlandı**.
-- Smoke: **68 kontrol geçti**.
+- Smoke: **71 kontrol geçti**.
 - NuGet audit: 6 projede bilinen açık yok (mevcut kaynaklar).
 - `git diff --check`: temiz.
 - Kanıt: [`evidence/`](evidence/), [`TEST_REPORT.md`](TEST_REPORT.md).
@@ -58,7 +58,7 @@ manuel kabul adımları [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) içinde kayıtlı
 - Manuel UAT yapılmadı; `UAT_CHECKLIST.md` kullanıcı tarafından doldurulacak.
 - Kapsamlı dashboard yok; müşteri self-servis için User–Customer–Account sahipliği
   ve sunucu tarafı erişim kontrolleri gerekiyor.
-- Standart `User` şu an salt-okunur; buton gizleyerek self-servis açılmadı.
+- Standart `User` şu an yalnız kimlik doğrulayabilir; sahiplik olmadığı için tüm müşteri/hesap/rapor okumaları Admin'e kapalıdır.
 - FX, yerel saat dilimi/bankacılık gün sonu takvimi, dağıtık throttle, production
   secret/observability/retention yok.
 - VS Code GUI doğrulanmadı; kullanıcı launchd adımını çalıştırıp IDE'yi yeniden

@@ -40,8 +40,8 @@ Ana kopya 5080/5081 kullanır; bu worktree 5180/5181 kullanmalıdır. Aynı anda
 
 - `Admin`: müşteri/hesap açma, yatırma/çekme, 50.000 altı doğrudan transfer,
   maker-checker onay/red, kullanıcılar, audit.
-- `User` (`tamer`): salt-okunur demo rolü; müşteri/hesap/rapor okuma, para
-  hareketi yok. Müşteri self-servis için User–Customer sahipliği henüz yok;
+- `User` (`tamer`): yalnız kimlik doğrulaması; sahiplik olmadığı için
+  müşteri/hesap/rapor verisi ve para hareketi yok. Müşteri self-servis için User–Customer sahipliği henüz yok;
   sonraki aşama: [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md).
 
 ## Mevcut dashboard kapsamı

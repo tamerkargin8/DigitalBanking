@@ -10,7 +10,7 @@ Bu notlar yalnızca bu depoda gerçekten uygulanan ve doğrulanan işlere dayan�
    transfer sınırı, düşük riskte otomatik onay, orta/yüksek/kritik riskte farklı
    Admin onayı, kendi talebini onaylama engeli, `rowversion` ile eşzamanlı çift
    onay koruması ve `Idempotency-Key` ile tekrar istek engeli. Kanıt: ADR-0001,
-   `PaymentApprovalService`, `IdempotencyFilter`, 95 xUnit testi ve 68 smoke kontrolü.
+   `PaymentApprovalService`, `IdempotencyFilter`, 95 xUnit testi ve 71 smoke kontrolü.
 
 2. **Decimal para ve atomik audit disiplini.** Bakiye/ledger/onay/audit aynı
    transaction'da; 2 haneden fazla küsurat reddediliyor; TRY/USD/EUR/GBP için

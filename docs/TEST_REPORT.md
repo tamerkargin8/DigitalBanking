@@ -12,12 +12,12 @@
 |---|---|
 | Solution build | **0 uyarı, 0 hata** |
 | xUnit | **95 geçti, 0 başarısız, 0 atlandı** |
-| End-to-end smoke | **68 kontrol geçti** |
+| End-to-end smoke | **71 kontrol geçti** |
 | NuGet vulnerable-package audit | 6 projede bilinen açık yok (mevcut kaynaklar) |
 | `git diff --check` | temiz |
 
 **Önceki baseline korundu:** 10 xUnit testi ve 21 smoke senaryosu silinmedi veya
-gevşetilmedi; aynı/artan kapsamla 95 test ve 68 smoke kontrolüne genişletildi.
+gevşetilmedi; aynı/artan kapsamla 95 test ve 71 smoke kontrolüne genişletildi.
 
 ## Çalıştırılan komutlar
 
@@ -58,7 +58,7 @@ Kanıt: [`evidence/2026-10-20-build.txt`](evidence/2026-10-20-build.txt),
 
 > Not: attribute sayıları `[Theory]` satırlarıyla çoğaldığı için toplam 95'tir.
 
-## Smoke kapsamı (68 kontrol)
+## Smoke kapsamı (71 kontrol)
 
 Tek komutla, sentetik veriyle, gerçek API + dashboard üzerinden:
 
@@ -68,8 +68,9 @@ Tek komutla, sentetik veriyle, gerçek API + dashboard üzerinden:
 4. Deposit/withdraw/transfer; yetersiz bakiye ve negatif tutar reddi;
    bakiye **70.10 / 20.05** decimal doğrulaması.
 5. Tarih aralıklı daily summary/top accounts.
-6. `tamer` (User) login; rol `User`; deposit/withdraw/transfer/approval/audit/users
-   çağrılarında **403**.
+6. `tamer` (User) login; rol `User`; customers/accounts/history/top-accounts,
+   deposit/withdraw/transfer/approval/audit/users çağrılarında **403**
+   (deny-by-default; sahiplik yok).
 7. İkinci Admin oluşturma/login.
 8. 100.000 deposit + 75.000 maker-checker talebi: `Pending`, `Medium`, `TRY`,
    Guid requester.
@@ -84,7 +85,7 @@ Tek komutla, sentetik veriyle, gerçek API + dashboard üzerinden:
     `DEPOSIT_SUCCESS`; şifre/token yok.
 15. Geçersiz token **401**; 5 hatalı login sonrası **429**.
 16. Dashboard: admin login, kullanıcılar sayfası, rapor sayfası hatasız; çıkış;
-    User rolünde Admin sayfası "Admin yetkisi"; oturumsuz rapor → Login.
+    User rolünde Admin sayfası ve rapor "Admin yetkisi"; oturumsuz rapor → Login.
 
 ## Doğrulanmayan / çalıştırılmayan kontroller
 
@@ -110,7 +111,7 @@ Tek komutla, sentetik veriyle, gerçek API + dashboard üzerinden:
 
 ## Sonuç
 
-Bu ortamda build, 95 xUnit testi ve 68 smoke kontrolü başarılıdır. Bu sonuçlar
+Bu ortamda build, 95 xUnit testi ve 71 smoke kontrolü başarılıdır. Bu sonuçlar
 **SQL Server, production veya tam dashboard** için kanıt değildir. Kalan işler
 `DEVELOPMENT_COMPLETION_REPORT.md` ve `DASHBOARD_PRODUCT_BRIEF.md` içinde
 listelenmiştir.

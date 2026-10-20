@@ -6,7 +6,7 @@ Bu klasör DigitalBanking için ayrılmış bağımsız Git worktree'sidir. Ana 
 ## Güncel durum (2026-10-20)
 
 - Backend, bankacılık kuralları, güvenlik ve testler tamamlandı.
-- Build: 0 uyarı/0 hata; xUnit: 95 geçti; smoke: 68 kontrol geçti.
+- Build: 0 uyarı/0 hata; xUnit: 95 geçti; smoke: 71 kontrol geçti.
 - Mevcut dashboard minimaldir; kapsamlı dashboard aşaması **başlatılmadı**.
 - Teslim raporları: `docs/DEVELOPMENT_COMPLETION_REPORT.md`,
   `docs/TEST_REPORT.md`.

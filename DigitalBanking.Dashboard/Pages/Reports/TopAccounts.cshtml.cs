@@ -28,8 +28,8 @@ public class TopAccountsModel : SecurePageModel
         int limit = 10,
         CancellationToken cancellationToken = default)
     {
-        var login = RequireLogin();
-        if (login is not null) return login;
+        var admin = RequireAdmin();
+        if (admin is not null) return admin;
 
         Currency = string.IsNullOrWhiteSpace(currency) ? "TRY" : currency.Trim().ToUpperInvariant();
         if (Currency is not ("TRY" or "USD" or "EUR" or "GBP"))

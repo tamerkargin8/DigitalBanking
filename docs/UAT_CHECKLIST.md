@@ -24,12 +24,12 @@
 
 | Persona | Rol | Nasıl elde edilir | Beklenen erişim |
 |---|---|---|---|
-| Müşteri A | `User` | Sonraki aşamada sentetik `customer.a` seed'i; şimdilik `tamer` salt-okunur | Yalnız kendi profil/hesapları (sonraki aşama); şimdilik rapor okuma |
+| Müşteri A | `User` | Sonraki aşamada sentetik `customer.a` seed'i; şimdilik `tamer` | Yalnız kimlik/`me` (şimdilik); sonraki aşamada yalnız kendi profil/hesapları |
 | Müşteri B | `User` | Sonraki aşamada sentetik `customer.b` seed'i | Yalnız kendi verisi; A'nın hesabını göremez |
 | Admin maker | `Admin` | Seed `admin` | Tüm operasyon; kendi talebini onaylayamaz |
 | Admin checker | ikinci `Admin` | Admin > Kullanıcılar > Kullanıcı oluştur (Admin rolü) | Onay kuyruğu; maker'dan farklı kişi |
 
-> Mevcut backend'de `User` salt-okunurdur ve User–Customer sahipliği yoktur.
+> Mevcut backend'de `User` yalnız kimlik doğrulaması yapabilir; User–Customer sahipliği yoktur ve müşteri/hesap/rapor okumaları Admin'e kapalıdır.
 > Müşteri self-servis maddeleri **sonraki dashboard aşaması** içindir; bu aşamada
 > "beklenen" olarak işaretlenen davranışlar backend/API düzeyindedir.
 
@@ -43,6 +43,8 @@
 | A2 | Çıkış yapın, sonra `/` adresini açın | Login sayfasına yönlenir; "Çıkış yapıldı" bilgisi | ☐ |
 | A3 | Yanlış şifreyle giriş deneyin | Teknik ayrıntı/token göstermeyen "kullanıcı adı veya şifre hatalı" mesajı | ☐ |
 | A4 | `tamer` (User) ile giriş yapın, `/Admin/Users` açın | Panele yönlenir; "Admin yetkisi gerekir" uyarısı; kullanıcı listesi görünmez | ☐ |
+| A4b | User token'ıyla `GET /api/customers`, `/api/accounts`, `/api/transactions/top-accounts` çağırın | Hepsi `403`; başka müşteri verisi dönmez | ☐ |
+| A4c | User ile `/Reports/TopAccounts` açın | Panele yönlenir; "Admin yetkisi" uyarısı; rapor verisi görünmez | ☐ |
 | A5 | Admin ile `/Reports/TopAccounts` açın; tarih aralığı/para birimi/adet değiştirin | Sonuçlar para birimi bazında; hatalı tarih/adet için anlaşılır mesaj; boş aralıkta "veri yok" | ☐ |
 | A6 | Tarih aralığını ters girin (bitiş < başlangıç) | "Bitiş tarihi başlangıçtan önce olamaz" mesajı; tablo bozulmaz | ☐ |
 | A7 | 400 günden uzun aralık girin | "366 günü aşamaz" mesajı | ☐ |

@@ -118,7 +118,10 @@ request(f"/api/transactions/top-accounts?{dates}&take=5&currency=TRY")
 user_token = login("tamer", credentials["password"])
 user_claims = token_claims(user_token)
 assert user_claims["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] == "User"
-request("/api/customers", token_override=user_token)
+request("/api/customers", token_override=user_token, expected=403)
+request("/api/accounts", token_override=user_token, expected=403)
+request(f"/api/transactions/by-account/{first}", token_override=user_token, expected=403)
+request(f"/api/transactions/top-accounts?{dates}&take=5&currency=TRY", token_override=user_token, expected=403)
 request("/api/transactions/deposit", {"accountId": first, "amount": 1}, token_override=user_token, expected=403)
 request("/api/transactions/withdraw", {"accountId": first, "amount": 1}, token_override=user_token, expected=403)
 request("/api/accounts/transfer", {"fromAccountId": first, "toAccountId": second, "amount": 1},
@@ -275,6 +278,9 @@ dashboard_login(browser, "tamer", credentials["password"])
 denied = browser.open(dashboard + "/Admin/Users", timeout=20)
 denied_html = denied.read().decode()
 assert urllib.parse.urlparse(denied.url).path == "/" and "Admin yetkisi" in denied_html
+denied_report = browser.open(dashboard + "/Reports/TopAccounts?" + dashboard_dates, timeout=20)
+denied_report_html = denied_report.read().decode()
+assert urllib.parse.urlparse(denied_report.url).path == "/" and "Admin yetkisi" in denied_report_html
 browser.open(dashboard + "/Logout", timeout=20)
 anonymous = browser.open(dashboard + "/Reports/TopAccounts?" + dashboard_dates, timeout=20)
 assert urllib.parse.urlparse(anonymous.url).path == "/Login"
