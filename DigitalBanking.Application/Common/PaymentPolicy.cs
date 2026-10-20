@@ -22,13 +22,11 @@ public static class PaymentPolicy
         return PaymentRiskLevel.Low;
     }
 
-    public static bool RequiresMakerChecker(decimal amount) => amount >= AutoApprovalLimit;
-
     public static string DescribeRisk(PaymentRiskLevel risk) => risk switch
     {
         PaymentRiskLevel.Critical => "Critical value payment. Requires an Admin checker and balance verification.",
         PaymentRiskLevel.High => "High value payment. Requires an Admin checker.",
         PaymentRiskLevel.Medium => "Medium risk payment. Requires an Admin checker.",
-        _ => "Low risk payment auto-approved by system policy."
+        _ => "Low risk payment; still requires Owner or delegated approval."
     };
 }

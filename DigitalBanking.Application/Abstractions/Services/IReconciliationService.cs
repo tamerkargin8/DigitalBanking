@@ -31,9 +31,9 @@ public interface IReconciliationService
     Task<string> ExportCsvAsync(Guid batchId, CancellationToken cancellationToken = default);
 
     Task<PaginatedResponse<ReconciliationExceptionDto>> GetExceptionsAsync(
-        int page, int pageSize, string? status, Guid? batchId,
+        int page, int pageSize, string? status, Guid? batchId, ActorContext actor,
         CancellationToken cancellationToken = default);
-    Task<ReconciliationExceptionDto> GetExceptionAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ReconciliationExceptionDto> GetExceptionAsync(Guid id, ActorContext actor, CancellationToken cancellationToken = default);
     Task<ReconciliationExceptionDto> CreateExceptionAsync(
         CreateReconciliationExceptionRequest request, ActorContext actor, CancellationToken cancellationToken = default);
     Task<ReconciliationExceptionDto> AssignAsync(

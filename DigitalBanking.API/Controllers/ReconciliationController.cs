@@ -16,7 +16,7 @@ namespace DigitalBanking.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/reconciliation")]
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class ReconciliationController : ControllerBase
 {
     private readonly IReconciliationService _service;
@@ -27,11 +27,13 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpPost("preview")]
+    [Authorize(Roles = "Owner")]
+    [Consumes("multipart/form-data")]
     [RequestSizeLimit(CsvStatementParser.MaxFileBytes + 4096)]
     [ProducesResponseType(typeof(ApiResponse<ReconciliationPreviewDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Preview(
-        [FromForm] IFormFile file,
+        IFormFile file,
         [FromQuery] string? currency = null,
         [FromQuery] string? direction = null,
         [FromQuery] DateTime? from = null,
@@ -63,6 +65,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpPost("{id:guid}/import")]
+    [Authorize(Roles = "Owner")]
     [ProducesResponseType(typeof(ApiResponse<ReconciliationBatchDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Import(Guid id, CancellationToken cancellationToken)
@@ -72,6 +75,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpGet("batches")]
+    [Authorize(Roles = "Owner")]
     [ProducesResponseType(typeof(ApiResponse<PaginatedResponse<ReconciliationBatchSummaryDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetBatches(
         [FromQuery] int page = 1,
@@ -87,6 +91,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpGet("batches/{id:guid}")]
+    [Authorize(Roles = "Owner")]
     [ProducesResponseType(typeof(ApiResponse<ReconciliationBatchDetailDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetBatch(Guid id, CancellationToken cancellationToken)
     {
@@ -95,6 +100,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpGet("batches/{id:guid}/rows")]
+    [Authorize(Roles = "Owner")]
     [ProducesResponseType(typeof(ApiResponse<List<ReconciliationRowDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRows(
         Guid id,
@@ -106,6 +112,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpGet("batches/{id:guid}/export")]
+    [Authorize(Roles = "Owner")]
     [Produces("text/csv")]
     public async Task<IActionResult> Export(Guid id, CancellationToken cancellationToken)
     {
@@ -115,6 +122,7 @@ public class ReconciliationController : ControllerBase
 
     /// <summary>Downloadable synthetic CSV examples (never real bank data).</summary>
     [HttpGet("sample")]
+    [Authorize(Roles = "Owner")]
     [Produces("text/csv")]
     public IActionResult Sample([FromQuery] string kind = "matched")
     {
@@ -125,6 +133,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpGet("exceptions")]
+    [Authorize(Roles = "Owner,DelegatedApprover")]
     [ProducesResponseType(typeof(ApiResponse<PaginatedResponse<ReconciliationExceptionDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetExceptions(
         [FromQuery] int page = 1,
@@ -133,19 +142,21 @@ public class ReconciliationController : ControllerBase
         [FromQuery] Guid? batchId = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await _service.GetExceptionsAsync(page, pageSize, status, batchId, cancellationToken);
+        var result = await _service.GetExceptionsAsync(page, pageSize, status, batchId, User.GetActor(), cancellationToken);
         return Ok(ApiResponse<PaginatedResponse<ReconciliationExceptionDto>>.SuccessWith(result));
     }
 
     [HttpGet("exceptions/{id:guid}")]
+    [Authorize(Roles = "Owner,DelegatedApprover")]
     [ProducesResponseType(typeof(ApiResponse<ReconciliationExceptionDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetException(Guid id, CancellationToken cancellationToken)
     {
-        var item = await _service.GetExceptionAsync(id, cancellationToken);
+        var item = await _service.GetExceptionAsync(id, User.GetActor(), cancellationToken);
         return Ok(ApiResponse<ReconciliationExceptionDto>.SuccessWith(item));
     }
 
     [HttpPost("exceptions")]
+    [Authorize(Roles = "Owner,DelegatedApprover")]
     [ProducesResponseType(typeof(ApiResponse<ReconciliationExceptionDto>), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateException(
         [FromBody] CreateReconciliationExceptionRequest request,
@@ -157,6 +168,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpPost("exceptions/{id:guid}/assign")]
+    [Authorize(Roles = "Owner,DelegatedApprover")]
     public async Task<IActionResult> Assign(Guid id, [FromBody] AssignReconciliationExceptionRequest request, CancellationToken cancellationToken)
     {
         var item = await _service.AssignAsync(id, request.AssignedToUserId, User.GetActor(), cancellationToken);
@@ -164,6 +176,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpPost("exceptions/{id:guid}/review")]
+    [Authorize(Roles = "Owner,DelegatedApprover")]
     public async Task<IActionResult> Review(Guid id, CancellationToken cancellationToken)
     {
         var item = await _service.ReviewAsync(id, User.GetActor(), cancellationToken);
@@ -171,6 +184,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpPost("exceptions/{id:guid}/propose")]
+    [Authorize(Roles = "Owner,DelegatedApprover")]
     public async Task<IActionResult> Propose(Guid id, [FromBody] ProposeReconciliationResolutionRequest request, CancellationToken cancellationToken)
     {
         var item = await _service.ProposeAsync(id, request.ResolutionNote, User.GetActor(), cancellationToken);
@@ -178,6 +192,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpPost("exceptions/{id:guid}/approve")]
+    [Authorize(Roles = "Owner,DelegatedApprover")]
     public async Task<IActionResult> Approve(Guid id, CancellationToken cancellationToken)
     {
         var item = await _service.ApproveAsync(id, User.GetActor(), cancellationToken);
@@ -186,6 +201,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpPost("exceptions/{id:guid}/reject")]
+    [Authorize(Roles = "Owner,DelegatedApprover")]
     public async Task<IActionResult> Reject(Guid id, [FromBody] RejectReconciliationExceptionRequest request, CancellationToken cancellationToken)
     {
         var item = await _service.RejectAsync(id, request.Reason, User.GetActor(), cancellationToken);
@@ -193,6 +209,7 @@ public class ReconciliationController : ControllerBase
     }
 
     [HttpPost("exceptions/{id:guid}/reopen")]
+    [Authorize(Roles = "Owner,DelegatedApprover")]
     public async Task<IActionResult> Reopen(Guid id, [FromBody] ReopenReconciliationExceptionRequest request, CancellationToken cancellationToken)
     {
         var item = await _service.ReopenAsync(id, request.Reason, User.GetActor(), cancellationToken);

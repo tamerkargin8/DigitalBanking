@@ -9,6 +9,9 @@ namespace DigitalBanking.Tests;
 
 public class AccountServiceTests
 {
+    private static readonly ActorContext Owner = new(Guid.NewGuid(), "owner-test", UserRole.Owner);
+    private static readonly ActorContext Customer = new(Guid.NewGuid(), "customer-test", UserRole.Customer);
+
     [Fact]
     public async Task OpeningAccountHonorsCurrencyAndInitialBalanceAndWritesAudit()
     {
@@ -24,7 +27,7 @@ public class AccountServiceTests
                 Currency = "usd",
                 InitialBalance = 150.25m
             },
-            TestSupport.AdminActor);
+            Owner);
 
         Assert.Equal("USD", account.Currency);
         Assert.Equal(150.25m, account.Balance);
@@ -52,7 +55,7 @@ public class AccountServiceTests
         var service = new AccountService(context, new AuditService(context));
 
         var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            service.OpenAccountAsync(new CreateAccountRequest { CustomerId = customer.Id }, TestSupport.StandardActor));
+            service.OpenAccountAsync(new CreateAccountRequest { CustomerId = customer.Id }, Customer));
 
         Assert.Contains("Admin", exception.Message);
         Assert.Equal(0, await context.Accounts.CountAsync());
@@ -71,7 +74,7 @@ public class AccountServiceTests
         await Assert.ThrowsAsync<BusinessRuleException>(() =>
             service.OpenAccountAsync(
                 new CreateAccountRequest { CustomerId = customer.Id, Currency = currency },
-                TestSupport.AdminActor));
+                Owner));
     }
 
     [Fact]
@@ -85,12 +88,12 @@ public class AccountServiceTests
         await Assert.ThrowsAsync<BusinessRuleException>(() =>
             service.OpenAccountAsync(
                 new CreateAccountRequest { CustomerId = customer.Id, InitialBalance = -1m },
-                TestSupport.AdminActor));
+                Owner));
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             service.OpenAccountAsync(
                 new CreateAccountRequest { CustomerId = Guid.NewGuid() },
-                TestSupport.AdminActor));
+                Owner));
     }
 
     [Fact]
@@ -103,7 +106,7 @@ public class AccountServiceTests
 
         var account = await service.OpenAccountAsync(
             new CreateAccountRequest { CustomerId = customer.Id },
-            TestSupport.AdminActor);
+            Owner);
 
         Assert.Equal(0m, account.Balance);
         Assert.Equal("TRY", account.Currency);

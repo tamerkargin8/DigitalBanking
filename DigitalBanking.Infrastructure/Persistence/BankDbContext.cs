@@ -18,10 +18,22 @@ public class BankDbContext : DbContext
     public DbSet<ReconciliationBatch> ReconciliationBatches => Set<ReconciliationBatch>();
     public DbSet<ReconciliationRow> ReconciliationRows => Set<ReconciliationRow>();
     public DbSet<ReconciliationException> ReconciliationExceptions => Set<ReconciliationException>();
+    public DbSet<ApprovalDelegation> ApprovalDelegations => Set<ApprovalDelegation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.Property(x => x.Username).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.Email).HasMaxLength(256);
+            entity.Property(x => x.FirstName).HasMaxLength(100);
+            entity.Property(x => x.LastName).HasMaxLength(100);
+            entity.HasIndex(x => x.Username);
+            entity.HasIndex(x => x.Email);
+            entity.HasIndex(x => new { x.Role, x.Status });
+        });
 
         modelBuilder.Entity<Customer>(entity =>
         {
@@ -76,6 +88,7 @@ public class BankDbContext : DbContext
             entity.Property(x => x.CreatedAt).IsRequired();
             entity.HasIndex(x => x.CorrelationId);
             entity.HasIndex(x => new { x.Status, x.CreatedAt });
+            entity.HasIndex(x => new { x.RequestType, x.Status });
 
             entity.Property(x => x.RowVersion).IsRowVersion();
             if (Database.IsSqlite())
@@ -101,6 +114,25 @@ public class BankDbContext : DbContext
             entity.Property(x => x.RequestHash).HasMaxLength(64).IsRequired();
             entity.HasIndex(x => new { x.Endpoint, x.Key }).IsUnique();
             entity.HasIndex(x => x.CreatedAt);
+        });
+
+        modelBuilder.Entity<ApprovalDelegation>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Currency).HasMaxLength(3);
+            entity.Property(x => x.MaxAmount).HasPrecision(18, 2);
+            entity.Property(x => x.DailyLimit).HasPrecision(18, 2);
+            entity.Property(x => x.CreatedByOwnerUsername).HasMaxLength(100).IsRequired();
+            entity.HasIndex(x => new { x.UserId, x.Operation, x.Currency });
+            entity.HasIndex(x => new { x.IsActive, x.ExpiresAt });
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            if (Database.IsSqlite())
+                entity.Property(x => x.RowVersion).IsConcurrencyToken().ValueGeneratedNever();
         });
 
         modelBuilder.Entity<AuditLog>(entity =>
@@ -187,6 +219,10 @@ public class BankDbContext : DbContext
             entry.Entity.RowVersion = Guid.NewGuid().ToByteArray();
 
         foreach (var entry in ChangeTracker.Entries<ReconciliationException>()
+                     .Where(e => e.State is EntityState.Added or EntityState.Modified))
+            entry.Entity.RowVersion = Guid.NewGuid().ToByteArray();
+
+        foreach (var entry in ChangeTracker.Entries<ApprovalDelegation>()
                      .Where(e => e.State is EntityState.Added or EntityState.Modified))
             entry.Entity.RowVersion = Guid.NewGuid().ToByteArray();
     }

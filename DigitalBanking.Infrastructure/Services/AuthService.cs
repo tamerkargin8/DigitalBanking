@@ -1,6 +1,7 @@
 using DigitalBanking.Application.Abstractions.Services;
 using DigitalBanking.Application.DTOs.Auth;
 using DigitalBanking.Application.Exceptions;
+using DigitalBanking.Domain.Enums;
 using DigitalBanking.Infrastructure.Persistence;
 using DigitalBanking.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
@@ -79,6 +80,32 @@ public class AuthService : IAuthService
             throw new BusinessRuleException(InvalidCredentialsMessage);
         }
 
+        if (user.Status != UserStatus.Active)
+        {
+            await _auditService.LogAsync(
+                action: "LOGIN_BLOCKED_STATUS",
+                entityName: "User",
+                entityId: user.Id.ToString(),
+                username: user.Username,
+                isSuccess: false,
+                details: $"Login blocked. Status: {user.Status}");
+
+            throw new ForbiddenException("Hesabınız henüz etkin değil veya devre dışı. Owner aktivasyonu gerekir.");
+        }
+
+        if (user.Role is not (UserRole.Owner or UserRole.DelegatedApprover or UserRole.Customer))
+        {
+            await _auditService.LogAsync(
+                action: "LOGIN_BLOCKED_ROLE",
+                entityName: "User",
+                entityId: user.Id.ToString(),
+                username: user.Username,
+                isSuccess: false,
+                details: $"Login blocked. Legacy/invalid role: {user.Role}");
+
+            throw new ForbiddenException("Bu hesabın rolü geçerli değil. Owner ile iletişime geçin.");
+        }
+
         _loginAttemptLimiter.RecordSuccess(username);
 
         if (_passwordHasher.NeedsRehash(user.PasswordHash))
@@ -104,10 +131,14 @@ public class AuthService : IAuthService
         return new LoginResponse
         {
             Token = token,
+            UserId = user.Id,
             Username = user.Username,
             Role = user.Role.ToString(),
+            Status = user.Status.ToString(),
             CustomerId = customer?.Id,
-            DisplayName = customer is null ? null : $"{customer.FirstName} {customer.LastName}"
+            DisplayName = customer is null
+                ? string.Join(' ', new[] { user.FirstName, user.LastName }.Where(x => !string.IsNullOrWhiteSpace(x)))
+                : $"{customer.FirstName} {customer.LastName}"
         };
     }
 }

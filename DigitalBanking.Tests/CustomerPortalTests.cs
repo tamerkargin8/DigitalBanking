@@ -1,4 +1,5 @@
 using DigitalBanking.Application.Common;
+using DigitalBanking.Application.DTOs.ApprovalRequests;
 using DigitalBanking.Application.Exceptions;
 using DigitalBanking.Domain.Enums;
 using DigitalBanking.Infrastructure.Services;
@@ -15,21 +16,21 @@ public class CustomerPortalTests
         PaymentApprovalService Payments,
         PaymentTimelineService Timeline,
         CustomerAccessService Access,
-        Guid UserA,
-        Guid UserB,
+        ActorContext Owner,
+        ActorContext ActorA,
+        ActorContext ActorB,
         Guid CustomerA,
         Guid CustomerB,
         Guid AccountA,
-        Guid AccountB,
-        ActorContext ActorA,
-        ActorContext ActorB);
+        Guid AccountB);
 
     private static async Task<PortalFixture> CreateFixtureAsync()
     {
         var db = await TestDb.CreateAsync();
         var context = db.NewContext();
-        var userA = await TestSupport.AddUserAsync(context, "customer-a-test", "synthetic", UserRole.User);
-        var userB = await TestSupport.AddUserAsync(context, "customer-b-test", "synthetic", UserRole.User);
+        var (owner, ownerActor) = await TestSupport.AddActorAsync(context, "owner-test", UserRole.Owner);
+        var (userA, actorA) = await TestSupport.AddActorAsync(context, "customer-a-test", UserRole.Customer);
+        var (userB, actorB) = await TestSupport.AddActorAsync(context, "customer-b-test", UserRole.Customer);
         var customerA = await TestSupport.AddCustomerAsync(context, "Ayşe", "Test", userA.Id);
         var customerB = await TestSupport.AddCustomerAsync(context, "Burak", "Test", userB.Id);
         var accountA = await TestSupport.AddAccountAsync(context, customerA.Id, 250_000m, "TRY");
@@ -38,7 +39,8 @@ public class CustomerPortalTests
         var mapper = TestSupport.CreateMapper();
         var audit = new AuditService(context);
         var access = new CustomerAccessService(context);
-        var payments = new PaymentApprovalService(context, mapper, audit, access);
+        var authorization = new ApprovalAuthorizationService(context);
+        var payments = new PaymentApprovalService(context, mapper, audit, access, authorization);
         var portal = new CustomerPortalService(
             context,
             access,
@@ -49,10 +51,8 @@ public class CustomerPortalTests
         var timeline = new PaymentTimelineService(context);
 
         return new PortalFixture(
-            db, context, portal, payments, timeline, access,
-            userA.Id, userB.Id, customerA.Id, customerB.Id, accountA.Id, accountB.Id,
-            new ActorContext(userA.Id, userA.Username, UserRole.User),
-            new ActorContext(userB.Id, userB.Username, UserRole.User));
+            db, context, portal, payments, timeline, access, ownerActor, actorA, actorB,
+            customerA.Id, customerB.Id, accountA.Id, accountB.Id);
     }
 
     [Fact]
@@ -91,8 +91,8 @@ public class CustomerPortalTests
             fixture.AccountB, fixture.AccountA, 10m, "B to A", fixture.ActorB);
         await Assert.ThrowsAsync<NotFoundException>(() =>
             fixture.Portal.GetPaymentAsync(payment.Id, fixture.ActorA));
-        Assert.False(await fixture.Access.UserOwnsPaymentAsync(fixture.UserA, payment.Id));
-        Assert.True(await fixture.Access.UserOwnsPaymentAsync(fixture.UserB, payment.Id));
+        Assert.False(await fixture.Access.UserOwnsPaymentAsync(fixture.ActorA.UserId, payment.Id));
+        Assert.True(await fixture.Access.UserOwnsPaymentAsync(fixture.ActorB.UserId, payment.Id));
     }
 
     [Fact]
@@ -110,12 +110,12 @@ public class CustomerPortalTests
     }
 
     [Fact]
-    public async Task CustomerCanCreateOwnTransferButNotFromAnotherCustomersAccount()
+    public async Task CustomerTransferIsPendingUntilOwnerApproves()
     {
         var fixture = await CreateFixtureAsync();
         await using var _ = fixture.Db;
 
-        var own = await fixture.Portal.CreateTransferRequestAsync(
+        var payment = await fixture.Portal.CreateTransferRequestAsync(
             new DigitalBanking.Application.DTOs.CustomerPortal.CreateCustomerTransferRequest
             {
                 FromAccountId = fixture.AccountA,
@@ -125,10 +125,21 @@ public class CustomerPortalTests
             },
             fixture.ActorA);
 
-        Assert.Equal("AutoApproved", own.Status);
-        Assert.Equal(fixture.UserA, own.RequestedByUserId);
+        Assert.Equal("Pending", payment.Status);
+        Assert.Equal(fixture.ActorA.UserId, payment.RequestedByUserId);
+        Assert.Equal(250_000m, (await fixture.Context.Accounts.SingleAsync(x => x.Id == fixture.AccountA)).Balance);
+        Assert.Equal(25_000m, (await fixture.Context.Accounts.SingleAsync(x => x.Id == fixture.AccountB)).Balance);
+
+        await fixture.Payments.ApprovePaymentAsync(payment.Id, fixture.Owner);
         Assert.Equal(249_874.50m, (await fixture.Context.Accounts.SingleAsync(x => x.Id == fixture.AccountA)).Balance);
         Assert.Equal(25_125.50m, (await fixture.Context.Accounts.SingleAsync(x => x.Id == fixture.AccountB)).Balance);
+    }
+
+    [Fact]
+    public async Task CustomerCannotCreateTransferFromAnotherCustomersAccount()
+    {
+        var fixture = await CreateFixtureAsync();
+        await using var _ = fixture.Db;
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             fixture.Portal.CreateTransferRequestAsync(
@@ -142,7 +153,7 @@ public class CustomerPortalTests
     }
 
     [Fact]
-    public async Task CompletedTimelineAndReceiptAreDerivedFromRealEvents()
+    public async Task TimelineAndReceiptOnlyShowCompletedAfterApproval()
     {
         var fixture = await CreateFixtureAsync();
         await using var _ = fixture.Db;
@@ -150,13 +161,16 @@ public class CustomerPortalTests
         var payment = await fixture.Payments.CreateCustomerTransferRequestAsync(
             fixture.AccountA, fixture.AccountB, 100m, "Synthetic receipt", fixture.ActorA);
 
-        var timeline = await fixture.Timeline.GetTimelineAsync(payment.Id);
-        Assert.Equal(payment.Id, timeline.PaymentId);
-        Assert.Equal("AutoApproved", timeline.Status);
-        Assert.Equal(new[] { "Created", "AutoApproved", "Completed" }, timeline.Events.Select(x => x.Type));
-        Assert.All(timeline.Events, e => Assert.True(e.OccurredAtUtc <= DateTime.UtcNow.AddSeconds(1)));
-        Assert.Equal("Europe/Istanbul", timeline.TimeZoneId);
+        var pendingTimeline = await fixture.Timeline.GetTimelineAsync(payment.Id);
+        Assert.Equal(new[] { "Created", "Pending" }, pendingTimeline.Events.Select(x => x.Type));
+        var pendingReceipt = await fixture.Timeline.GetReceiptAsync(payment.Id);
+        Assert.False(pendingReceipt.IsCompleted);
+        Assert.Contains("tamamlanmadı", pendingReceipt.StatusSummary);
 
+        await fixture.Payments.ApprovePaymentAsync(payment.Id, fixture.Owner);
+
+        var timeline = await fixture.Timeline.GetTimelineAsync(payment.Id);
+        Assert.Equal(new[] { "Created", "Pending", "Approved", "Completed" }, timeline.Events.Select(x => x.Type));
         var receipt = await fixture.Timeline.GetReceiptAsync(payment.Id);
         Assert.True(receipt.IsCompleted);
         Assert.StartsWith("PAY-", receipt.Reference);
@@ -165,35 +179,51 @@ public class CustomerPortalTests
         Assert.StartsWith("••••", receipt.FromAccountMasked);
         Assert.StartsWith("••••", receipt.ToAccountMasked);
         Assert.Contains("DEMO", receipt.Disclaimer);
-        Assert.NotNull(receipt.CompletedAtUtc);
-        Assert.NotNull(receipt.CompletedAtLocal);
     }
 
     [Fact]
-    public async Task PendingAndRejectedPaymentsDoNotProduceCompletedReceipts()
+    public async Task RejectedPaymentHasNoCompletedReceipt()
     {
         var fixture = await CreateFixtureAsync();
         await using var _ = fixture.Db;
 
-        var pending = await fixture.Payments.CreateCustomerTransferRequestAsync(
-            fixture.AccountA, fixture.AccountB, 75_000m, "Synthetic pending", fixture.ActorA);
+        var payment = await fixture.Payments.CreateCustomerTransferRequestAsync(
+            fixture.AccountA, fixture.AccountB, 75_000m, "Synthetic reject", fixture.ActorA);
+        await fixture.Payments.RejectPaymentAsync(payment.Id, fixture.Owner, "Synthetic reject");
 
-        var pendingTimeline = await fixture.Timeline.GetTimelineAsync(pending.Id);
-        Assert.Equal(new[] { "Created", "Pending" }, pendingTimeline.Events.Select(x => x.Type));
+        var timeline = await fixture.Timeline.GetTimelineAsync(payment.Id);
+        Assert.Equal(new[] { "Created", "Pending", "Rejected" }, timeline.Events.Select(x => x.Type));
+        var receipt = await fixture.Timeline.GetReceiptAsync(payment.Id);
+        Assert.False(receipt.IsCompleted);
+        Assert.Contains("reddedildi", receipt.StatusSummary);
+    }
 
-        var pendingReceipt = await fixture.Timeline.GetReceiptAsync(pending.Id);
-        Assert.False(pendingReceipt.IsCompleted);
-        Assert.Null(pendingReceipt.CompletedAtUtc);
-        Assert.Contains("tamamlanmadı", pendingReceipt.StatusSummary);
+    [Fact]
+    public async Task CustomerDepositAndAccountOpeningRequestsArePending()
+    {
+        var fixture = await CreateFixtureAsync();
+        await using var _ = fixture.Db;
 
-        var checker = new ActorContext(Guid.NewGuid(), "checker-test", UserRole.Admin);
-        await fixture.Payments.RejectPaymentAsync(pending.Id, checker, "Synthetic reject");
+        var deposit = await fixture.Portal.CreateOperationRequestAsync(new CreateCustomerOperationRequest
+        {
+            RequestType = "Deposit",
+            AccountId = fixture.AccountA,
+            Amount = 500m,
+            Description = "Demo deposit request"
+        }, fixture.ActorA);
+        Assert.Equal("Pending", deposit.Status);
+        Assert.Equal(250_000m, (await fixture.Context.Accounts.SingleAsync(x => x.Id == fixture.AccountA)).Balance);
 
-        var rejectedTimeline = await fixture.Timeline.GetTimelineAsync(pending.Id);
-        Assert.Equal(new[] { "Created", "Pending", "Rejected" }, rejectedTimeline.Events.Select(x => x.Type));
-        var rejectedReceipt = await fixture.Timeline.GetReceiptAsync(pending.Id);
-        Assert.False(rejectedReceipt.IsCompleted);
-        Assert.Contains("reddedildi", rejectedReceipt.StatusSummary);
+        var opening = await fixture.Portal.CreateOperationRequestAsync(new CreateCustomerOperationRequest
+        {
+            RequestType = "AccountOpening",
+            Currency = "USD",
+            Amount = 100m,
+            Description = "New USD account request"
+        }, fixture.ActorA);
+        Assert.Equal("Pending", opening.Status);
+        Assert.Equal("AccountOpening", opening.RequestType);
+        Assert.Equal(1, await fixture.Context.Accounts.CountAsync(x => x.CustomerId == fixture.CustomerA));
     }
 
     [Fact]
@@ -202,8 +232,19 @@ public class CustomerPortalTests
         var fixture = await CreateFixtureAsync();
         await using var _ = fixture.Db;
 
-        var admin = new ActorContext(Guid.NewGuid(), "admin-test", UserRole.Admin);
-        await Assert.ThrowsAsync<ForbiddenException>(() => fixture.Portal.GetProfileAsync(admin));
-        await Assert.ThrowsAsync<ForbiddenException>(() => fixture.Portal.GetAccountsAsync(admin));
+        await Assert.ThrowsAsync<ForbiddenException>(() => fixture.Portal.GetProfileAsync(fixture.Owner));
+        await Assert.ThrowsAsync<ForbiddenException>(() => fixture.Portal.GetAccountsAsync(fixture.Owner));
+    }
+
+    [Fact]
+    public async Task PendingActivationCustomerIsForbidden()
+    {
+        var fixture = await CreateFixtureAsync();
+        await using var _ = fixture.Db;
+
+        var pending = await TestSupport.AddUserAsync(
+            fixture.Context, "pending-member", "hash", UserRole.Customer, UserStatus.PendingActivation);
+        var actor = new ActorContext(pending.Id, pending.Username, pending.Role);
+        await Assert.ThrowsAsync<ForbiddenException>(() => fixture.Portal.GetAccountsAsync(actor));
     }
 }

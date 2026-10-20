@@ -13,7 +13,7 @@ namespace DigitalBanking.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Owner")]
 public class AuditController : ControllerBase
 {
     private readonly BankDbContext _db;

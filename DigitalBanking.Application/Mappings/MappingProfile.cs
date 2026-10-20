@@ -24,6 +24,7 @@ public class MappingProfile : Profile
         CreateMap<OpenAccountRequest, CreateAccountRequest>();
         CreateMap<PaymentApproval, PaymentApprovalResponse>()
             .ForMember(dest => dest.Reference, opt => opt.MapFrom(src => Masking.PaymentReference(src.Id, src.CorrelationId)))
+            .ForMember(dest => dest.RequestType, opt => opt.MapFrom(src => src.RequestType.ToString()))
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
             .ForMember(dest => dest.RiskLevel, opt => opt.MapFrom(src => src.RiskLevel.ToString()));
     }

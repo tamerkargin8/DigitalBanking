@@ -6,8 +6,12 @@ public class PaymentApprovalResponse
     public string Reference { get; set; } = string.Empty;
     public Guid CorrelationId { get; set; }
 
+    public string RequestType { get; set; } = string.Empty;
     public Guid FromAccountId { get; set; }
     public Guid ToAccountId { get; set; }
+    public Guid? RequestedCustomerId { get; set; }
+    public decimal? RequestedInitialBalance { get; set; }
+    public Guid? CreatedAccountId { get; set; }
 
     public decimal Amount { get; set; }
     public string Currency { get; set; } = string.Empty;

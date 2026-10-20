@@ -7,8 +7,10 @@ namespace DigitalBanking.Application.DTOs.Auth
     public class LoginResponse
     {
         public string Token { get; set; } = string.Empty;
+        public Guid UserId { get; set; }
         public string Username { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
         public Guid? CustomerId { get; set; }
         public string? DisplayName { get; set; }
     }

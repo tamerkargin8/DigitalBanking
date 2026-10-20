@@ -49,6 +49,7 @@ public class ExceptionMiddleware
                 ConcurrencyException => exception.Message,
                 TooManyRequestsException => exception.Message,
                 ForbiddenException => exception.Message,
+                ConflictException => exception.Message,
                 UnauthorizedAccessException => "Authentication is required.",
                 _ => "Internal server error."
             }
@@ -61,6 +62,7 @@ public class ExceptionMiddleware
             ConcurrencyException => (int)HttpStatusCode.Conflict,
             TooManyRequestsException => (int)HttpStatusCode.TooManyRequests,
             ForbiddenException => (int)HttpStatusCode.Forbidden,
+            ConflictException => (int)HttpStatusCode.Conflict,
             UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
             _ => (int)HttpStatusCode.InternalServerError
         };

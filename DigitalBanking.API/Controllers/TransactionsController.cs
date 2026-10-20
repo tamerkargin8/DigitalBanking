@@ -14,7 +14,7 @@ namespace DigitalBanking.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Owner")]
 public class TransactionsController : ControllerBase
 {
     private readonly ITransactionService _transactionService;
@@ -26,30 +26,32 @@ public class TransactionsController : ControllerBase
 
     /// <summary>Deposits money into an account. Admin only.</summary>
     [HttpPost("deposit")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Owner")]
     [Idempotent]
     [ProducesResponseType(typeof(ApiResponse<TransactionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Deposit(
+    public Task<IActionResult> Deposit(
         [FromBody] DepositRequest request,
         CancellationToken cancellationToken = default)
     {
-        var transaction = await _transactionService.DepositAsync(request, User.GetActor(), cancellationToken);
-        return Ok(ApiResponse<TransactionDto>.SuccessWith(transaction, "Deposit completed successfully."));
+        IActionResult result = BadRequest(ApiResponse.Failure(
+            "Doğrudan yatırma kapalıdır. Onay talebi oluşturun: POST /api/paymentapprovals/requests (RequestType=Deposit)."));
+        return Task.FromResult(result);
     }
 
     /// <summary>Withdraws money from an account. Admin only.</summary>
     [HttpPost("withdraw")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Owner")]
     [Idempotent]
     [ProducesResponseType(typeof(ApiResponse<TransactionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Withdraw(
+    public Task<IActionResult> Withdraw(
         [FromBody] WithdrawRequest request,
         CancellationToken cancellationToken = default)
     {
-        var transaction = await _transactionService.WithdrawAsync(request, User.GetActor(), cancellationToken);
-        return Ok(ApiResponse<TransactionDto>.SuccessWith(transaction, "Withdrawal completed successfully."));
+        IActionResult result = BadRequest(ApiResponse.Failure(
+            "Doğrudan çekme kapalıdır. Onay talebi oluşturun: POST /api/paymentapprovals/requests (RequestType=Withdrawal)."));
+        return Task.FromResult(result);
     }
 
     /// <summary>Retrieves transaction history for an account with pagination.</summary>

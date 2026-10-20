@@ -2,6 +2,7 @@ using AutoMapper;
 using DigitalBanking.Application.Abstractions.Services;
 using DigitalBanking.Application.Common;
 using DigitalBanking.Application.DTOs.Account;
+using DigitalBanking.Application.DTOs.ApprovalRequests;
 using DigitalBanking.Application.DTOs.CustomerPortal;
 using DigitalBanking.Application.DTOs.PaymentApprovals;
 using DigitalBanking.Application.DTOs.Transaction;
@@ -126,8 +127,12 @@ public sealed class CustomerPortalService : ICustomerPortalService
 
         var payments = await _context.PaymentApprovals
             .AsNoTracking()
-            .Where(payment => _context.Accounts.Any(account =>
-                account.Id == payment.FromAccountId && account.CustomerId == customerId))
+            .Where(payment =>
+                (payment.RequestType == Domain.Enums.ApprovalRequestType.AccountOpening
+                 && payment.RequestedCustomerId == customerId)
+                || (payment.RequestType != Domain.Enums.ApprovalRequestType.AccountOpening
+                    && _context.Accounts.Any(account =>
+                        account.Id == payment.FromAccountId && account.CustomerId == customerId)))
             .OrderByDescending(x => x.CreatedAt)
             .Take(200)
             .ToListAsync(cancellationToken);
@@ -163,6 +168,17 @@ public sealed class CustomerPortalService : ICustomerPortalService
             request.Description,
             actor,
             cancellationToken);
+    }
+
+    public async Task<PaymentApprovalResponse> CreateOperationRequestAsync(
+        CreateCustomerOperationRequest request,
+        ActorContext actor,
+        CancellationToken cancellationToken = default)
+    {
+        if (!string.Equals(request.RequestType, "AccountOpening", StringComparison.OrdinalIgnoreCase))
+            await RequireOwnedAccountAsync(actor, request.AccountId ?? Guid.Empty, cancellationToken);
+
+        return await _paymentApprovalService.CreateCustomerOperationRequestAsync(request, actor, cancellationToken);
     }
 
     private async Task<Domain.Entities.Customer> GetOwnedCustomerAsync(ActorContext actor, CancellationToken cancellationToken)

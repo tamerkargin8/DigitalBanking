@@ -32,20 +32,20 @@ public class AuthAndClaimsTests
         await using var db = await TestDb.CreateAsync();
         await using var context = db.NewContext();
         var hasher = new PasswordHasher();
-        var user = await TestSupport.AddUserAsync(context, "admin-test", hasher.Hash("ValidPass1"), UserRole.Admin);
+        var user = await TestSupport.AddUserAsync(context, "admin-test", hasher.Hash("ValidPass1"), UserRole.Owner);
         var service = CreateAuthService(context);
 
         var response = await service.LoginAsync(new LoginRequest { Username = "admin-test", Password = "ValidPass1" });
 
         Assert.Equal("admin-test", response.Username);
-        Assert.Equal("Admin", response.Role);
+        Assert.Equal("Owner", response.Role);
 
         var token = new JwtSecurityTokenHandler().ReadJwtToken(response.Token);
         Assert.Equal("digitalbanking-tests", token.Issuer);
         Assert.Contains("digitalbanking-tests-client", token.Audiences);
         Assert.Equal(user.Id.ToString(), token.Claims.Single(c => c.Type == ClaimTypes.NameIdentifier).Value);
         Assert.Equal("admin-test", token.Claims.Single(c => c.Type == ClaimTypes.Name).Value);
-        Assert.Equal("Admin", token.Claims.Single(c => c.Type == ClaimTypes.Role).Value);
+        Assert.Equal("Owner", token.Claims.Single(c => c.Type == ClaimTypes.Role).Value);
         Assert.True(token.ValidTo > DateTime.UtcNow);
     }
 
@@ -55,7 +55,7 @@ public class AuthAndClaimsTests
         await using var db = await TestDb.CreateAsync();
         await using var context = db.NewContext();
         var hasher = new PasswordHasher();
-        await TestSupport.AddUserAsync(context, "admin-test", hasher.Hash("ValidPass1"), UserRole.Admin);
+        await TestSupport.AddUserAsync(context, "admin-test", hasher.Hash("ValidPass1"), UserRole.Owner);
         var limiter = new InMemoryLoginAttemptLimiter(maxFailures: 3, window: TimeSpan.FromMinutes(15), lockout: TimeSpan.FromMinutes(5));
         var service = CreateAuthService(context, limiter);
 
@@ -81,7 +81,7 @@ public class AuthAndClaimsTests
         await using var db = await TestDb.CreateAsync();
         await using var context = db.NewContext();
         var hasher = new PasswordHasher();
-        await TestSupport.AddUserAsync(context, "admin-test", hasher.Hash("ValidPass1"), UserRole.Admin);
+        await TestSupport.AddUserAsync(context, "admin-test", hasher.Hash("ValidPass1"), UserRole.Owner);
         var limiter = new InMemoryLoginAttemptLimiter(maxFailures: 3);
         var service = CreateAuthService(context, limiter);
 
@@ -100,7 +100,7 @@ public class AuthAndClaimsTests
         await using var db = await TestDb.CreateAsync();
         await using var context = db.NewContext();
         var legacy = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes("LegacyPass1")));
-        await TestSupport.AddUserAsync(context, "legacy-user", legacy, UserRole.User);
+        await TestSupport.AddUserAsync(context, "legacy-user", legacy, UserRole.Customer);
         var service = CreateAuthService(context);
 
         await service.LoginAsync(new LoginRequest { Username = "legacy-user", Password = "LegacyPass1" });
@@ -118,7 +118,7 @@ public class AuthAndClaimsTests
         {
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
             new Claim(ClaimTypes.Name, "claim-user"),
-            new Claim(ClaimTypes.Role, "Admin")
+            new Claim(ClaimTypes.Role, "Owner")
         }, "test"));
 
         var actor = principal.GetActor();
@@ -135,7 +135,7 @@ public class AuthAndClaimsTests
         {
             new Claim(ClaimTypes.NameIdentifier, "not-a-guid"),
             new Claim(ClaimTypes.Name, "claim-user"),
-            new Claim(ClaimTypes.Role, "Admin")
+            new Claim(ClaimTypes.Role, "Owner")
         }, "test"));
         Assert.Throws<UnauthorizedAccessException>(() => invalid.GetActor());
     }
@@ -156,7 +156,7 @@ public class AuthAndClaimsTests
             {
                 Id = Guid.NewGuid(),
                 Username = "synthetic",
-                Role = UserRole.Admin
+                Role = UserRole.Owner
             }));
     }
 }

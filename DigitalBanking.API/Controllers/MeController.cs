@@ -2,6 +2,7 @@ using DigitalBanking.API.Extensions;
 using DigitalBanking.API.Filters;
 using DigitalBanking.Application.Abstractions.Services;
 using DigitalBanking.Application.DTOs.Account;
+using DigitalBanking.Application.DTOs.ApprovalRequests;
 using DigitalBanking.Application.DTOs.Common;
 using DigitalBanking.Application.DTOs.CustomerPortal;
 using DigitalBanking.Application.DTOs.PaymentApprovals;
@@ -24,15 +25,18 @@ public class MeController : ControllerBase
     private readonly ICustomerPortalService _portal;
     private readonly ICustomerAccessService _access;
     private readonly IPaymentTimelineService _timeline;
+    private readonly IPaymentApprovalService _payments;
 
     public MeController(
         ICustomerPortalService portal,
         ICustomerAccessService access,
-        IPaymentTimelineService timeline)
+        IPaymentTimelineService timeline,
+        IPaymentApprovalService payments)
     {
         _portal = portal;
         _access = access;
         _timeline = timeline;
+        _payments = payments;
     }
 
     [HttpGet("profile")]
@@ -118,6 +122,15 @@ public class MeController : ControllerBase
         return Ok(ApiResponse<PaymentReceiptDto>.SuccessWith(receipt));
     }
 
+    [HttpPost("payments/{id:int}/cancel")]
+    [Idempotent]
+    public async Task<IActionResult> CancelPayment(int id, CancellationToken cancellationToken)
+    {
+        await RequireOwnedPaymentAsync(id, cancellationToken);
+        await _payments.CancelAsync(id, User.GetActor(), cancellationToken);
+        return NoContent();
+    }
+
     [HttpPost("transfers")]
     [Idempotent]
     [ProducesResponseType(typeof(ApiResponse<PaymentApprovalResponse>), StatusCodes.Status201Created)]
@@ -137,6 +150,18 @@ public class MeController : ControllerBase
                 payment.Status == "AutoApproved"
                     ? "Low risk transfer auto-approved."
                     : "Transfer request created; waiting for Admin review."));
+    }
+
+    [HttpPost("requests")]
+    [Idempotent]
+    [ProducesResponseType(typeof(ApiResponse<PaymentApprovalResponse>), StatusCodes.Status201Created)]
+    public async Task<IActionResult> CreateOperationRequest(
+        [FromBody] CreateCustomerOperationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var payment = await _portal.CreateOperationRequestAsync(request, User.GetActor(), cancellationToken);
+        return CreatedAtAction(nameof(GetPayment), new { id = payment.Id },
+            ApiResponse<PaymentApprovalResponse>.SuccessWith(payment, "Talep oluşturuldu; onay bekliyor."));
     }
 
     private async Task RequireOwnedPaymentAsync(int paymentId, CancellationToken cancellationToken)

@@ -16,7 +16,7 @@ namespace DigitalBanking.API.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Owner")]
 public class AccountsController : ControllerBase
 {
     private readonly IAccountService _accountService;
@@ -35,25 +35,18 @@ public class AccountsController : ControllerBase
 
     /// <summary>Opens a new account for a customer. Admin only.</summary>
     [HttpPost("open")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Owner")]
     [Idempotent]
     [ProducesResponseType(typeof(ApiResponse<AccountDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> OpenAccount(
+    public Task<IActionResult> OpenAccount(
         [FromBody] OpenAccountRequest request,
         CancellationToken cancellationToken = default)
     {
-        var createRequest = new CreateAccountRequest
-        {
-            CustomerId = request.CustomerId,
-            Currency = request.Currency,
-            InitialBalance = request.InitialBalance
-        };
-
-        var account = await _accountService.OpenAccountAsync(createRequest, User.GetActor(), cancellationToken);
-
-        return Ok(ApiResponse<AccountDto>.SuccessWith(account, "Account opened successfully."));
+        IActionResult result = BadRequest(ApiResponse.Failure(
+            "Hesap açılışı artık onay talebi olarak oluşturulmalıdır: POST /api/paymentapprovals/requests (RequestType=AccountOpening)."));
+        return Task.FromResult(result);
     }
 
     /// <summary>Retrieves accounts with pagination and optional customer filter.</summary>
@@ -90,19 +83,18 @@ public class AccountsController : ControllerBase
     /// must go through POST /api/paymentapprovals (maker-checker).
     /// </summary>
     [HttpPost("transfer")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Owner")]
     [Idempotent]
     [ProducesResponseType(typeof(ApiResponse<TransferResultDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Transfer(
+    public Task<IActionResult> Transfer(
         [FromBody] TransferRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await _transactionService.TransferAsync(request, User.GetActor(), cancellationToken);
-        var response = _mapper.Map<TransferResultDto>(result);
-
-        return Ok(ApiResponse<TransferResultDto>.SuccessWith(response, "Transfer completed successfully."));
+        IActionResult result = BadRequest(ApiResponse.Failure(
+            "Doğrudan transfer kapalıdır. Tüm finansal hareketler onay talebi olarak oluşturulmalıdır: POST /api/paymentapprovals/requests."));
+        return Task.FromResult(result);
     }
 }

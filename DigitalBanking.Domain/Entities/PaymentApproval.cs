@@ -10,8 +10,16 @@ namespace DigitalBanking.Domain.Entities;
 public class PaymentApproval
 {
     public int Id { get; set; }
+    /// <summary>Transfer source, deposit/withdraw account, or Guid.Empty for account opening.</summary>
     public Guid FromAccountId { get; set; }
+
+    /// <summary>Transfer destination, same account for deposit/withdraw, or Guid.Empty for opening.</summary>
     public Guid ToAccountId { get; set; }
+
+    public ApprovalRequestType RequestType { get; set; } = ApprovalRequestType.Transfer;
+    public Guid? RequestedCustomerId { get; set; }
+    public decimal? RequestedInitialBalance { get; set; }
+    public Guid? CreatedAccountId { get; set; }
 
     public decimal Amount { get; set; }
     public string Currency { get; set; } = "TRY";

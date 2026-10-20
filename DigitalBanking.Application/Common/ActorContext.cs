@@ -8,5 +8,5 @@ namespace DigitalBanking.Application.Common;
 /// </summary>
 public sealed record ActorContext(Guid UserId, string Username, UserRole Role)
 {
-    public bool IsAdmin => Role == UserRole.Admin;
+    public bool IsAdmin => Role == UserRole.Owner;
 }

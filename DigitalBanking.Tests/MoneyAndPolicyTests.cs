@@ -77,16 +77,15 @@ public class MoneyAndPolicyTests
     }
 
     [Theory]
-    [InlineData(1, PaymentRiskLevel.Low, false)]
-    [InlineData(49_999.99, PaymentRiskLevel.Low, false)]
-    [InlineData(50_000, PaymentRiskLevel.Medium, true)]
-    [InlineData(249_999.99, PaymentRiskLevel.Medium, true)]
-    [InlineData(250_000, PaymentRiskLevel.High, true)]
-    [InlineData(1_000_000, PaymentRiskLevel.Critical, true)]
-    public void RiskPolicyBoundariesAreExplicit(decimal amount, PaymentRiskLevel risk, bool makerChecker)
+    [InlineData(1, PaymentRiskLevel.Low)]
+    [InlineData(49_999.99, PaymentRiskLevel.Low)]
+    [InlineData(50_000, PaymentRiskLevel.Medium)]
+    [InlineData(249_999.99, PaymentRiskLevel.Medium)]
+    [InlineData(250_000, PaymentRiskLevel.High)]
+    [InlineData(1_000_000, PaymentRiskLevel.Critical)]
+    public void RiskPolicyBoundariesAreExplicit(decimal amount, PaymentRiskLevel risk)
     {
         Assert.Equal(risk, PaymentPolicy.RiskFor(amount));
-        Assert.Equal(makerChecker, PaymentPolicy.RequiresMakerChecker(amount));
     }
 
     [Theory]

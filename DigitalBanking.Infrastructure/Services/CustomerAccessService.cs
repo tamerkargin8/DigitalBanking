@@ -35,21 +35,19 @@ public sealed class CustomerAccessService : ICustomerAccessService
             .AnyAsync(cancellationToken);
     }
 
-    public Task<bool> UserOwnsPaymentAsync(Guid userId, int paymentId, CancellationToken cancellationToken = default)
+    public async Task<bool> UserOwnsPaymentAsync(Guid userId, int paymentId, CancellationToken cancellationToken = default)
     {
-        return _context.PaymentApprovals
-            .AsNoTracking()
-            .Where(x => x.Id == paymentId)
-            .Join(
-                _context.Accounts.AsNoTracking(),
-                payment => payment.FromAccountId,
-                account => account.Id,
-                (payment, account) => new { payment, account })
-            .Join(
-                _context.Customers.AsNoTracking().Where(c => c.UserId == userId),
-                joined => joined.account.CustomerId,
-                customer => customer.Id,
-                (_, _) => 1)
-            .AnyAsync(cancellationToken);
+        var payment = await _context.PaymentApprovals.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == paymentId, cancellationToken);
+        if (payment is null) return false;
+
+        var customerId = await GetCustomerIdAsync(userId, cancellationToken);
+        if (customerId is null) return false;
+
+        if (payment.RequestType == Domain.Enums.ApprovalRequestType.AccountOpening)
+            return payment.RequestedCustomerId == customerId;
+
+        return await _context.Accounts.AsNoTracking()
+            .AnyAsync(x => x.Id == payment.FromAccountId && x.CustomerId == customerId, cancellationToken);
     }
 }

@@ -1,5 +1,6 @@
 using DigitalBanking.Application.Common;
 using DigitalBanking.Application.DTOs.Account;
+using DigitalBanking.Application.DTOs.ApprovalRequests;
 using DigitalBanking.Application.DTOs.CustomerPortal;
 using DigitalBanking.Application.DTOs.PaymentApprovals;
 using DigitalBanking.Application.DTOs.Transaction;
@@ -20,4 +21,5 @@ public interface ICustomerPortalService
     Task<List<PaymentApprovalResponse>> GetPaymentsAsync(ActorContext actor, CancellationToken cancellationToken = default);
     Task<PaymentApprovalResponse> GetPaymentAsync(int paymentId, ActorContext actor, CancellationToken cancellationToken = default);
     Task<PaymentApprovalResponse> CreateTransferRequestAsync(CreateCustomerTransferRequest request, ActorContext actor, CancellationToken cancellationToken = default);
+    Task<PaymentApprovalResponse> CreateOperationRequestAsync(CreateCustomerOperationRequest request, ActorContext actor, CancellationToken cancellationToken = default);
 }

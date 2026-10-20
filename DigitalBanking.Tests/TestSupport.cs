@@ -46,8 +46,16 @@ public sealed class TestDb : IAsyncDisposable
 
 public static class TestSupport
 {
-    public static readonly ActorContext AdminActor = new(Guid.NewGuid(), "admin-test", UserRole.Admin);
-    public static readonly ActorContext StandardActor = new(Guid.NewGuid(), "user-test", UserRole.User);
+    public static async Task<(User User, ActorContext Actor)> AddActorAsync(
+        BankDbContext context,
+        string username,
+        UserRole role,
+        UserStatus status = UserStatus.Active,
+        string passwordHash = "synthetic-hash")
+    {
+        var user = await AddUserAsync(context, username, passwordHash, role, status);
+        return (user, new ActorContext(user.Id, user.Username, user.Role));
+    }
 
     public static IMapper CreateMapper()
     {
@@ -112,15 +120,21 @@ public static class TestSupport
         BankDbContext context,
         string username,
         string passwordHash,
-        UserRole role)
+        UserRole role,
+        UserStatus status = UserStatus.Active)
     {
         var user = new User
         {
             Id = Guid.NewGuid(),
             Username = username,
+            Email = username + "@test.invalid",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = passwordHash,
             Role = role,
-            CreatedDate = DateTime.UtcNow
+            Status = status,
+            CreatedDate = DateTime.UtcNow,
+            ActivatedAt = status == UserStatus.Active ? DateTime.UtcNow : null
         };
         context.Users.Add(user);
         await context.SaveChangesAsync();

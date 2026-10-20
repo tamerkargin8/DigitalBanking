@@ -2,6 +2,7 @@ using System.Text;
 using DigitalBanking.Application.Common;
 using DigitalBanking.Application.DTOs.Reconciliation;
 using DigitalBanking.Application.Exceptions;
+using DigitalBanking.Domain.Entities;
 using DigitalBanking.Domain.Enums;
 using DigitalBanking.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -15,8 +16,10 @@ public class ReconciliationServiceTests
         DigitalBanking.Infrastructure.Persistence.BankDbContext Context,
         ReconciliationService Service,
         PaymentApprovalService Payments,
-        ActorContext Admin,
-        ActorContext Checker,
+        ActorContext Owner,
+        ActorContext Approver,
+        Guid OwnerId,
+        Guid ApproverId,
         Guid AccountA,
         Guid AccountB,
         Guid UsdA,
@@ -26,24 +29,58 @@ public class ReconciliationServiceTests
     {
         var db = await TestDb.CreateAsync();
         var context = db.NewContext();
+        var (owner, ownerActor) = await TestSupport.AddActorAsync(context, "owner-recon", UserRole.Owner);
+        var (approver, approverActor) = await TestSupport.AddActorAsync(context, "approver-recon", UserRole.DelegatedApprover);
         var customerA = await TestSupport.AddCustomerAsync(context, "Ayşe", "Recon");
         var customerB = await TestSupport.AddCustomerAsync(context, "Burak", "Recon");
-        var accountA = await TestSupport.AddAccountAsync(context, customerA.Id, 250_000m, "TRY");
+        var accountA = await TestSupport.AddAccountAsync(context, customerA.Id, 1_000_000m, "TRY");
         var accountB = await TestSupport.AddAccountAsync(context, customerB.Id, 25_000m, "TRY");
-        var usdA = await TestSupport.AddAccountAsync(context, customerA.Id, 10_000m, "USD");
+        var usdA = await TestSupport.AddAccountAsync(context, customerA.Id, 100_000m, "USD");
         var usdB = await TestSupport.AddAccountAsync(context, customerB.Id, 1_000m, "USD");
+
+        foreach (var (operation, currency, max) in new (ApprovalOperation, string?, decimal?)[]
+                 {
+                     (ApprovalOperation.Transfer, "TRY", 1_000_000m),
+                     (ApprovalOperation.Deposit, "TRY", 1_000_000m),
+                     (ApprovalOperation.Withdrawal, "TRY", 1_000_000m),
+                     (ApprovalOperation.AccountOpening, "TRY", 1_000_000m),
+                     (ApprovalOperation.Transfer, "USD", 1_000_000m),
+                     (ApprovalOperation.ReconciliationException, null, null)
+                 })
+        {
+            context.ApprovalDelegations.Add(new ApprovalDelegation
+            {
+                Id = Guid.NewGuid(),
+                UserId = approver.Id,
+                Operation = operation,
+                Currency = currency,
+                MaxAmount = max,
+                IsActive = true,
+                CreatedByOwnerId = owner.Id,
+                CreatedByOwnerUsername = owner.Username,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+        }
+        await context.SaveChangesAsync();
 
         var mapper = TestSupport.CreateMapper();
         var audit = new AuditService(context);
         var access = new CustomerAccessService(context);
-        var payments = new PaymentApprovalService(context, mapper, audit, access);
-        var service = new ReconciliationService(context, audit);
+        var authorization = new ApprovalAuthorizationService(context);
+        var payments = new PaymentApprovalService(context, mapper, audit, access, authorization);
+        var service = new ReconciliationService(context, audit, authorization);
 
-        var admin = new ActorContext(Guid.NewGuid(), "maker-admin", UserRole.Admin);
-        var checker = new ActorContext(Guid.NewGuid(), "checker-admin", UserRole.Admin);
-
-        return new Fixture(db, context, service, payments, admin, checker,
+        return new Fixture(db, context, service, payments, ownerActor, approverActor, owner.Id, approver.Id,
             accountA.Id, accountB.Id, usdA.Id, usdB.Id);
+    }
+
+    private static async Task<DigitalBanking.Application.DTOs.PaymentApprovals.PaymentApprovalResponse> CreateApprovedAsync(
+        Fixture f, Guid from, Guid to, decimal amount, string description)
+    {
+        var payment = await f.Payments.CreateApprovalRequestAsync(from, to, amount, description, f.Owner);
+        await f.Payments.ApprovePaymentAsync(payment.Id, f.Approver);
+        return payment;
     }
 
     private static string Csv(params (string External, Guid Internal, decimal Amount, string Currency, string Date, string Direction)[] rows)
@@ -64,30 +101,29 @@ public class ReconciliationServiceTests
         var f = await CreateFixtureAsync();
         await using var _ = f.Db;
 
-        var payment = await f.Payments.CreateApprovalRequestAsync(
-            f.AccountA, f.AccountB, 100m, "Synthetic recon", f.Admin);
+        var payment = await CreateApprovedAsync(f, f.AccountA, f.AccountB, 100m, "Synthetic recon");
         var correlation = payment.CorrelationId;
         var bytes = Encoding.UTF8.GetBytes(Csv(
             ("EXT-1", correlation, 100m, "TRY", Today, "Debit"),
             ("EXT-2", correlation, 100m, "TRY", Today, "Credit")));
 
-        var preview = await f.Service.PreviewAsync(bytes, "statement.csv", null, null, null, null, false, f.Admin);
+        var preview = await f.Service.PreviewAsync(bytes, "statement.csv", null, null, null, null, false, f.Owner);
         Assert.Equal("Previewed", preview.Batch.Status);
         Assert.False(preview.Batch.HasErrors);
         Assert.Equal(2, preview.Batch.RowCount);
 
-        var imported = await f.Service.ImportAsync(preview.Batch.Id, f.Admin);
+        var imported = await f.Service.ImportAsync(preview.Batch.Id, f.Owner);
         Assert.Equal(2, imported.Batch.MatchedCount);
         Assert.Equal(0, imported.Batch.OnlyExternalCount);
         Assert.Equal(0, imported.Batch.OnlySystemCount);
         Assert.All(imported.Rows, r => Assert.Equal("Matched", r.MatchStatus));
 
-        var again = await f.Service.ImportAsync(preview.Batch.Id, f.Admin);
+        var again = await f.Service.ImportAsync(preview.Batch.Id, f.Owner);
         Assert.Equal(imported.Batch.Id, again.Batch.Id);
         Assert.Equal(1, await f.Context.ReconciliationBatches.CountAsync());
         Assert.Equal(2, await f.Context.ReconciliationRows.CountAsync());
 
-        var replay = await f.Service.PreviewAsync(bytes, "statement-renamed.csv", null, null, null, null, false, f.Admin);
+        var replay = await f.Service.PreviewAsync(bytes, "statement-renamed.csv", null, null, null, null, false, f.Owner);
         Assert.True(replay.Replayed);
         Assert.Equal(preview.Batch.Id, replay.Batch.Id);
         Assert.Equal(1, await f.Context.ReconciliationBatches.CountAsync());
@@ -99,14 +135,11 @@ public class ReconciliationServiceTests
         var f = await CreateFixtureAsync();
         await using var _ = f.Db;
 
-        var tryPayment = await f.Payments.CreateApprovalRequestAsync(
-            f.AccountA, f.AccountB, 100m, "TRY recon", f.Admin);
-        var usdPaymentAmount = await f.Payments.CreateApprovalRequestAsync(
-            f.UsdA, f.UsdB, 50m, "USD amount recon", f.Admin);
-        var usdPaymentCurrency = await f.Payments.CreateApprovalRequestAsync(
-            f.UsdA, f.UsdB, 60m, "USD currency recon", f.Admin);
+        var tryPayment = await CreateApprovedAsync(f, f.AccountA, f.AccountB, 100m, "TRY recon");
+        var usdPaymentAmount = await CreateApprovedAsync(f, f.UsdA, f.UsdB, 50m, "USD amount recon");
+        var usdPaymentCurrency = await CreateApprovedAsync(f, f.UsdA, f.UsdB, 60m, "USD currency recon");
         var pending = await f.Payments.CreateApprovalRequestAsync(
-            f.AccountA, f.AccountB, 75_000m, "Pending recon", f.Admin);
+            f.AccountA, f.AccountB, 75_000m, "Pending recon", f.Owner);
 
         var bytes = Encoding.UTF8.GetBytes(Csv(
             ("EXT-AMOUNT", usdPaymentAmount.CorrelationId, 999m, "USD", Today, "Debit"),
@@ -117,8 +150,8 @@ public class ReconciliationServiceTests
             ("EXT-INTERNAL-DUP", tryPayment.CorrelationId, 100m, "TRY", Today, "Debit"),
             ("EXT-INTERNAL-DUP-2", tryPayment.CorrelationId, 100m, "TRY", Today, "Debit")));
 
-        var preview = await f.Service.PreviewAsync(bytes, "mismatch.csv", null, null, null, null, false, f.Admin);
-        var imported = await f.Service.ImportAsync(preview.Batch.Id, f.Admin);
+        var preview = await f.Service.PreviewAsync(bytes, "mismatch.csv", null, null, null, null, false, f.Owner);
+        var imported = await f.Service.ImportAsync(preview.Batch.Id, f.Owner);
 
         Assert.Equal(1, imported.Batch.AmountMismatchCount);
         Assert.Equal(1, imported.Batch.CurrencyMismatchCount);
@@ -139,16 +172,16 @@ public class ReconciliationServiceTests
         await using var _ = f.Db;
 
         var badHeader = Encoding.UTF8.GetBytes("wrong,internal_reference,amount,currency,transaction_date,direction\n");
-        var preview = await f.Service.PreviewAsync(badHeader, "bad.csv", null, null, null, null, false, f.Admin);
+        var preview = await f.Service.PreviewAsync(badHeader, "bad.csv", null, null, null, null, false, f.Owner);
         Assert.Equal("Invalid", preview.Batch.Status);
         Assert.True(preview.Batch.HasErrors);
         Assert.False(string.IsNullOrWhiteSpace(preview.Batch.ValidationSummary));
 
         await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            f.Service.ImportAsync(preview.Batch.Id, f.Admin));
+            f.Service.ImportAsync(preview.Batch.Id, f.Owner));
         Assert.Equal(1, await f.Context.ReconciliationBatches.CountAsync());
 
-        var replay = await f.Service.PreviewAsync(badHeader, "bad.csv", null, null, null, null, false, f.Admin);
+        var replay = await f.Service.PreviewAsync(badHeader, "bad.csv", null, null, null, null, false, f.Owner);
         Assert.True(replay.Replayed);
         Assert.Equal(preview.Batch.Id, replay.Batch.Id);
     }
@@ -161,14 +194,14 @@ public class ReconciliationServiceTests
 
         var bytes = Encoding.UTF8.GetBytes("external_reference,internal_reference,amount,currency,transaction_date,direction\n" +
             "EXT-1,not-a-guid,10,TRY,2026-10-20,Debit\n");
-        var preview = await f.Service.PreviewAsync(bytes, "row-error.csv", null, null, null, null, false, f.Admin);
+        var preview = await f.Service.PreviewAsync(bytes, "row-error.csv", null, null, null, null, false, f.Owner);
 
         Assert.Equal("Invalid", preview.Batch.Status);
         Assert.Equal(1, preview.InvalidRowCount);
         var row = Assert.Single(preview.Rows);
         Assert.False(row.IsValid);
         Assert.Contains("GUID", row.ValidationError);
-        await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.ImportAsync(preview.Batch.Id, f.Admin));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.ImportAsync(preview.Batch.Id, f.Owner));
     }
 
     [Fact]
@@ -179,8 +212,8 @@ public class ReconciliationServiceTests
 
         var bytes = Encoding.UTF8.GetBytes(Csv(
             ("\"=SUM(1,1)\"", Guid.NewGuid(), 1m, "TRY", Today, "Debit")));
-        var preview = await f.Service.PreviewAsync(bytes, "formula.csv", null, null, null, null, false, f.Admin);
-        await f.Service.ImportAsync(preview.Batch.Id, f.Admin);
+        var preview = await f.Service.PreviewAsync(bytes, "formula.csv", null, null, null, null, false, f.Owner);
+        await f.Service.ImportAsync(preview.Batch.Id, f.Owner);
 
         var csv = await f.Service.ExportCsvAsync(preview.Batch.Id);
         Assert.StartsWith("\uFEFF", csv);
@@ -195,8 +228,8 @@ public class ReconciliationServiceTests
         await using var _ = f.Db;
 
         var bytes = Encoding.UTF8.GetBytes(Csv(("EXT-ONLY", Guid.NewGuid(), 10m, "TRY", Today, "Debit")));
-        var preview = await f.Service.PreviewAsync(bytes, "exception.csv", null, null, null, null, false, f.Admin);
-        var imported = await f.Service.ImportAsync(preview.Batch.Id, f.Admin);
+        var preview = await f.Service.PreviewAsync(bytes, "exception.csv", null, null, null, null, false, f.Owner);
+        var imported = await f.Service.ImportAsync(preview.Batch.Id, f.Owner);
         var row = Assert.Single(imported.Rows);
         Assert.Equal("OnlyExternal", row.MatchStatus);
 
@@ -207,16 +240,16 @@ public class ReconciliationServiceTests
         {
             RowId = row.Id,
             Description = "Synthetic external-only line"
-        }, f.Admin);
+        }, f.Owner);
         Assert.Equal("Open", exception.Status);
 
-        await f.Service.ReviewAsync(exception.Id, f.Admin);
-        await f.Service.ProposeAsync(exception.Id, "Operational note only; no ledger correction.", f.Admin);
+        await f.Service.ReviewAsync(exception.Id, f.Owner);
+        await f.Service.ProposeAsync(exception.Id, "Operational note only; no ledger correction.", f.Owner);
 
-        await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.ApproveAsync(exception.Id, f.Admin));
-        var closed = await f.Service.ApproveAsync(exception.Id, f.Checker);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.ApproveAsync(exception.Id, f.Owner));
+        var closed = await f.Service.ApproveAsync(exception.Id, f.Approver);
         Assert.Equal("Closed", closed.Status);
-        Assert.Equal(f.Checker.UserId, closed.ReviewedByUserId);
+        Assert.Equal(f.Approver.UserId, closed.ReviewedByUserId);
 
         Assert.Equal(beforeA, (await f.Context.Accounts.SingleAsync(x => x.Id == f.AccountA)).Balance);
         Assert.Equal(beforeB, (await f.Context.Accounts.SingleAsync(x => x.Id == f.AccountB)).Balance);
@@ -229,21 +262,21 @@ public class ReconciliationServiceTests
         await using var _ = f.Db;
 
         var bytes = Encoding.UTF8.GetBytes(Csv(("EXT-ONLY-2", Guid.NewGuid(), 5m, "TRY", Today, "Debit")));
-        var preview = await f.Service.PreviewAsync(bytes, "reopen.csv", null, null, null, null, false, f.Admin);
-        var imported = await f.Service.ImportAsync(preview.Batch.Id, f.Admin);
+        var preview = await f.Service.PreviewAsync(bytes, "reopen.csv", null, null, null, null, false, f.Owner);
+        var imported = await f.Service.ImportAsync(preview.Batch.Id, f.Owner);
         var row = Assert.Single(imported.Rows);
 
         var exception = await f.Service.CreateExceptionAsync(new CreateReconciliationExceptionRequest
         {
             RowId = row.Id,
             Description = "Synthetic reopen case"
-        }, f.Admin);
-        await f.Service.ReviewAsync(exception.Id, f.Admin);
-        await f.Service.ProposeAsync(exception.Id, "Proposed operational resolution.", f.Admin);
-        var rejected = await f.Service.RejectAsync(exception.Id, "Insufficient evidence.", f.Checker);
+        }, f.Owner);
+        await f.Service.ReviewAsync(exception.Id, f.Owner);
+        await f.Service.ProposeAsync(exception.Id, "Proposed operational resolution.", f.Owner);
+        var rejected = await f.Service.RejectAsync(exception.Id, "Insufficient evidence.", f.Approver);
         Assert.Equal("Rejected", rejected.Status);
 
-        var reopened = await f.Service.ReopenAsync(exception.Id, "New evidence received.", f.Admin);
+        var reopened = await f.Service.ReopenAsync(exception.Id, "New evidence received.", f.Owner);
         Assert.Equal("Open", reopened.Status);
         Assert.Null(reopened.ResolutionNote);
     }
@@ -253,7 +286,8 @@ public class ReconciliationServiceTests
     {
         var f = await CreateFixtureAsync();
         await using var _ = f.Db;
-        var user = new ActorContext(Guid.NewGuid(), "user", UserRole.User);
+        var customerUser = await TestSupport.AddActorAsync(f.Context, "plain-customer", UserRole.Customer);
+        var user = customerUser.Actor;
 
         await Assert.ThrowsAsync<ForbiddenException>(() =>
             f.Service.PreviewAsync(Encoding.UTF8.GetBytes(Csv()), "x.csv", null, null, null, null, false, user));
@@ -266,16 +300,16 @@ public class ReconciliationServiceTests
         await using var _ = f.Db;
 
         var bytes = Encoding.UTF8.GetBytes(Csv(("EXT-CONC", Guid.NewGuid(), 7m, "TRY", Today, "Debit")));
-        var preview = await f.Service.PreviewAsync(bytes, "concurrency.csv", null, null, null, null, false, f.Admin);
-        var imported = await f.Service.ImportAsync(preview.Batch.Id, f.Admin);
+        var preview = await f.Service.PreviewAsync(bytes, "concurrency.csv", null, null, null, null, false, f.Owner);
+        var imported = await f.Service.ImportAsync(preview.Batch.Id, f.Owner);
         var row = Assert.Single(imported.Rows);
         var exception = await f.Service.CreateExceptionAsync(new CreateReconciliationExceptionRequest
         {
             RowId = row.Id,
             Description = "Synthetic concurrency case"
-        }, f.Admin);
-        await f.Service.ReviewAsync(exception.Id, f.Admin);
-        await f.Service.ProposeAsync(exception.Id, "Operational resolution.", f.Admin);
+        }, f.Owner);
+        await f.Service.ReviewAsync(exception.Id, f.Owner);
+        await f.Service.ProposeAsync(exception.Id, "Operational resolution.", f.Owner);
 
         await using var first = f.Db.NewContext();
         await using var second = f.Db.NewContext();

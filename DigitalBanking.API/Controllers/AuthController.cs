@@ -2,6 +2,7 @@ using DigitalBanking.API.Extensions;
 using DigitalBanking.Application.Abstractions.Services;
 using DigitalBanking.Application.DTOs.Auth;
 using DigitalBanking.Application.DTOs.Common;
+using DigitalBanking.Application.DTOs.Identity;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,11 +16,13 @@ namespace DigitalBanking.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IUserIdentityService _identity;
     private readonly IValidator<LoginRequest> _validator;
 
-    public AuthController(IAuthService authService, IValidator<LoginRequest> validator)
+    public AuthController(IAuthService authService, IUserIdentityService identity, IValidator<LoginRequest> validator)
     {
         _authService = authService;
+        _identity = identity;
         _validator = validator;
     }
 
@@ -43,6 +46,16 @@ public class AuthController : ControllerBase
         var response = await _authService.LoginAsync(request, cancellationToken);
 
         return Ok(ApiResponse<LoginResponse>.SuccessWith(response, "Login successful."));
+    }
+
+    [HttpPost("register")]
+    [AllowAnonymous]
+    [EnableRateLimiting("register")]
+    [ProducesResponseType(typeof(ApiResponse<RegisterResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _identity.RegisterAsync(request, cancellationToken);
+        return Ok(ApiResponse<RegisterResponse>.SuccessWith(result, result.Message));
     }
 
     /// <summary>

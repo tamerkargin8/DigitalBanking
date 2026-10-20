@@ -24,12 +24,17 @@ public sealed class ReconciliationService : IReconciliationService
 {
     private readonly BankDbContext _context;
     private readonly IAuditService _auditService;
+    private readonly IApprovalAuthorizationService _authorization;
     private readonly ILogger _logger;
 
-    public ReconciliationService(BankDbContext context, IAuditService auditService)
+    public ReconciliationService(
+        BankDbContext context,
+        IAuditService auditService,
+        IApprovalAuthorizationService authorization)
     {
         _context = context;
         _auditService = auditService;
+        _authorization = authorization;
         _logger = Log.ForContext<ReconciliationService>();
     }
 
@@ -44,7 +49,7 @@ public sealed class ReconciliationService : IReconciliationService
         ActorContext actor,
         CancellationToken cancellationToken = default)
     {
-        EnsureAdmin(actor);
+        await EnsureOwnerAsync(actor, cancellationToken);
 
         var normalizedCurrency = string.IsNullOrWhiteSpace(currency) ? null : CurrencyCodes.Normalize(currency);
         var normalizedDirection = ParseDirectionOrNull(direction);
@@ -162,7 +167,7 @@ public sealed class ReconciliationService : IReconciliationService
 
     public async Task<ReconciliationBatchDetailDto> ImportAsync(Guid batchId, ActorContext actor, CancellationToken cancellationToken = default)
     {
-        EnsureAdmin(actor);
+        await EnsureOwnerAsync(actor, cancellationToken);
 
         var initial = await _context.ReconciliationBatches.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == batchId, cancellationToken);
@@ -363,8 +368,9 @@ public sealed class ReconciliationService : IReconciliationService
     }
 
     public async Task<PaginatedResponse<ReconciliationExceptionDto>> GetExceptionsAsync(
-        int page, int pageSize, string? status, Guid? batchId, CancellationToken cancellationToken = default)
+        int page, int pageSize, string? status, Guid? batchId, ActorContext actor, CancellationToken cancellationToken = default)
     {
+        await EnsureExceptionAuthorizedAsync(actor, cancellationToken);
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
@@ -386,8 +392,9 @@ public sealed class ReconciliationService : IReconciliationService
         return new PaginatedResponse<ReconciliationExceptionDto>(items, page, pageSize, total);
     }
 
-    public async Task<ReconciliationExceptionDto> GetExceptionAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<ReconciliationExceptionDto> GetExceptionAsync(Guid id, ActorContext actor, CancellationToken cancellationToken = default)
     {
+        await EnsureExceptionAuthorizedAsync(actor, cancellationToken);
         var items = await QueryExceptionsAsync(id, null, cancellationToken);
         var item = items.FirstOrDefault() ?? throw new NotFoundException("ReconciliationException", id.ToString());
         return item;
@@ -396,7 +403,7 @@ public sealed class ReconciliationService : IReconciliationService
     public async Task<ReconciliationExceptionDto> CreateExceptionAsync(
         CreateReconciliationExceptionRequest request, ActorContext actor, CancellationToken cancellationToken = default)
     {
-        EnsureAdmin(actor);
+        await EnsureExceptionAuthorizedAsync(actor, cancellationToken);
 
         var description = (request.Description ?? string.Empty).Trim();
         if (description.Length < 5 || description.Length > 1000)
@@ -435,13 +442,13 @@ public sealed class ReconciliationService : IReconciliationService
         _auditService.Add("RECON_EXCEPTION_CREATED", "ReconciliationException", entity.Id.ToString(),
             actor.Username, true, $"Batch: {row.BatchId}, ExternalRef: {row.ExternalReference}, Status: Open");
         await _context.SaveChangesAsync(cancellationToken);
-        return await GetExceptionAsync(entity.Id, cancellationToken);
+        return await GetExceptionAsync(entity.Id, actor, cancellationToken);
     }
 
     public async Task<ReconciliationExceptionDto> AssignAsync(
         Guid id, Guid? assignedToUserId, ActorContext actor, CancellationToken cancellationToken = default)
     {
-        EnsureAdmin(actor);
+        await EnsureExceptionAuthorizedAsync(actor, cancellationToken);
         var entity = await LoadExceptionAsync(id, cancellationToken);
         if (entity.Status is ReconciliationExceptionStatus.Closed or ReconciliationExceptionStatus.Rejected)
             throw new BusinessRuleException("Kapanmış/reddedilmiş istisna atanamaz.");
@@ -452,12 +459,12 @@ public sealed class ReconciliationService : IReconciliationService
         entity.UpdatedAt = DateTime.UtcNow;
         _auditService.Add("RECON_EXCEPTION_ASSIGNED", "ReconciliationException", entity.Id.ToString(),
             actor.Username, true, $"AssignedTo: {username ?? "none"}");
-        return await SaveExceptionAsync(entity, cancellationToken);
+        return await SaveExceptionAsync(entity, actor, cancellationToken);
     }
 
     public async Task<ReconciliationExceptionDto> ReviewAsync(Guid id, ActorContext actor, CancellationToken cancellationToken = default)
     {
-        EnsureAdmin(actor);
+        await EnsureExceptionAuthorizedAsync(actor, cancellationToken);
         var entity = await LoadExceptionAsync(id, cancellationToken);
         if (entity.Status != ReconciliationExceptionStatus.Open)
             throw new BusinessRuleException("Yalnız Açık istisna İncelemede durumuna alınabilir.");
@@ -466,13 +473,13 @@ public sealed class ReconciliationService : IReconciliationService
         entity.UpdatedAt = DateTime.UtcNow;
         _auditService.Add("RECON_EXCEPTION_IN_REVIEW", "ReconciliationException", entity.Id.ToString(),
             actor.Username, true, "Status: Open -> InReview");
-        return await SaveExceptionAsync(entity, cancellationToken);
+        return await SaveExceptionAsync(entity, actor, cancellationToken);
     }
 
     public async Task<ReconciliationExceptionDto> ProposeAsync(
         Guid id, string resolutionNote, ActorContext actor, CancellationToken cancellationToken = default)
     {
-        EnsureAdmin(actor);
+        await EnsureExceptionAuthorizedAsync(actor, cancellationToken);
         var note = (resolutionNote ?? string.Empty).Trim();
         if (note.Length < 5 || note.Length > 1000)
             throw new BusinessRuleException("Çözüm gerekçesi 5–1000 karakter arasında olmalıdır.");
@@ -489,12 +496,12 @@ public sealed class ReconciliationService : IReconciliationService
         entity.UpdatedAt = DateTime.UtcNow;
         _auditService.Add("RECON_EXCEPTION_PROPOSED", "ReconciliationException", entity.Id.ToString(),
             actor.Username, true, $"Status: InReview -> ResolutionProposed. Note: {note}");
-        return await SaveExceptionAsync(entity, cancellationToken);
+        return await SaveExceptionAsync(entity, actor, cancellationToken);
     }
 
     public async Task<ReconciliationExceptionDto> ApproveAsync(Guid id, ActorContext actor, CancellationToken cancellationToken = default)
     {
-        EnsureAdmin(actor);
+        await EnsureExceptionAuthorizedAsync(actor, cancellationToken);
         var entity = await LoadExceptionAsync(id, cancellationToken);
         if (entity.Status != ReconciliationExceptionStatus.ResolutionProposed)
             throw new BusinessRuleException("Yalnız çözüm önerilmiş istisna kapatılabilir.");
@@ -509,13 +516,13 @@ public sealed class ReconciliationService : IReconciliationService
         entity.UpdatedAt = DateTime.UtcNow;
         _auditService.Add("RECON_EXCEPTION_CLOSED", "ReconciliationException", entity.Id.ToString(),
             actor.Username, true, "Status: ResolutionProposed -> Closed. Operational resolution only; no balance change.");
-        return await SaveExceptionAsync(entity, cancellationToken);
+        return await SaveExceptionAsync(entity, actor, cancellationToken);
     }
 
     public async Task<ReconciliationExceptionDto> RejectAsync(
         Guid id, string reason, ActorContext actor, CancellationToken cancellationToken = default)
     {
-        EnsureAdmin(actor);
+        await EnsureExceptionAuthorizedAsync(actor, cancellationToken);
         var trimmed = (reason ?? string.Empty).Trim();
         if (trimmed.Length < 3 || trimmed.Length > 500)
             throw new BusinessRuleException("Red gerekçesi 3–500 karakter arasında olmalıdır.");
@@ -534,13 +541,13 @@ public sealed class ReconciliationService : IReconciliationService
         entity.UpdatedAt = DateTime.UtcNow;
         _auditService.Add("RECON_EXCEPTION_REJECTED", "ReconciliationException", entity.Id.ToString(),
             actor.Username, true, $"Status: ResolutionProposed -> Rejected. Reason: {trimmed}");
-        return await SaveExceptionAsync(entity, cancellationToken);
+        return await SaveExceptionAsync(entity, actor, cancellationToken);
     }
 
     public async Task<ReconciliationExceptionDto> ReopenAsync(
         Guid id, string? reason, ActorContext actor, CancellationToken cancellationToken = default)
     {
-        EnsureAdmin(actor);
+        await EnsureExceptionAuthorizedAsync(actor, cancellationToken);
         var entity = await LoadExceptionAsync(id, cancellationToken);
         if (entity.Status is not (ReconciliationExceptionStatus.Closed or ReconciliationExceptionStatus.Rejected))
             throw new BusinessRuleException("Yalnız kapanmış/reddedilmiş istisna yeniden açılabilir.");
@@ -557,10 +564,10 @@ public sealed class ReconciliationService : IReconciliationService
         entity.UpdatedAt = DateTime.UtcNow;
         _auditService.Add("RECON_EXCEPTION_REOPENED", "ReconciliationException", entity.Id.ToString(),
             actor.Username, true, $"Status: {entity.Status} -> Open. Reason: {reason ?? "none"}");
-        return await SaveExceptionAsync(entity, cancellationToken);
+        return await SaveExceptionAsync(entity, actor, cancellationToken);
     }
 
-    private async Task<ReconciliationExceptionDto> SaveExceptionAsync(ReconciliationException entity, CancellationToken cancellationToken)
+    private async Task<ReconciliationExceptionDto> SaveExceptionAsync(ReconciliationException entity, ActorContext actor, CancellationToken cancellationToken)
     {
         try
         {
@@ -571,7 +578,7 @@ public sealed class ReconciliationService : IReconciliationService
             throw new ConcurrencyException($"Reconciliation exception {entity.Id} was updated by another Admin.");
         }
 
-        return await GetExceptionAsync(entity.Id, cancellationToken);
+        return await GetExceptionAsync(entity.Id, actor, cancellationToken);
     }
 
     private async Task<ReconciliationException> LoadExceptionAsync(Guid id, CancellationToken cancellationToken)
@@ -880,10 +887,21 @@ public sealed class ReconciliationService : IReconciliationService
         return parsed;
     }
 
-    private static void EnsureAdmin(ActorContext actor)
+    private async Task EnsureOwnerAsync(ActorContext actor, CancellationToken cancellationToken)
     {
-        if (!actor.IsAdmin)
-            throw new ForbiddenException("Mutabakat işlemleri yalnız Admin rolüne açıktır.");
+        var active = await _authorization.RequireActiveActorAsync(actor.UserId, cancellationToken);
+        if (active.Role != UserRole.Owner)
+            throw new ForbiddenException("Mutabakat dosya yönetimi yalnız Owner rolüne açıktır.");
+    }
+
+    private async Task EnsureExceptionAuthorizedAsync(ActorContext actor, CancellationToken cancellationToken)
+    {
+        var active = await _authorization.RequireActiveActorAsync(actor.UserId, cancellationToken);
+        if (active.Role == UserRole.Owner) return;
+        var permission = await _authorization.CheckAsync(
+            active.UserId, ApprovalOperation.ReconciliationException, null, null, cancellationToken);
+        if (!permission.Allowed)
+            throw new ForbiddenException(permission.Reason);
     }
 
     private static async Task SafeRollbackAsync(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, CancellationToken cancellationToken)

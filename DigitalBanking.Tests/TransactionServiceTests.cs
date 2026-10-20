@@ -10,6 +10,9 @@ namespace DigitalBanking.Tests;
 
 public class TransactionServiceTests
 {
+    private static readonly ActorContext Owner = new(Guid.NewGuid(), "owner-test", UserRole.Owner);
+    private static readonly ActorContext Customer = new(Guid.NewGuid(), "customer-test", UserRole.Customer);
+
     private static TransactionService CreateService(BankDbContext context) =>
         new(context, new AuditService(context), TestSupport.CreateConfiguration());
 
@@ -22,8 +25,8 @@ public class TransactionServiceTests
         var account = await TestSupport.AddAccountAsync(context, customer.Id);
         var service = CreateService(context);
 
-        await service.DepositAsync(new DepositRequest { AccountId = account.Id, Amount = 100.25m }, TestSupport.AdminActor);
-        var withdrawal = await service.WithdrawAsync(new WithdrawRequest { AccountId = account.Id, Amount = 10.10m }, TestSupport.AdminActor);
+        await service.DepositAsync(new DepositRequest { AccountId = account.Id, Amount = 100.25m }, Owner);
+        var withdrawal = await service.WithdrawAsync(new WithdrawRequest { AccountId = account.Id, Amount = 10.10m }, Owner);
 
         Assert.Equal(90.15m, withdrawal.BalanceAfter);
         Assert.Equal(90.15m, (await context.Accounts.SingleAsync(a => a.Id == account.Id)).Balance);
@@ -42,13 +45,13 @@ public class TransactionServiceTests
         var service = CreateService(context);
 
         await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            service.DepositAsync(new DepositRequest { AccountId = from.Id, Amount = 1m }, TestSupport.StandardActor));
+            service.DepositAsync(new DepositRequest { AccountId = from.Id, Amount = 1m }, Customer));
         await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            service.WithdrawAsync(new WithdrawRequest { AccountId = from.Id, Amount = 1m }, TestSupport.StandardActor));
+            service.WithdrawAsync(new WithdrawRequest { AccountId = from.Id, Amount = 1m }, Customer));
         await Assert.ThrowsAsync<BusinessRuleException>(() =>
             service.TransferAsync(
                 new TransferRequest { FromAccountId = from.Id, ToAccountId = to.Id, Amount = 1m },
-                TestSupport.StandardActor));
+                Customer));
 
         Assert.Equal(100m, (await context.Accounts.SingleAsync(a => a.Id == from.Id)).Balance);
         Assert.Equal(0, await context.Transactions.CountAsync());
@@ -66,7 +69,7 @@ public class TransactionServiceTests
 
         var result = await service.TransferAsync(
             new TransferRequest { FromAccountId = from.Id, ToAccountId = to.Id, Amount = 20.05m },
-            TestSupport.AdminActor);
+            Owner);
 
         Assert.Equal(80.20m, result.OutgoingTransaction.BalanceAfter);
         Assert.Equal(25.10m, result.IncomingTransaction.BalanceAfter);
@@ -89,7 +92,7 @@ public class TransactionServiceTests
         var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
             service.TransferAsync(
                 new TransferRequest { FromAccountId = from.Id, ToAccountId = to.Id, Amount = PaymentPolicy.AutoApprovalLimit },
-                TestSupport.AdminActor));
+                Owner));
 
         Assert.Contains("approval", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(100_000m, (await context.Accounts.SingleAsync(a => a.Id == from.Id)).Balance);
@@ -124,7 +127,7 @@ public class TransactionServiceTests
             : typeof(BusinessRuleException);
 
         var exception = await Assert.ThrowsAnyAsync<Exception>(() =>
-            service.TransferAsync(request, TestSupport.AdminActor));
+            service.TransferAsync(request, Owner));
         Assert.IsType(expected, exception);
 
         Assert.Equal(10m, (await context.Accounts.SingleAsync(a => a.Id == from.Id)).Balance);
@@ -148,7 +151,7 @@ public class TransactionServiceTests
         {
             var service = CreateService(failing);
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                service.DepositAsync(new DepositRequest { AccountId = accountId, Amount = 10m }, TestSupport.AdminActor));
+                service.DepositAsync(new DepositRequest { AccountId = accountId, Amount = 10m }, Owner));
         }
 
         await using var verification = db.NewContext();
@@ -167,8 +170,8 @@ public class TransactionServiceTests
         var usdAccount = await TestSupport.AddAccountAsync(context, customer.Id, 0m, "USD");
         var service = CreateService(context);
 
-        await service.DepositAsync(new DepositRequest { AccountId = tryAccount.Id, Amount = 12.34m }, TestSupport.AdminActor);
-        await service.DepositAsync(new DepositRequest { AccountId = usdAccount.Id, Amount = 99.99m }, TestSupport.AdminActor);
+        await service.DepositAsync(new DepositRequest { AccountId = tryAccount.Id, Amount = 12.34m }, Owner);
+        await service.DepositAsync(new DepositRequest { AccountId = usdAccount.Id, Amount = 99.99m }, Owner);
 
         var today = DateTime.UtcNow.Date;
         var statement = await service.GetStatementAsync(tryAccount.Id, today, today);
@@ -198,8 +201,8 @@ public class TransactionServiceTests
         var service = CreateService(context);
 
         for (var i = 0; i < 3; i++)
-            await service.DepositAsync(new DepositRequest { AccountId = account.Id, Amount = 1m + i }, TestSupport.AdminActor);
-        await service.DepositAsync(new DepositRequest { AccountId = other.Id, Amount = 5m }, TestSupport.AdminActor);
+            await service.DepositAsync(new DepositRequest { AccountId = account.Id, Amount = 1m + i }, Owner);
+        await service.DepositAsync(new DepositRequest { AccountId = other.Id, Amount = 5m }, Owner);
 
         var history = await service.GetTransactionHistoryAsync(account.Id, page: 0, pageSize: 500);
         Assert.Equal(1, history.Pagination.PageNumber);
