@@ -58,3 +58,12 @@ terminalde `bash scripts/dotnet.sh build DigitalBanking.slnx` yeterlidir.
 - `bash scripts/dotnet.sh build DigitalBanking.slnx`: başarılı, 0/0.
 - `bash scripts/dotnet.sh test DigitalBanking.slnx`: 80/80 başarılı.
 - Smoke: dashboard yenilemesinden sonra çalıştırılacak.
+
+## Güncel teslim sırası (2026-10-20, kullanıcı talimatı)
+
+Kullanıcı sırayı değiştirdi: önce backend + iş kuralları + güvenlik + testler,
+ardından `docs/DEVELOPMENT_COMPLETION_REPORT.md` ve `docs/TEST_REPORT.md`,
+sonra kısa teslim ve **DUR**. Kapsamlı dashboard ekran/tasarım geliştirmesi
+sonraki aşamaya bırakıldı. Bu aşamada yalnızca mevcut dashboard'u bozmayacak
+zorunlu API sözleşmesi uyumluluk düzeltmeleri yapılabilir. `docs/UAT_CHECKLIST.md`
+manuel kabul testi için hazırlanacak; manuel test yapılmış gibi raporlanmayacak.

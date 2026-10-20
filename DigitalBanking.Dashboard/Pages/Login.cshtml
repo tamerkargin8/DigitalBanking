@@ -1,14 +1,19 @@
-﻿@page
+@page
 @model DigitalBanking.Dashboard.Pages.LoginModel
 @{
-    ViewData["Title"] = "Login";
+    ViewData["Title"] = "Giriş";
 }
 
 <div class="row justify-content-center">
     <div class="col-md-5">
         <div class="card shadow-sm">
             <div class="card-body">
-                <h4 class="mb-3">Login</h4>
+                <h4 class="mb-3">Giriş</h4>
+
+                @if (!string.IsNullOrEmpty(Model.Info))
+                {
+                    <div class="alert alert-info">@Model.Info</div>
+                }
 
                 @if (!string.IsNullOrEmpty(Model.Error))
                 {
@@ -17,20 +22,20 @@
 
                 <form method="post">
                     <div class="mb-3">
-                        <label class="form-label">Username</label>
-                        <input class="form-control" asp-for="Username" />
+                        <label class="form-label">Kullanıcı adı</label>
+                        <input class="form-control" asp-for="Username" autocomplete="username" />
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <input class="form-control" asp-for="Password" type="password" />
+                        <label class="form-label">Şifre</label>
+                        <input class="form-control" asp-for="Password" type="password" autocomplete="current-password" />
                     </div>
 
-                    <button class="btn btn-primary w-100" type="submit">Login</button>
+                    <button class="btn btn-primary w-100" type="submit">Giriş yap</button>
                 </form>
 
                 <div class="text-muted mt-3 small">
-                    Default: admin / 1234
+                    Yerel demo şifresi <code>.local/credentials.json</code> içinde tutulur; paylaşılmaz.
                 </div>
             </div>
         </div>

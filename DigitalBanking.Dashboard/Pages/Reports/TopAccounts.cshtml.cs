@@ -1,11 +1,10 @@
+using DigitalBanking.Application.DTOs.Transaction;
 using DigitalBanking.Dashboard.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-using System.Net.Http.Json;
 
 namespace DigitalBanking.Dashboard.Pages.Reports;
 
-public class TopAccountsModel : PageModel
+public class TopAccountsModel : SecurePageModel
 {
     private readonly ApiClient _api;
 
@@ -14,66 +13,61 @@ public class TopAccountsModel : PageModel
         _api = api;
     }
 
-    public List<TopAccountItem> Items { get; set; } = new();
+    public List<TopAccountTransactionResponse> Items { get; set; } = new();
     public string? Error { get; set; }
 
-    // UI state
     public string From { get; set; } = "";
     public string To { get; set; } = "";
+    public string Currency { get; set; } = "TRY";
     public int Limit { get; set; } = 10;
 
-    public async Task<IActionResult> OnGetAsync(string? from = null, string? to = null, int limit = 10)
+    public async Task<IActionResult> OnGetAsync(
+        string? from = null,
+        string? to = null,
+        string? currency = null,
+        int limit = 10,
+        CancellationToken cancellationToken = default)
     {
-        var token = HttpContext.Session.GetString("jwt");
-        if (string.IsNullOrEmpty(token))
-            return RedirectToPage("/Login");
+        var login = RequireLogin();
+        if (login is not null) return login;
 
-        From = string.IsNullOrWhiteSpace(from)
-            ? DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd")
-            : from;
-
-        To = string.IsNullOrWhiteSpace(to)
-            ? DateTime.UtcNow.ToString("yyyy-MM-dd")
-            : to;
-
-        Limit = (limit <= 0) ? 10 : limit;
-
-        try
+        Currency = string.IsNullOrWhiteSpace(currency) ? "TRY" : currency.Trim().ToUpperInvariant();
+        if (Currency is not ("TRY" or "USD" or "EUR" or "GBP"))
         {
-            var http = _api.Create(token);
-
-            // Swagger'da gördüğün endpoint:
-            var url = $"/api/Transactions/top-accounts?from={Uri.EscapeDataString(From)}&to={Uri.EscapeDataString(To)}&take={Math.Clamp(Limit, 1, 50)}";
-
-            var data = await http.GetFromJsonAsync<TopAccountsEnvelope>(url);
-            Items = data?.Data ?? new List<TopAccountItem>();
-
-            // Eğer API NetFlow dönmüyorsa client-side hesapla
-            foreach (var x in Items)
-            {
-                if (x.NetFlow == 0)
-                    x.NetFlow = x.DepositTotal - x.WithdrawTotal;
-            }
-        }
-        catch (Exception ex)
-        {
-            Error = ex.Message;
+            Error = "Desteklenmeyen para birimi. TRY, USD, EUR veya GBP seçin.";
+            From = from ?? "";
+            To = to ?? "";
+            return Page();
         }
 
+        if (!ReportFilter.TryParse(from, to, limit.ToString(), out var fromDate, out var toDate, out var take, out var filterError))
+        {
+            Error = filterError;
+            From = from ?? "";
+            To = to ?? "";
+            return Page();
+        }
+
+        From = ReportFilter.ToInputValue(fromDate);
+        To = ReportFilter.ToInputValue(toDate);
+        Limit = take;
+
+        var url = "/api/Transactions/top-accounts" +
+                  $"?from={Uri.EscapeDataString(From)}" +
+                  $"&to={Uri.EscapeDataString(To)}" +
+                  $"&take={Limit}" +
+                  $"&currency={Uri.EscapeDataString(Currency)}";
+
+        var result = await _api.GetAsync<List<TopAccountTransactionResponse>>(Token!, url, cancellationToken);
+        if (result.Unauthorized) return SessionExpired();
+
+        if (!result.Success)
+        {
+            Error = result.Error;
+            return Page();
+        }
+
+        Items = result.Data ?? new List<TopAccountTransactionResponse>();
         return Page();
-    }
-
-    public class TopAccountsEnvelope
-    {
-        public List<TopAccountItem>? Data { get; set; }
-    }
-
-    public class TopAccountItem
-    {
-        public Guid AccountId { get; set; }
-        public int TransactionCount { get; set; }
-        public decimal DepositTotal { get; set; }
-        public decimal WithdrawTotal { get; set; }
-        public decimal NetFlow { get; set; }
     }
 }

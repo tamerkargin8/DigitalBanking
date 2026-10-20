@@ -1,16 +1,18 @@
+using DigitalBanking.Dashboard.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DigitalBanking.Dashboard.Pages;
 
-public class IndexModel : PageModel
+public class IndexModel : SecurePageModel
 {
-    public IActionResult OnGet()
-    {
-        var token = HttpContext.Session.GetString("jwt");
-        if (string.IsNullOrEmpty(token))
-            return RedirectToPage("/Login");
+    public bool AccessDenied { get; set; }
 
+    public IActionResult OnGet(bool denied = false)
+    {
+        var login = RequireLogin();
+        if (login is not null) return login;
+
+        AccessDenied = denied;
         return Page();
     }
 }

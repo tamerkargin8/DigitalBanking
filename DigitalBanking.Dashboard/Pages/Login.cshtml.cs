@@ -1,4 +1,4 @@
-﻿using DigitalBanking.Dashboard.Services;
+using DigitalBanking.Dashboard.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -16,37 +16,42 @@ public class LoginModel : PageModel
     [BindProperty] public string Username { get; set; } = "";
     [BindProperty] public string Password { get; set; } = "";
     public string? Error { get; set; }
+    public string? Info { get; set; }
 
-    public IActionResult OnGet()
+    public IActionResult OnGet(bool expired = false, bool loggedOut = false)
     {
-        // Zaten token varsa dashboard'a
-        var token = HttpContext.Session.GetString("jwt");
-        if (!string.IsNullOrEmpty(token))
+        if (!string.IsNullOrEmpty(HttpContext.Session.GetString(SessionKeys.Token)))
             return RedirectToPage("/Index");
+
+        if (expired)
+            Info = "Oturum süresi doldu. Lütfen yeniden giriş yapın.";
+        else if (loggedOut)
+            Info = "Çıkış yapıldı.";
 
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        string? token;
-        try
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
         {
-            token = await _auth.LoginAsync(Username, Password);
-        }
-        catch (HttpRequestException)
-        {
-            Error = "Giriş servisine ulaşılamıyor. Lütfen tekrar deneyin.";
+            Error = "Kullanıcı adı ve şifre zorunludur.";
             return Page();
         }
 
-        if (string.IsNullOrEmpty(token))
+        var outcome = await _auth.LoginAsync(Username.Trim(), Password, cancellationToken);
+        if (!outcome.Success || string.IsNullOrWhiteSpace(outcome.Token))
         {
-            Error = "Login failed. Username/password yanlış olabilir.";
+            Error = outcome.Error ?? "Giriş yapılamadı.";
             return Page();
         }
 
-        HttpContext.Session.SetString("jwt", token);
+        // Clear any previous session state before storing the new identity.
+        HttpContext.Session.Clear();
+        HttpContext.Session.SetString(SessionKeys.Token, outcome.Token);
+        HttpContext.Session.SetString(SessionKeys.Username, outcome.Username ?? Username.Trim());
+        HttpContext.Session.SetString(SessionKeys.Role, outcome.Role ?? "");
+
         return RedirectToPage("/Index");
     }
 }

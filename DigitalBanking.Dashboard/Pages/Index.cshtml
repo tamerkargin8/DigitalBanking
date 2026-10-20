@@ -1,15 +1,27 @@
-﻿@page
+@page
 @model DigitalBanking.Dashboard.Pages.IndexModel
 @{
-    ViewData["Title"] = "Dashboard";
+    ViewData["Title"] = "Panel";
+}
+
+@if (Model.AccessDenied)
+{
+    <div class="alert alert-warning">Bu ekran için Admin yetkisi gerekir.</div>
 }
 
 <div class="row">
     <div class="col-md-8">
         <div class="card shadow-sm">
             <div class="card-body">
-                <h4>Admin Dashboard</h4>
-                <p class="text-muted mb-0">Baseline dashboard hazır. Menüden raporlara geç.</p>
+                <h4>DigitalBanking demo paneli</h4>
+                <p class="text-muted mb-2">
+                    Hoş geldiniz <strong>@Model.CurrentUsername</strong>
+                    <span class="badge bg-secondary">@Model.CurrentRole</span>
+                </p>
+                <p class="text-muted mb-0">
+                    Rapor ekranı hazır. Müşteri, hesap, işlem, onay kuyruğu ve audit
+                    ekranları bir sonraki dashboard aşamasında eklenecek.
+                </p>
             </div>
         </div>
     </div>

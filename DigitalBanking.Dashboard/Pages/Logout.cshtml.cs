@@ -1,3 +1,4 @@
+using DigitalBanking.Dashboard.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -7,7 +8,7 @@ public class LogoutModel : PageModel
 {
     public IActionResult OnGet()
     {
-        HttpContext.Session.Remove("jwt");
-        return RedirectToPage("/Login");
+        HttpContext.Session.Clear();
+        return RedirectToPage("/Login", new { loggedOut = true });
     }
 }

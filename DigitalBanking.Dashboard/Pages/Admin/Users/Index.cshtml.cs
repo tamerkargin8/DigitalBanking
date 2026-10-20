@@ -1,12 +1,9 @@
 using DigitalBanking.Dashboard.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-using System.Net;
-using System.Net.Http.Json;
 
 namespace DigitalBanking.Dashboard.Pages.Admin.Users;
 
-public class IndexModel : PageModel
+public class IndexModel : SecurePageModel
 {
     private readonly ApiClient _api;
 
@@ -18,31 +15,25 @@ public class IndexModel : PageModel
     public List<UserRow> Items { get; set; } = new();
     public string? Error { get; set; }
 
-    public async Task<IActionResult> OnGetAsync()
+    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
-        var token = HttpContext.Session.GetString("jwt");
-        if (string.IsNullOrEmpty(token))
-            return RedirectToPage("/Login");
+        var admin = RequireAdmin();
+        if (admin is not null) return admin;
 
-        try
+        var result = await _api.GetAsync<List<UserRow>>(Token!, "/api/users", cancellationToken);
+        if (result.Unauthorized) return SessionExpired();
+        if (result.Forbidden)
         {
-            var http = _api.Create(token);
-            var resp = await http.GetAsync("/api/users");
-
-            if (resp.StatusCode == HttpStatusCode.Forbidden)
-            {
-                Error = "Access denied (Admin only).";
-                return Page();
-            }
-
-            resp.EnsureSuccessStatusCode();
-            Items = await resp.Content.ReadFromJsonAsync<List<UserRow>>() ?? new();
+            Error = "Bu ekran için Admin yetkisi gerekir.";
+            return Page();
         }
-        catch (Exception ex)
+        if (!result.Success)
         {
-            Error = ex.Message;
+            Error = result.Error;
+            return Page();
         }
 
+        Items = result.Data ?? new List<UserRow>();
         return Page();
     }
 

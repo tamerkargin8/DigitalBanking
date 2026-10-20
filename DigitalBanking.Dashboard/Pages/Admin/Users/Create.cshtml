@@ -1,10 +1,10 @@
-﻿@page
+@page
 @model DigitalBanking.Dashboard.Pages.Admin.Users.CreateModel
 @{
-    ViewData["Title"] = "Create User";
+    ViewData["Title"] = "Kullanıcı Oluştur";
 }
 
-<h3 class="mb-3">Create User</h3>
+<h3 class="mb-3">Kullanıcı oluştur</h3>
 
 @if (!string.IsNullOrEmpty(Model.Error))
 {
@@ -20,26 +20,27 @@
     <div class="card-body">
         <form method="post">
             <div class="mb-3">
-                <label class="form-label">Username</label>
-                <input class="form-control" asp-for="Username" />
+                <label class="form-label">Kullanıcı adı</label>
+                <input class="form-control" asp-for="Username" autocomplete="off" />
+                <div class="form-text">3–64 karakter.</div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Password</label>
-                <input class="form-control" asp-for="Password" type="password" />
-                <div class="form-text">Min 4 karakter.</div>
+                <label class="form-label">Şifre</label>
+                <input class="form-control" asp-for="Password" type="password" autocomplete="new-password" />
+                <div class="form-text">En az 8 karakter; en az bir harf ve bir rakam.</div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Role</label>
+                <label class="form-label">Rol</label>
                 <select class="form-select" asp-for="Role">
-                    <option value="BankUser">BankUser</option>
+                    <option value="User">User (salt okunur demo rolü)</option>
                     <option value="Admin">Admin</option>
                 </select>
             </div>
 
-            <button class="btn btn-primary" type="submit">Create</button>
-            <a class="btn btn-outline-secondary" href="/Admin/Users">Back</a>
+            <button class="btn btn-primary" type="submit">Oluştur</button>
+            <a class="btn btn-outline-secondary" href="/Admin/Users">Geri</a>
         </form>
     </div>
 </div>

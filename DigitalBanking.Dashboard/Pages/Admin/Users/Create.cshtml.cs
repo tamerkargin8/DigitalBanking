@@ -1,12 +1,9 @@
 using DigitalBanking.Dashboard.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-using System.Net;
-using System.Net.Http.Json;
 
 namespace DigitalBanking.Dashboard.Pages.Admin.Users;
 
-public class CreateModel : PageModel
+public class CreateModel : SecurePageModel
 {
     private readonly ApiClient _api;
 
@@ -17,69 +14,48 @@ public class CreateModel : PageModel
 
     [BindProperty] public string Username { get; set; } = "";
     [BindProperty] public string Password { get; set; } = "";
-    [BindProperty] public string Role { get; set; } = "BankUser";
+    [BindProperty] public string Role { get; set; } = "User";
 
     public string? Error { get; set; }
     public string? Success { get; set; }
 
     public IActionResult OnGet()
     {
-        var token = HttpContext.Session.GetString("jwt");
-        if (string.IsNullOrEmpty(token))
-            return RedirectToPage("/Login");
+        var admin = RequireAdmin();
+        return admin ?? Page();
+    }
 
+    public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
+    {
+        var admin = RequireAdmin();
+        if (admin is not null) return admin;
+
+        var result = await _api.PostAsync<UserRow>(Token!, "/api/users", new
+        {
+            username = Username,
+            password = Password,
+            role = Role
+        }, cancellationToken: cancellationToken);
+
+        if (result.Unauthorized) return SessionExpired();
+        if (!result.Success)
+        {
+            Error = result.Error;
+            return Page();
+        }
+
+        Success = "Kullanıcı oluşturuldu.";
+        Username = "";
+        Password = "";
+        Role = "User";
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    public class UserRow
     {
-        var token = HttpContext.Session.GetString("jwt");
-        if (string.IsNullOrEmpty(token))
-            return RedirectToPage("/Login");
-
-        try
-        {
-            var http = _api.Create(token);
-
-            var payload = new
-            {
-                username = Username,
-                password = Password,
-                role = Role
-            };
-
-            var resp = await http.PostAsJsonAsync("/api/users", payload);
-
-            if (resp.StatusCode == HttpStatusCode.Forbidden)
-            {
-                Error = "Access denied (Admin only).";
-                return Page();
-            }
-
-            if (resp.StatusCode == HttpStatusCode.Conflict)
-            {
-                Error = "Username already exists.";
-                return Page();
-            }
-
-            if (!resp.IsSuccessStatusCode)
-            {
-                var body = await resp.Content.ReadAsStringAsync();
-                Error = $"Create failed: {(int)resp.StatusCode} {resp.ReasonPhrase} | {body}";
-                return Page();
-            }
-
-            Success = "User created ✅";
-            // Formu temizle
-            Username = "";
-            Password = "";
-            Role = "BankUser";
-        }
-        catch (Exception ex)
-        {
-            Error = ex.Message;
-        }
-
-        return Page();
+        public Guid Id { get; set; }
+        public string Username { get; set; } = "";
+        public string Role { get; set; } = "";
+        public DateTime CreatedDate { get; set; }
     }
 }

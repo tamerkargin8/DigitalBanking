@@ -2,41 +2,38 @@ using DigitalBanking.Dashboard.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Razor Pages
 builder.Services.AddRazorPages();
-
-// HttpClient + Services
 builder.Services.AddHttpClient();
+
 builder.Services.AddScoped<ApiAuthService>();
 builder.Services.AddScoped<ApiClient>();
 
-// Session (JWT token saklamak için)
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromHours(2);
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.Name = ".DigitalBanking.Session";
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
 var app = builder.Build();
 
-// Hata sayfası / HSTS
+// Always show the friendly error page: stack traces and implementation details
+// must not reach the browser, even in the local Development demo.
+app.UseExceptionHandler("/Error");
+app.UseStatusCodePagesWithReExecute("/Error", "?code={0}");
 if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Error");
     app.UseHsts();
-}
 
-if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
+
 app.UseStaticFiles();
-
 app.UseRouting();
-
-// Session middleware
 app.UseSession();
-
-// Razor Pages routing
 app.MapRazorPages();
 
 app.Run();
