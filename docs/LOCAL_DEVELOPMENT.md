@@ -21,34 +21,47 @@ python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181
 Ana kopya 5080/5081 kullanır; bu worktree 5180/5181 kullanmalıdır. Aynı anda iki
 örnek çalıştırmayın; `.local` klasörü her worktree'de ayrıdır.
 
-## Kimlik bilgileri ve veri
+## Kimlik bilgileri, Owner ve veri
 
 - İlk açılışta rastgele demo şifresi ve JWT anahtarı `.local/credentials.json`
   içine yalnızca kullanıcı tarafından okunabilir (`0600`) olarak yazılır.
   **Paylaşmayın, commit etmeyin, sohbete/ekran görüntüsüne koymayın.**
-- `admin` ve `tamer` aynı yerel demo şifresini kullanır. Giriş ekranında
-  `admin` + dosyadaki `password` değerini kullanın.
+- Temiz veritabanında **Owner yoktur**. Dashboard `/Setup`'a yönlendirir; ilk
+  Owner yalnız localhost + Development'ta oluşturulur. Bu uç Owner oluştuktan
+  sonra kapanır. Public `/Register` Owner yaratamaz.
+- Sentetik demo kullanıcıları: `customer.a`, `customer.b`, `approver.100k`,
+  `approver.low`, `applicant.pending`. Şifreleri `.local/credentials.json`
+  içindeki `password` değeridir; yerel olarak okuyun. `applicant.pending`
+  Owner aktivasyonuna kadar giriş yapamaz.
 - SQLite veritabanı `.local/digitalbanking.db` içindedir; yalnız Development
   içindir. Gerçek müşteri/para verisi kullanmayın.
-- SQL Server varsayılan sağlayıcıdır; mevcut migration dosyaları değiştirilmez.
-  SQLite `EnsureCreated` kullanır, SQL Server migration'larını uygulamaz.
-  SQLite kontrolleri SQL Server doğrulamasının yerine geçmez.
+- SQL Server varsayılan sağlayıcıdır. SQLite `EnsureCreated` kullanır, SQL Server
+  migration'larını uygulamaz; SQLite kontrolleri SQL Server kanıtı değildir.
+- Smoke testi Owner girişini `.local/credentials.json` içindeki
+  `owner_username`/`owner_password` veya `SMOKE_OWNER_USERNAME`/
+  `SMOKE_OWNER_PASSWORD` ortam değişkenlerinden okur. Temiz DB'de Owner'ı kendisi
+  oluşturabilir; bu değerleri commit etmeyin.
 - Şema değiştiğinde eski `.local/digitalbanking.db*` dosyasını arşivleyip silin;
-  sonraki açılış yeni şemayı oluşturur ve demo kullanıcıları seed eder.
+  sonraki açılış yeni şemayı ve sentetik demo kişileri oluşturur, Owner'ı seed
+  etmez.
 
 ## Roller (mevcut)
 
-- `Admin`: müşteri/hesap açma, yatırma/çekme, 50.000 altı doğrudan transfer,
-  maker-checker onay/red, kullanıcılar, audit.
-- `User` (`tamer`): yalnız kimlik doğrulaması; sahiplik olmadığı için
-  müşteri/hesap/rapor verisi ve para hareketi yok. Müşteri self-servis için User–Customer sahipliği henüz yok;
-  sonraki aşama: [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md).
+- **Owner:** üyeleri aktive eder, Customer/DelegatedApprover rolü ve
+  operasyon/para birimi limitleri atar; tüm talepleri, audit'i, müşteri/hesabı,
+  mutabakatı, demo merkezini görür. Kendi talebini onaylayamaz/reddedemez.
+- **DelegatedApprover:** yalnız aktif delegasyon kapsamında onaylar; üye/rol/
+  yetki yönetemez.
+- **Customer:** yalnız kendi profil/hesap/hareket/talep/dekontunu görür; tüm
+  finansal talepleri Pending oluşturur.
+- **PendingActivation:** aktivasyon öncesi login ve işlem yok.
 
 ## Mevcut dashboard kapsamı
 
-Giriş/çıkış, küçük panel, hesap sıralaması raporu ve Admin kullanıcı yönetimi
-vardır. Kapsamlı müşteri/admin ekranları sonraki aşamadadır; bu teslimde yalnızca
-API sözleşmesi değişikliklerine uyumluluk düzeltmeleri yapıldı.
+Setup/Login/Register; Owner özet/onay/üyeler/yetkiler/müşteriler/hesaplar/
+talep/audit/mutabakat/demo/rapor; Delegated kuyruk; Customer bakiye/hesap/
+transfer/talepler/dekont ekranları uygulanmıştır. Gerçek screenshot'lar
+`docs/screenshots/` altındadır; UAT kullanıcı adımıdır.
 
 ## VS Code / C# Dev Kit SDK keşfi
 

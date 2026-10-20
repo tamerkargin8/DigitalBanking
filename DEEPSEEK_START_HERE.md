@@ -3,15 +3,18 @@
 Bu klasör DigitalBanking için ayrılmış bağımsız Git worktree'sidir. Ana kopya
 `../DigitalBanking` (`integration/local-development`) olup değiştirilmemelidir.
 
-## Güncel durum (2026-10-20)
+## Güncel durum (2026-10-20/21)
 
-- Backend, bankacılık kuralları, güvenlik ve testler tamamlandı.
-- Build: 0 uyarı/0 hata; xUnit: 95 geçti; smoke: 71 kontrol geçti.
-- Mevcut dashboard minimaldir; kapsamlı dashboard aşaması **başlatılmadı**.
+- Owner / DelegatedApprover / Customer modeli, tüm finansal taleplerde onay,
+  kişi/operasyon/para birimi limitleri, mutabakat/istisna, timeline/dekont ve
+  demo merkezi uygulandı.
+- Build: 0 uyarı/0 hata; xUnit: **147** geçti; smoke: **272** kontrol geçti.
+- Üç rollü dashboard uygulandı; UAT ve gerçek ekran görüntüleri açık.
 - Teslim raporları: `docs/DEVELOPMENT_COMPLETION_REPORT.md`,
-  `docs/TEST_REPORT.md`.
-- Sonraki dashboard hedefi: `docs/DASHBOARD_PRODUCT_BRIEF.md`.
-- Manuel kabul: `docs/UAT_CHECKLIST.md`.
+  `docs/TEST_REPORT.md`, `docs/VERIFICATION.md`.
+- Manuel kabul: `docs/UAT_CHECKLIST.md`; SQL Server **uygulanmadı/doğrulanmadı**.
+- Sonraki işler kullanıcı onayına bağlı: gerçek screenshot + UAT, SQL Server
+  integration ortamı, dağıtık rate-limit store.
 
 ## Devam ederken
 

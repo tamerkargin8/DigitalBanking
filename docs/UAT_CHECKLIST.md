@@ -1,151 +1,134 @@
-# UAT checklist — manual acceptance
+# UAT checklist — Owner, delegated approval and customer flows
 
-> **Manuel testtir.** Bu dosyadaki hiçbir madde ajan tarafından "yapıldı" olarak
-> işaretlenmemiştir. Sonuç sütunu kullanıcı tarafından doldurulur. Dashboard'un
-> tamamı henüz yoktur; B bölümü sonraki dashboard aşaması içindir.
+> **Manuel testtir.** Hiçbir madde ajan tarafından "yapıldı" işaretlenmemiştir.
+> Sonuç sütununu kullanıcı doldurur. Yalnız sentetik veri kullanın; şifre/token'ı
+> sohbete, ekran görüntüsüne veya commit'e koymayın.
 
-## 0. Hazırlık ve güvenlik
+## 0. Hazırlık
 
-1. Yerel demo servislerini başlatın:
+1. Temiz demo DB (isteğe bağlı): `.local/digitalbanking.db*` dosyalarını arşivleyin.
+2. Build + çalıştırın:
    ```sh
    bash scripts/dotnet.sh build DigitalBanking.slnx
    python3 scripts/run_local.py --api-port 5180 --dashboard-port 5181
    ```
-2. Açın: dashboard `http://127.0.0.1:5181`, Swagger `http://127.0.0.1:5180/swagger`.
-3. Demo şifresi ve JWT anahtarı `.local/credentials.json` içinde, yalnız kullanıcı
-   tarafından okunabilir (`0600`) olarak tutulur. **Şifreyi/token'ı sohbete,
-   ekran görüntüsüne, issue/PR'a veya commit'e koymayın.** Dosyayı paylaşmayın.
-4. Yalnız sentetik veri kullanın. Gerçek müşteri/hesap/para/kurum bilgisi girmeyin.
-5. Sonuçları bu dosyaya veya ayrı bir nota yazarken şifre/token yazmayın.
-6. SQL Server testi bu ortamda yapılmadı; SQLite demo sonucu SQL Server kanıtı
-   değildir.
+3. Dashboard'u açın (bu worktree'de `http://127.0.0.1:5181`; kendi UAT kopyanızda
+   ilgili port, ör. `5481`). Owner yoksa `/Setup`'a yönlenmeli.
+4. İlk Owner'ı **yalnız localhost** üzerinden oluşturun. Şifreyi `.local` dışında
+   paylaşmayın; tekrar `/Setup` denemesinin reddedildiğini doğrulayın. İki
+   eşzamanlı setup isteğinde yalnız biri `200`, diğeri `409` almalı; DB'de tek
+   `Role=Owner` kalmalı.
+5. Owner varken eski bir `/Setup` sekmesinden POST gönderin: form işlenmemeli,
+   login sayfasında Türkçe "Owner oluşturuldu" bildirimi görünmeli.
+6. Setup/register/login limitleri ayrıdır; limite takılırsanız `429` mesajı
+   Türkçe olmalı ve `Retry-After` başlığı bulunmalı. Limitleri test için kaldırmayın.
+7. Demo şifresini `.local/credentials.json` içinden yerel olarak okuyun; ekrana
+   veya nota yazmayın. Gerçek Owner şifresini istemeyin/paylaşmayın.
+8. SQL Server testi bu ortamda yapılmadı; SQLite sonucu SQL Server kanıtı değildir.
 
-### Demo personları
+### Personas
 
-| Persona | Rol | Nasıl elde edilir | Beklenen erişim |
+| Persona | Kullanıcı | Rol / durum | Beklenen |
 |---|---|---|---|
-| Müşteri A | `User` | Sonraki aşamada sentetik `customer.a` seed'i; şimdilik `tamer` | Yalnız kimlik/`me` (şimdilik); sonraki aşamada yalnız kendi profil/hesapları |
-| Müşteri B | `User` | Sonraki aşamada sentetik `customer.b` seed'i | Yalnız kendi verisi; A'nın hesabını göremez |
-| Admin maker | `Admin` | Seed `admin` | Tüm operasyon; kendi talebini onaylayamaz |
-| Admin checker | ikinci `Admin` | Admin > Kullanıcılar > Kullanıcı oluştur (Admin rolü) | Onay kuyruğu; maker'dan farklı kişi |
-
-> Mevcut backend'de `User` yalnız kimlik doğrulaması yapabilir; User–Customer sahipliği yoktur ve müşteri/hesap/rapor okumaları Admin'e kapalıdır.
-> Müşteri self-servis maddeleri **sonraki dashboard aşaması** içindir; bu aşamada
-> "beklenen" olarak işaretlenen davranışlar backend/API düzeyindedir.
+| Owner | yerel setup | Owner | Tüm talepler/audit/üyeler/yetkiler; kendi talebini onaylayamaz |
+| 100k approver | `approver.100k` | DelegatedApprover | TRY transfer/deposit/withdrawal/account opening 100.000 dahil; exception |
+| Düşük limitli approver | `approver.low` | DelegatedApprover | TRY transfer 10.000; üstü Owner |
+| Müşteri A | `customer.a` | Customer (aktif) | TRY/USD/EUR hesapları; yalnız kendi verisi |
+| Müşteri B | `customer.b` | Customer (aktif) | Alıcı; A'nın verisini göremez |
+| Bekleyen üye | `applicant.pending` | PendingActivation | Login reddi; Owner aktivasyonu sonrası Customer |
 
 ---
 
-## A. Bu teslimde manuel doğrulanabilir backend + minimal dashboard
+## A. Owner / üyelik / güvenlik
 
-| ID | Adım | Beklenen sonuç | Sonuç |
+| ID | Adım | Beklenen | Sonuç |
 |---|---|---|---|
-| A1 | Dashboard'da admin ile giriş yapın | Panel açılır; sağ üstte kullanıcı adı ve `Admin` rozeti | ☐ |
-| A2 | Çıkış yapın, sonra `/` adresini açın | Login sayfasına yönlenir; "Çıkış yapıldı" bilgisi | ☐ |
-| A3 | Yanlış şifreyle giriş deneyin | Teknik ayrıntı/token göstermeyen "kullanıcı adı veya şifre hatalı" mesajı | ☐ |
-| A4 | `tamer` (User) ile giriş yapın, `/Admin/Users` açın | Panele yönlenir; "Admin yetkisi gerekir" uyarısı; kullanıcı listesi görünmez | ☐ |
-| A4b | User token'ıyla `GET /api/customers`, `/api/accounts`, `/api/transactions/top-accounts` çağırın | Hepsi `403`; başka müşteri verisi dönmez | ☐ |
-| A4c | User ile `/Reports/TopAccounts` açın | Panele yönlenir; "Admin yetkisi" uyarısı; rapor verisi görünmez | ☐ |
-| A5 | Admin ile `/Reports/TopAccounts` açın; tarih aralığı/para birimi/adet değiştirin | Sonuçlar para birimi bazında; hatalı tarih/adet için anlaşılır mesaj; boş aralıkta "veri yok" | ☐ |
-| A6 | Tarih aralığını ters girin (bitiş < başlangıç) | "Bitiş tarihi başlangıçtan önce olamaz" mesajı; tablo bozulmaz | ☐ |
-| A7 | 400 günden uzun aralık girin | "366 günü aşamaz" mesajı | ☐ |
-| A8 | Swagger'da tokensız `GET /api/accounts` çağırın | `401` | ☐ |
-| A9 | User token'ıyla `POST /api/transactions/deposit` çağırın | `403` (yetki yok) | ☐ |
-| A10 | User token'ıyla `GET /api/audit` çağırın | `403` | ☐ |
-| A11 | Admin maker ile ikinci bir Admin kullanıcı oluşturun; onunla giriş yapın | İkinci Admin girişi başarılı; rol `Admin` | ☐ |
-| A12 | Maker ile 75.000 TRY onay talebi oluşturun (`POST /api/paymentapprovals`) | `201`, durum `Pending`, risk `Medium`, para birimi `TRY` | ☐ |
-| A13 | Maker kendi talebini onaylamayı denesin | `400`; "kendi talebini inceleyemez" mesajı; bakiye değişmez | ☐ |
-| A14 | Checker ile aynı talebi onaylayın | `204`; bakiye bir kez hareket eder; audit `PAYMENT_APPROVED` | ☐ |
-| A15 | Checker ile aynı talebi tekrar onaylayın | `400`; bakiye ikinci kez değişmez | ☐ |
-| A16 | Maker ile düşük riskli (ör. 100 TRY) talep oluşturun | `201`, durum `AutoApproved`, bakiye hemen hareket eder | ☐ |
-| A17 | Orta riskli yeni bir talep oluşturup checker ile reddedin (gerekçe yazın) | `204`, durum `Rejected`, gerekçe görünür, bakiye değişmez | ☐ |
-| A18 | Aynı `Idempotency-Key` ile aynı deposit isteğini iki kez gönderin | İkinci yanıt yeniden oynatılır (`Idempotency-Replayed: true`), bakiye bir kez artar | ☐ |
-| A19 | Aynı anahtarla farklı tutar gönderin | `409`; ikinci hareket yok | ☐ |
-| A20 | Yetersiz bakiye ile withdraw/transfer deneyin | `400`, "Insufficient balance" benzeri anlaşılır hata, bakiye değişmez | ☐ |
-| A21 | Aynı hesaba transfer deneyin | `400`, anlaşılır hata | ☐ |
-| A22 | TRY hesabından USD hesabına transfer/onay deneyin | `400`, para birimi uyuşmazlığı; kur çevrimi yok | ☐ |
-| A23 | 50.000 ve üzeri doğrudan transfer deneyin | `400`; onay akışına yönlendirme mesajı | ☐ |
-| A24 | Audit ekranı/API'sini Admin ile açın; aksiyon/kullanıcı filtresi uygulayın | Kayıtlar gelir; şifre/token görünmez | ☐ |
-| A25 | Aynı anda iki farklı checker ile aynı talebi onaylamayı deneyin (iki sekme) | Yalnız biri başarılı; diğeri `409`/`400`; bakiye bir kez hareket eder | ☐ |
-| A26 | Oturum süresi bitişi (JWT 2 saat) | Sonraki API çağrısında oturum temizlenir, giriş sayfasına "oturum süresi doldu" ile yönlenir | ☐ (sonraki UI aşamasında daha kolay) |
-
-**Not:** A12–A25 adımları mevcut minimal dashboard'da hazır ekran olarak yoktur;
-Swagger/HTTP ile yapılabilir. Onay kuyruğu ve müşteri ekranları B bölümündedir.
+| A1 | Owner ile giriş | `/Admin/Overview`; Owner menüsü; başka rol menüsü yok | ☐ |
+| A2 | `/Setup` adresini tekrar aç / setup iste | Kurulum kapalı; `409`/yönlendirme; yeni Owner oluşmaz | ☐ |
+| A2b | Owner varken eski Setup formunu POST et | Form işlenmez; login sayfasında Türkçe "Owner oluşturuldu" bilgisi | ☐ |
+| A3 | Public `/Register` ile yeni üye oluştur; role/limit alanı göndermeyi dene | `PendingActivation`; ekstra alan yok sayılır; login 403 | ☐ |
+| A4 | Aynı kullanıcı adı/e-posta ile tekrar kayıt | `409`; ikinci hesap yok | ☐ |
+| A5 | Geçersiz e-posta/şifre uyuşmazlığı/zayıf şifre | `400`; teknik ayrıntı yok | ☐ |
+| A6 | Owner → Üyeler: bekleyen üyeyi aktive et | Durum Active; Customer profili oluşur; login çalışır | ☐ |
+| A7 | Owner → Üyeler: bir üyeyi DelegatedApprover yap; sonra Customer'a düşür | Rol değişir; Customer'a düşünce delegasyonları kapanır | ☐ |
+| A8 | Owner kendini disable/demote etmeyi dene; Owner rolü atamayı dene | `400`; son Owner korunur; Owner atanamaz | ☐ |
+| A9 | Owner → Yetkiler & Limitler: 100.000 TRY transfer, 50.000 günlük deposit, geçmiş expiry dene | Kayıt oluşur; geçmiş expiry reddedilir; delegated yalnız kendi kapsamını görür | ☐ |
+| A10 | DelegatedApprover ile `/Admin/Users`, `/Admin/Delegations`, rol endpoint'i | `403`/yönlendirme; veri sızmaz | ☐ |
+| A11 | 5 hatalı login sonrası doğru şifre | `429`; Türkçe bekleme mesajı; token üretilmez | ☐ |
+| A11b | Setup/register limitini ayrı dene | Login limitinden bağımsız; `429` + `Retry-After`, limit kaldırılmaz | ☐ |
+| A12 | Audit sayfası | OWNER_SETUP, MEMBERSHIP_*, USER_ROLE_CHANGED, DELEGATION_*, APPROVAL_*; şifre/token yok | ☐ |
 
 ---
 
-## B. Sonraki dashboard aşaması — dört persona, uçtan uca
+## B. 100.000 TRY sınırı ve onay akışı
 
-> Bu bölüm **henüz uygulanmadı**. Dashboard tamamlandığında manuel kabul için
-> kullanılacaktır. Beklenen davranışlar ürün brief'ine göredir.
-
-### B1. Müşteri A — giriş, bakiye, hareketler
-
-| ID | Adım | Beklenen sonuç | Sonuç |
+| ID | Adım | Beklenen | Sonuç |
 |---|---|---|---|
-| B1.1 | Müşteri A ile giriş yapın | Yalnız kendi adı/maskeli müşteri no'su; Admin menüsü yok | ☐ |
-| B1.2 | Ana sayfayı açın | TRY/USD/EUR bakiye kartları **ayrı**; kurla toplanmamış; yükleniyor durumu görünür | ☐ |
-| B1.3 | Son işlemleri açın | Yalnız A'nın hesapları; tarih/tür/tutar/sonraki bakiye; sayfalama | ☐ |
-| B1.4 | URL'de B'nin hesap id'sini deneyin | `403/404`; B'nin bakiyesi/hareketi görünmez | ☐ |
-| B1.5 | Mobil genişlik + klavye ile gezinin | Tek kolon, okunaklı kontrast, görünür focus, tüm aksiyonlar Tab ile | ☐ |
+| B1 | Müşteri A ile giriş; TRY hesabından B'ye **99.999,99** transfer talebi | `Pending`; bakiye değişmez; approver kuyruğunda görünür | ☐ |
+| B2 | `approver.100k` ile onayla | `Approved/Completed`; bakiye bir kez düşer; A/B hareketleri oluşur | ☐ |
+| B3 | Aynı talebi tekrar onayla | `400`; bakiye değişmez | ☐ |
+| B4 | **100.000,00** TRY talep oluştur; approver onayla | Onaylanır (limit dahil); bakiye bir kez | ☐ |
+| B5 | **100.000,01** TRY talep oluştur | Pending; `approver.100k` kuyruğunda **yok**; approver onayı `400`; Owner reject edebilir | ☐ |
+| B6 | Aynı 100.000,01 talebi Owner ile onaylamayı dene (aynı kişi değilse) | Owner yetkisiyle onaylanabilir; kendi talebiyse `400` | ☐ |
+| B7 | USD hesabından USD talep; yalnız TRY delegasyonu olan approver onaylasın | `400`; Owner'a yönlendirme; kur çevrimi yok | ☐ |
+| B8 | `approver.low` ile 10.000 ve 10.000,01 TRY | 10.000 onaylanır; 10.000,01 reddedilir/Owner'a kalır | ☐ |
+| B9 | Owner kendi oluşturduğu talebi onaylamayı/reddetmeyi dene | `400`; başka reviewer gerekir; iptal edilebilir | ☐ |
+| B10 | İki giden talep bakiyeyi aşacak şekilde oluştur | İkinci talep `400` (rezervasyon); ilk talep iptal edilince yer açılır | ☐ |
+| B11 | Onay anında bakiyeyi yetersiz bırak (uygun senaryo/UAT) | `400`; ledger ve bakiye değişmez; talep Pending kalır | ☐ |
+| B12 | Talep beklerken müşteri–hesap sahipliği değişsin (kontrollü test) | Onay `400`; bakiye/ledger değişmez; talep Pending kalır | ☐ |
 
-### B2. Müşteri A — transfer talebi
+---
 
-| ID | Adım | Beklenen sonuç | Sonuç |
+## C. Müşteri A/B — sahiplik, timeline, dekont
+
+| ID | Adım | Beklenen | Sonuç |
 |---|---|---|---|
-| B2.1 | "Transfer talebi" sihirbazını açın | Yalnız A'nın hesapları ve kayıtlı/demo alıcılar seçilebilir; başka müşterilerin tüm hesapları listelenmez | ☐ |
-| B2.2 | 75.000 TRY, alıcı B, açıklama girin; özet ekranına geçin | Hesap/alıcı/tutar/para birimi net; "masraf yok (demo)" notu; geri dönülebilir | ☐ |
-| B2.3 | Onaylayıp gönderin | Sonuç `Pending`; makbuz/talep numarası; buton disable; `Idempotency-Key` ile tek hareket | ☐ |
-| B2.4 | Aynı formu çift tıklayın/tekrar gönderin | Tek talep oluşur; ikinci istek aynı sonucu döndürür veya `409`; para ikizlenmez | ☐ |
-| B2.5 | Düşük riskli 100 TRY talep gönderin | `AutoApproved`; bakiye hemen düşer; makbuzda durum net | ☐ |
-| B2.6 | Yetersiz bakiye ile gönderin | `400`; anlaşılır hata; bakiye değişmez | ☐ |
-| B2.7 | Aynı hesaba transfer deneyin | `400`; anlaşılır hata | ☐ |
-| B2.8 | Farklı para birimli alıcı seçin | `400`; kur çevrimi yok uyarısı | ☐ |
-| B2.9 | Talep durumunu açın | `Pending/Approved/Rejected` ve varsa gerekçe; yalnız A'nın talepleri | ☐ |
+| C1 | Müşteri A ana sayfa | TRY/USD/EUR kartları **ayrı**; kurla toplanmamış; yükleniyor/boş durum | ☐ |
+| C2 | A'nın hesap detayı ve hareketleri | Yalnız A hesapları; tarih/tür/tutar/son bakiye; sayfalama | ☐ |
+| C3 | URL'de B'nin hesap id'sini dene | `404`; B'nin bakiyesi/hareketi yok | ☐ |
+| C4 | B ile giriş; A'nın ödeme/timeline id'sini dene | `404`; A verisi yok | ☐ |
+| C5 | A ile transfer sihirbazı: özet ekranı | Hesap/alıcı/tutar/para birimi net; geri dönülebilir; masraf yok notu | ☐ |
+| C6 | Formu çift tıkla / tekrar gönder | Tek talep; idempotent davranış; para ikizlenmez | ☐ |
+| C7 | Pending talep timeline | Created/Pending; tamamlanmış dekont verisi yok | ☐ |
+| C8 | Onay sonrası timeline/dekont | Created/Pending/Approved/Completed; maskeli hesap; Europe/Istanbul; **DEMO** uyarısı; print önizleme | ☐ |
+| C9 | Reddedilen talep | Gerekçe müşteriye görünür; tamamlanmış dekont yok | ☐ |
+| C10 | Müşteri kendi talebini iptal etsin | `Cancelled`; rezervasyon serbest; bakiye değişmez | ☐ |
+| C11 | Müşteri deposit/withdraw/account opening talebi | Hepsi Pending; oluşturmada bakiye değişmez; onay sonrası uygulanır | ☐ |
+| C12 | Doğrudan `/api/accounts/transfer` vb. denemesi | `400` / yetki; onay akışı atlanamaz | ☐ |
 
-### B3. Müşteri B — alıcı tarafı
+---
 
-| ID | Adım | Beklenen sonuç | Sonuç |
+## D. Mutabakat ve istisna
+
+| ID | Adım | Beklenen | Sonuç |
 |---|---|---|---|
-| B3.1 | Müşteri B ile giriş yapın | Yalnız B'nin verisi; A'nın bakiyesi/hesabı görünmez | ☐ |
-| B3.2 | Onaylanan transfer sonrası B'nin hareketlerini açın | `TransferIn` görünür; bakiye doğru; para birimi aynı | ☐ |
-| B3.3 | B, A'nın talep id'sini URL'de denesin | Erişim yok; bilgi sızdırmayan `403/404` | ☐ |
+| D1 | Owner → Mutabakat → örnek CSV indir; preview | Satırlar/validasyon; import ayrı adım; dosya kalıcı | ☐ |
+| D2 | Aynı dosyayı tekrar yükle | SHA-256 replay; ikinci batch/işlem yok | ☐ |
+| D3 | Matched import | Eşleşen satırlar; bakiye değişmez | ☐ |
+| D4 | Mismatch import | OnlyExternal/OnlySystem/AmountMismatch/Duplicate sınıfları; pending onaylar ayrı | ☐ |
+| D5 | OnlyExternal satırdan istisna aç | `Open` | ☐ |
+| D6 | Review → Propose; aynı kişi approve etsin | `400`; durum `ResolutionProposed` kalır | ☐ |
+| D7 | Farklı yetkili (Owner veya exception delegasyonu olan approver) approve | `Closed`; **bakiye değişmez**; audit | ☐ |
+| D8 | Reopen | `Open`; çözüm alanları temiz | ☐ |
+| D9 | Export'u indir; `=2+2` hücreli dosyayı import/export et | Formül `'` ile nötrlenir; çalıştırılmaz | ☐ |
+| D10 | Boş/.txt/bozuk başlıklı CSV | `400`/invalid; sessizce kabul edilmez | ☐ |
 
-### B4. Admin maker
+---
 
-| ID | Adım | Beklenen sonuç | Sonuç |
+## E. Demo merkezi ve dashboard
+
+| ID | Adım | Beklenen | Sonuç |
 |---|---|---|---|
-| B4.1 | Admin maker ile giriş; operasyon özeti | Bekleyen onaylar risk bazında; para birimi bazında hacim; loading/empty/error | ☐ |
-| B4.2 | Müşteri açın, TRY/USD/EUR hesap açın (açılış bakiyeli) | Hesap oluşur; açılış deposit ledger'da; audit | ☐ |
-| B4.3 | Teller yatırma/çekme yapın | Makbuz; bakiye ve audit tutarlı; yetersiz bakiyede hata | ☐ |
-| B4.4 | Düşük risk doğrudan transfer yapın | Onay akışı gerekmez; makbuz | ☐ |
-| B4.5 | 75.000 talep oluşturun | `Pending`; kendi talebinde onay butonu kapalı ve nedeni açık | ☐ |
-| B4.6 | Müşteri listesinde arama yapın | Sonuçlar filtrelenir; boş durumda mesaj | ☐ |
-
-### B5. Admin checker
-
-| ID | Adım | Beklenen sonuç | Sonuç |
-|---|---|---|---|
-| B5.1 | Checker ile giriş; onay kuyruğu | Bekleyen talepler; risk ve durum rozetleri (renk + metin) | ☐ |
-| B5.2 | Maker'ın talebini reddedin; gerekçe boş bırakın | Red engellenir; "gerekçe zorunlu" | ☐ |
-| B5.3 | Gerekçeyle reddedin | Durum `Rejected`; bakiye değişmez; audit | ☐ |
-| B5.4 | Başka bir talebi onaylayın | `Approved`; bakiye bir kez; makbuz; audit | ☐ |
-| B5.5 | Aynı talebi ikinci kez onaylayın (çift tıklama) | İkinci işlem engellenir; bakiye ikizlenmez | ☐ |
-| B5.6 | Aynı talebi iki checker sekmesinde aynı anda onaylayın | Yalnız biri başarılı; diğeri güvenli hata; bakiye bir kez | ☐ |
-| B5.7 | Rapor filtreleri (tarih/para birimi/adet) | Gün sonu dahil; para birimleri ayrı; hatalı filtre anlaşılır | ☐ |
-| B5.8 | Audit filtreleri | Kayıtlar gelir; şifre/token yok; sayfalama | ☐ |
-| B5.9 | User ile Admin endpoint'ini deneyin | `403`; dashboard'da Admin menüsü görünmez | ☐ |
-
-### B6. Oturum / hata / erişilebilirlik
-
-| ID | Adım | Beklenen sonuç | Sonuç |
-|---|---|---|---|
-| B6.1 | Oturumu sonlandırın; korumalı sayfayı açın | Login'e yönlenir | ☐ |
-| B6.2 | JWT süresi dolana kadar bekleyin (2 saat) veya oturum cookie'sini geçersiz kılın | Sonraki işlemde "oturum süresi doldu"; session temizlenir; token ekranda yok | ☐ |
-| B6.3 | API'yi durdurun; dashboard'da işlem yapın | "API'ye ulaşılamıyor" gibi güvenli mesaj; stack trace yok | ☐ |
-| B6.4 | Boş liste/boş rapor | "Veri yok" mesajı; boş tablo/0 sonuç karışıklığı yok | ☐ |
-| B6.5 | Hatalı form girişleri | Alan bazlı/özet mesaj; teknik ayrıntı yok | ☐ |
-| B6.6 | Klavye-only + yüksek kontrast + %200 zoom | Tüm akış kullanılabilir; odak kaybolmaz; metin okunaklı | ☐ |
-| B6.7 | Ekran görüntüsü alınacaksa | Gerçek ekran; sentetik veri; şifre/token görünmüyor | ☐ |
+| E1 | Owner → Demo Merkezi; seed | Senaryo kartları; idempotent ikinci seed "zaten" | ☐ |
+| E2 | Customer ile `/api/demo/*` / demo sayfası | `403`/yönlendirme | ☐ |
+| E3 | Demo reset | Yalnız demo kayıtları silinir; UAT kullanıcı/hesap kalır; bakiye tutarlı | ☐ |
+| E4 | Owner menüleri: özet/onay/üyeler/yetkiler/müşteriler/hesaplar/talep/audit/mutabakat/rapor | Hepsi açılır; hata/boş durumlar anlaşılır | ☐ |
+| E5 | DelegatedApprover menüsü | Yalnız kuyruk/incelenenler; yönetim yok | ☐ |
+| E6 | Customer menüsü | Hesap/transfer/talepler; admin yok | ☐ |
+| E7 | Çıkış ve korumalı URL | Login'e dönüş; oturum temiz | ☐ |
+| E8 | API'yi durdurup işlem yap | Güvenli "API'ye ulaşılamıyor"; stack trace/token yok | ☐ |
+| E9 | Mobil genişlik + klavye + %200 zoom | Tek kolon, görünür focus, okunaklı; tüm aksiyonlar Tab ile | ☐ |
+| E10 | Ekran görüntüsü alınacaksa | Gerçek ekran, sentetik veri, şifre/token yok | ☐ |
 
 ---
 

@@ -1,74 +1,95 @@
-# ADR-0001 — Payment and role policy
+# ADR-0001 — Approval, role and delegation policy
 
-- Durum: Kabul edildi
+- Durum: **Kabul edildi; önceki iki-rol/auto-approval kararını değiştirir**
 - Tarih: 2026-10-20
-- Bağlam: DigitalBanking demo, maker-checker akışı, iki rol, müşteri–kullanıcı sahipliği yok
+- Bağlam: Üç rollü üyelik, tüm finansal taleplerde onay, kişi/operasyon/para
+  birimi limitleri ve müşteri self-servisi
 
 ## Bağlam
 
-Modelde `User` ile `Customer`/`Account` arasında sahiplik ilişkisi yoktur. Var olan
-iki rol `Admin` ve `User`'dır. Doğrudan transfer endpoint'i maker-checker akışını
-atlayabildiği için yüksek tutarlı ödemelerin tek adımda ve tek kişi tarafından
-uygulanması riski vardı. Risk seviyesi hesaplanıyor ancak yetki/workflow'a
-bağlanmıyordu.
+İlk demo iki rolle (`Admin`, `User`) çalışıyor ve düşük riskli talepleri otomatik
+onaylıyordu. Kullanıcı bankacılık operasyonlarına daha yakın bir model istedi:
+Owner tüm talepleri görür; yetki belirli kişilere, belirli operasyon/para birimi
+ve limitlerle devredilir; müşteri yalnız kendi talebini oluşturur. "Düşük risk"
+gerekçesiyle onay atlamak bu modelde kabul edilemez.
 
 ## Karar
 
-1. **Roller**
-   - `Admin`: operasyonel rol. Müşteri/hesap açma, para yatırma/çekme, doğrudan
-     transfer, onay/red, kullanıcı ve audit görüntüleme yetkileri.
-   - `User`: salt-okunur demo rolü. Müşteri/hesap/rapor okuma; para hareketi,
-     onay, kullanıcı ve audit erişimi yok. Müşteri–kullanıcı sahipliği olmadığı
-     için keyfi bir sahiplik varsayımı kurulmadı; en güvenli varsayılan seçildi.
+### 1. Roller
 
-2. **Doğrudan transfer**
-   - Yalnız `Admin`.
-   - Yalnız `amount < 50.000` (hesap para birimi cinsinden nominal). Bu tutar
-     düşük risk sınırıdır.
-   - `amount >= 50.000` doğrudan transfer **reddedilir** ve maker-checker
-     (`POST /api/paymentapprovals`) akışına yönlendirilir.
+- **Owner / SuperAdmin:** Üyeleri aktive eder, Customer/DelegatedApprover rolü
+  atar, yetki/limit tanımlar; tüm talepleri, audit'i, müşteri/hesap ve mutabakatı
+  görür. İlk ve tek Owner yalnız localhost + Development setup ile oluşur; public
+  kayıt Owner yaratamaz. Son Owner disable/demote edilemez.
+- **DelegatedApprover:** Yalnız kendisine verilen operasyon + para birimi +
+  `MaxAmount` (ve varsa `DailyLimit`/`ExpiresAt`) kapsamında onaylar. Üye/rol/
+  yetki yönetemez; kendini veya başkasını yükseltemez.
+- **Customer:** Public kayıt sonrası Owner aktivasyonuyla açılır. Yalnız kendi
+  profil/hesap/hareket/talep/dekontunu görür.
+- **PendingActivation:** Kayıt varsayılanı; login ve işlem yok.
 
-3. **Ödeme onayı (maker-checker)**
-   - Yalnız `Admin` talep oluşturabilir/inceleyebilir.
-   - Düşük risk (`< 50.000`): sistem tarafından otomatik onaylanır (`AutoApproved`),
-     ledger hareketi aynı transaction içinde uygulanır.
-   - Orta/yüksek/kritik: `Pending` kalır; farklı bir `Admin` onaylar veya reddeder.
-   - Talep sahibi kendi talebini onaylayamaz/reddedemez.
-   - Onay/red sırasında hesap, para birimi, bakiye ve güncel durum yeniden
-     doğrulanır. `RowVersion` ile eşzamanlı çift onay engellenir.
+Legacy `Admin=1` / `User=2` değerleri **geçersizdir** ve otomatik dönüştürülmez.
+Operatör açık eşleme yapmalıdır (bkz. `docs/migrations/README.md`).
 
-4. **Risk eşikleri**
-   - `< 50.000` → Low (otomatik)
-   - `50.000 – 249.999,99` → Medium (checker)
-   - `250.000 – 999.999,99` → High (checker)
-   - `>= 1.000.000` → Critical (checker)
+### 2. İstisnasız onay
 
-5. **Para birimi ve tutar**
-   - Tüm tutarlar `decimal`, 2 küsurat. Fazla küsurat reddedilir.
-   - Desteklenen para birimleri: TRY, USD, EUR, GBP.
-   - FX/kur çevrimi yok. Transfer ve onayda iki hesabın para birimi aynı olmalıdır.
+- Transfer, deposit, withdrawal ve account opening **her zaman** `Pending`
+  oluşur; oluşturma anında ledger/bakiye değişmez.
+- Düşük risk **otomatik onay değildir**; yalnız bilgi/kuyruk filtresidir.
+- Owner veya yetkili delegated approver onayı gerekir.
+- Owner dahil hiç kimse **kendi talebini onaylayamaz/reddedemez**.
+- Onay/red sırasında hesap, sahiplik, para birimi, bakiye, amount scale ve güncel
+  durum yeniden doğrulanır.
+- Red/iptal bakiye değiştirmez; bekleyen giden talep rezervasyonu serbest bırakır.
 
-6. **Tutarlılık**
-   - Bakiye, debit/credit ledger satırları, onay durumu ve audit aynı DB
-     transaction'ında commit/rollback edilir.
-   - `Idempotency-Key` verilen isteklerde aynı anahtar+payload tekrarı para
-     hareketini ikinci kez uygulamaz; tamamlanmış yanıt yeniden oynatılır.
+### 3. Delegasyon ve limit
+
+- `ApprovalDelegation`: kullanıcı + operation + currency + `MaxAmount`; opsiyonel
+  `DailyLimit`, `ExpiresAt`, `IsActive`, `RowVersion`.
+- Limit **dahildir**: `100,000.00 TRY` onaylanır, `100,000.01 TRY` Owner'a kalır.
+- Günlük limit aynı onaycının aynı operasyon/para birimindeki UTC günü
+  onaylarının toplamıdır.
+- Yetki her onayda DB'den okunur. Deactivate, expiry, rol değişikliği veya limit
+  düşürme eski JWT/ekran ne gösterirse göstersin anında etkilidir.
+- Reconciliation exception onayı operasyon iznine bağlıdır; parasal limit yoktur
+  ve kapanış bakiye düzeltmez.
+
+### 4. Para ve tutarlılık
+
+- `decimal`, 2 hane; fazla küsurat reddedilir. TRY/USD/EUR/GBP; FX yok.
+- Bekleyen giden transfer/withdrawal available balance rezervasyonu yapar; iki
+  talep bakiyeyi overcommit edemez.
+- Onay; bakiye + debit/credit ledger + status + timeline + audit'i tek
+  transaction'da yazar.
+- `RowVersion` eşzamanlı çift onayı engeller; `Idempotency-Key` tekrar isteği
+  ikizlemez.
+
+### 5. Üyelik
+
+- Public kayıt yalnız kullanıcı adı, e-posta, ad-soyad, şifre+doğrulama alır.
+  İstemci rol/limit/sahiplik/bakiye gönderemez; e-posta doğrulaması iddia edilmez.
+- Kayıt `PendingActivation`; Owner aktivasyonu Customer profili oluşturur.
+- Owner setup tek seferliktir; Owner oluşunca endpoint `409` ile kapanır.
 
 ## Sonuçlar
 
-- Yüksek tutarlı ödeme tek kişinin doğrudan transferiyle atlanamaz.
-- Standart kullanıcı demo ortamında para hareketi yapamaz; bu, eksik sahiplik
-  modelinin bilinçli ve güvenli sonucudur.
-- Ayrı bir “senior approver” rolü yoktur. Risk seviyesi iş akışını belirler,
-  rol hiyerarşisini değil. README ve raporlarda daha fazlası iddia edilmez.
-- Müşteri–kullanıcı sahipliği eklendiğinde satır düzeyi yetki ayrı bir ADR ile
-  tasarlanmalıdır.
+- Yetki, "hangi ekranı görüyor" değil **kişi + operasyon + para birimi + tutar**
+  olarak modellenir.
+- Owner'ın kendi talebi bile dört göz kuralına tabidir; başka yetkili gerekir.
+- Müşteri self-servisi güvenli hale gelir; ancak müşteri adına hareket yalnız
+  approval request ile olur.
+- Daha fazla yönetim ekranı ve delegasyon verisi gerekir; bu kabul edilen
+  karmaşıklıktır.
+- SQL Server'da legacy rol eşlemesi ve migration operatör işidir.
 
 ## Reddedilen alternatifler
 
-- **Üçüncü bir Supervisor rolü**: iki rollü modeli gereksiz karmaşıklaştırır ve
-  mevcut demo kullanıcılarıyla uyum için ek yönetim gerektirir.
-- **Tüm transferleri onaya zorlamak**: düşük tutarlı operasyonel transferleri
-  gereksiz yere yavaşlatır; otomatik onay politikası bunu dengeler.
-- **Doğrudan transferi tamamen kaldırmak**: mevcut API sözleşmesini ve demo
-  akışını gereksiz bozar.
+- **Düşük risk auto-approval:** Kullanıcı politikasına aykırı; limit/rol modelini
+  anlamsızlaştırır. Kaldırıldı.
+- **Sadece Owner onayı:** Ölçeklenmez; delegasyon iş ihtiyacıdır.
+- **Delegasyonda yalnız global limit:** Operasyon/para birimi ayrımı olmadan
+  yetki fazla geniş olur.
+- **Owner'ın kendi talebini onaylaması:** Dört göz kuralını ihlal eder.
+- **Public kayıtta rol seçimi:** Kalıcı yetki yükseltme riski.
+- **Exception kapanışında bakiye düzeltmesi:** Mutabakat kaydı operasyonel
+  kanıttır; para hareketi normal ledger akışından geçmelidir.

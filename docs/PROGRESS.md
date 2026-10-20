@@ -1,78 +1,84 @@
 # PROGRESS
 
-Güncelleme: **2026-10-20** (Europe/Istanbul).
+Güncelleme: **2026-10-20/21** (Europe/Istanbul).
 
-## Durum: backend + iş kuralları + test + rapor tamam; dashboard aşaması bekliyor
+## Durum: üç rollü backend + dashboard + mutabakat tamam; UAT/SQL Server açık
 
-Kullanıcının güncel teslim sırası uygulandı: önce backend, bankacılık iş kuralları,
-güvenlik ve testler; ardından completion/test raporları; **burada duruldu**.
-Kapsamlı dashboard ekran/tasarım geliştirmesi başlatılmadı. Dashboard ürün
-gereksinimleri [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md),
-manuel kabul adımları [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) içinde kayıtlı.
+Kullanıcı bekleme kapısını kaldırdı. Owner/DelegatedApprover/Customer rol modeli,
+tüm finansal taleplerin onay zorunluluğu, kişi/operasyon/para birimi limitleri,
+mutabakat/istisna, timeline/dekont ve demo merkezi uygulandı. Yerel build/test/
+smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
 
 ## Çalışma alanı
 
-- Worktree: `/Users/tamerkargin/Documents/Codex/2026-10-20/gpt-imdi-x20/outputs/DigitalBanking-DeepSeek/.dsh-worktrees/dsh-mvh4pdzy-u7y7j4`
-- Dal: `dsh/dsh-mvh4pdzy-u7y7j4` (taban `0ceead9`)
-- Backend commit: `2316572`
-- Dashboard uyumluluk + smoke commit: `095a31b`
-- Dokümantasyon/portföy commit: `354fa0f`
-- Deny-by-default güvenlik commit: `9f6b8ac`
-- Ana kopya: `../DigitalBanking` / `integration/local-development` — **dokunulmadı**
+- Worktree: `.../.dsh-worktrees/dsh-mvh4pdzy-u7y7j4`
+- Dal: `dsh/dsh-mvh4pdzy-u7y7j4`
+- Backend commit: `11684b2`
+- Dashboard commit: `d2e90e3`
+- Önceki ownership/timeline/reconciliation: `cac7f00`
+- Ana kopya / `integration/local-development`: **dokunulmadı**
 - Demo: API `http://127.0.0.1:5180`, dashboard `http://127.0.0.1:5181`
-- Smoke/veri: sentetik; `.local/` git dışı; ana kopyanın 5080/5081 süreçlerine
-  dokunulmadı.
+- `.local/` git dışı; 5080/5081 süreçlerine dokunulmadı.
 
-## Tamamlananlar
+## Tamamlanan dilimler
 
-1. **Kimlik/yetki**: Guid `User.Id` ile uyumlu maker-checker kullanıcı kimlikleri;
-   yalnız doğrulanmış JWT claim'inden `ActorContext`; Admin/User rol politikası;
-   login throttle + rate limit + şifre politikası; session temizliği.
-2. **Maker-checker ve risk**: düşük risk otomatik onay; orta/yüksek/kritik
-   Pending; farklı Admin onayı; kendi talebini inceleme engeli; 50.000 doğrudan
-   transfer sınırı; `RowVersion` ile çift onay engeli.
-3. **Para/veri**: decimal, 2 hane, para birimi eşleşmesi, bakiye/hesap
-   doğrulamaları, atomik ledger+audit, idempotency tablosu/filtresi.
-4. **Rapor/audit**: gün sonu dahil tarih aralığı, 366 gün sınırı, para birimi
-   kapsamlı top-accounts, audit API (Admin).
-5. **Şema/migration**: yeni migration; eski migration'lar değiştirilmedi; int→Guid
-   dönüşümü için legacy tablo + operatör adımları; SQL Server'da **uygulanmadı**.
-6. **Dashboard uyumluluğu**: mevcut minimal Razor ekranları yeni sözleşmelere
-   uyarlandı; güvenli 401/403/500 mesajları; kullanıcı adı/rol session'ı;
-   çıkışta temizlik; Admin kullanıcı listesi zarfı; rapor filtreleri.
-7. **Testler**: 95 xUnit + 71 smoke; baseline 10 test / 21 smoke korundu.
-8. **VS Code SDK önkoşulu**: `.vscode` ayarları, `setup_macos_vscode_env.sh`,
-   `verify_vscode_sdk.sh`; ajan oturumu launchd kısıtı nedeniyle GUI adımı kullanıcıda.
+1. **Owner/üyelik:** tek seferlik localhost setup, PendingActivation kayıt,
+   aktivasyon, rol değişimi, son Owner koruması, disable'ın delegasyonları
+   kapatması, public kayıtta Owner yasağı.
+2. **Onay modeli:** transfer/deposit/withdrawal/account opening için istisnasız
+   Pending; oluşturmada para hareketi yok; risk yalnız bilgi.
+3. **Delegasyon:** operasyon/para birimi/limit (`MaxAmount` dahil), opsiyonel
+   günlük limit ve expiry, anında iptal; her onayda DB kontrolü. 100.000,00
+   onaylanır, 100.000,01 Owner'a kalır.
+4. **Self-approval:** Owner dahil kendi talebini onaylama/reddetme engeli.
+5. **Rezervasyon:** bekleyen giden talepler available balance'ı düşürür; iki
+   talep overcommit edemez; iptal/red serbest bırakır; onayda yeniden kontrol.
+6. **Sahiplik:** `Customer.UserId`, `/api/me/*`, IDOR 404, müşteri timeline/
+   receipt, maskeleme, Europe/Istanbul, DEMO uyarısı.
+7. **Mutabakat:** CSV preview/import, SHA-256+scope mükerrer, deterministik
+   eşleşme sınıfları, pending ayrımı, formül-safe export, istisna akışı ve
+   farklı onaycı; bakiye düzeltmesi yok.
+8. **Demo merkezi:** Development-only, Owner-only, deterministic/idempotent seed,
+   scoped reset.
+9. **Dashboard:** Setup/Login/Register; Owner özet/onay/üyeler/yetkiler/
+   müşteriler/hesaplar/talep/audit/mutabakat/demo/rapor; Delegated kuyruk;
+   Customer hesaplar/transfer/talepler/dekont.
+10. **Doğrudan hareket uçları:** 400 ile onay akışına yönlendirme.
 
 ## Son doğrulanan sonuçlar
 
 - Build: **0 uyarı, 0 hata**.
-- xUnit: **95 geçti, 0 kaldı, 0 atlandı**.
-- Smoke: **71 kontrol geçti**.
-- NuGet audit: 6 projede bilinen açık yok (mevcut kaynaklar).
+- xUnit: **147 geçti, 0 kaldı, 0 atlandı**.
+- Smoke: **272 kontrol geçti** (temiz Development DB, eşzamanlı Owner setup ve stale Setup POST dahil).
+- NuGet audit: bilinen açık yok.
 - `git diff --check`: temiz.
 - Kanıt: [`evidence/`](evidence/), [`TEST_REPORT.md`](TEST_REPORT.md).
 
-## Açık sınırlar
+## Açık sınırlar / sıradaki işler
 
-- SQL Server bağlantısı/migration'ı/gerçek concurrency testi yapılmadı; migration
-  yalnız üretildi ve belgelendi.
-- Manuel UAT yapılmadı; `UAT_CHECKLIST.md` kullanıcı tarafından doldurulacak.
-- Kapsamlı dashboard yok; müşteri self-servis için User–Customer–Account sahipliği
-  ve sunucu tarafı erişim kontrolleri gerekiyor.
-- Standart `User` şu an yalnız kimlik doğrulayabilir; sahiplik olmadığı için tüm müşteri/hesap/rapor okumaları Admin'e kapalıdır.
-- FX, yerel saat dilimi/bankacılık gün sonu takvimi, dağıtık throttle, production
-  secret/observability/retention yok.
-- VS Code GUI doğrulanmadı; kullanıcı launchd adımını çalıştırıp IDE'yi yeniden
-  başlatmalı.
+- **SQL Server:** üç yeni migration yalnız üretildi; apply/decimal/concurrency
+  doğrulanmadı. Legacy `Admin=1`/`User=2` rol eşlemesi operatör işidir.
+  `20261021011500_EnforceSingleOwner` mevcut >1 Owner verisinde **silme yapmadan**
+  durur; operatör kararı gerekir.
+- **Manuel UAT:** [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) doldurulmadı.
+- **Ekran görüntüsü:** gerçek dashboard'dan 7 ekran alındı (`docs/screenshots/`);
+  UI değişince yenilenmeli.
+- **FX/gün sonu takvimi:** yok; rapor UTC, dekont Europe/Istanbul.
+- **Dağıtık throttle/secret manager/observability/audit retention:** yok.
+- **VS Code GUI SDK:** kullanıcı launchd adımını çalıştırmalı.
+- İsteğe bağlı sonraki geliştirme: manuel UAT, SQL Server integration test
+  ortamı, dağıtık rate-limit store. Bunlar kullanıcı onayı olmadan başlatılmadı.
 
-## Sıradaki adım (başlatılmadı)
+## Harness notu
 
-Dashboard aşaması: [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md).
-İlk iş `Customer.UserId` sahipliği + migration + testler; ardından Admin özet/
-müşteri/hesap/onay kuyruğu/audit/rapor ekranları, müşteri bakiye/hareket/transfer
-talebi/durum ekranları, erişilebilirlik ve UAT. Ürün brief'inde kaba efor ve
-kabul ölçütleri var.
+- Worktree dosyaları macOS `hidden` bayrağıyla oluşturuldu; `appsettings.json`
+  görünmez olduğunda `chflags -R nohidden .` uygulandı.
+- Sandbox paylaşımlı Roslyn derleyicisini engelledi; doğrulama
+  `DOTNET_CLI_USE_MSBUILD_SERVER=0` ve
+  `-p:UseSharedCompilation=false -m:1 -nr:false` ile yapıldı.
+- Commit'ler `.git/worktrees` erişimi için sandbox yükseltmesi gerektirdi;
+  global git kimliği değiştirilmedi; commit başına
+  `-c user.name=Codex -c user.email=codex@local.invalid` kullanıldı.
 
 ## Teslim belgeleri
 
@@ -83,38 +89,7 @@ kabul ölçütleri var.
 - [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md)
 - [`PORTFOLIO_NOTES.md`](PORTFOLIO_NOTES.md)
 - [`migrations/README.md`](migrations/README.md)
+- [`RECONCILIATION_FORMAT.md`](RECONCILIATION_FORMAT.md)
+- [`INTEGRATION_HANDOFF.md`](INTEGRATION_HANDOFF.md)
 - [`adr/0001-payment-and-role-policy.md`](adr/0001-payment-and-role-policy.md)
 - [`../README.md`](../README.md)
-
-## Harness notu (devam eden oturum için)
-
-- Worktree dosyaları macOS `hidden` bayrağıyla oluşturuldu; `PhysicalFileProvider`
-  `appsettings.json`'ı göremediği için `chflags -R nohidden .` uygulandı.
-- Sandbox paylaşımlı Roslyn derleyicisini engelledi; doğrulama
-  `DOTNET_CLI_USE_MSBUILD_SERVER=0` ve `-p:UseSharedCompilation=false -m:1 -nr:false`
-  ile yapıldı. Normal terminalde sade komutlar yeterlidir.
-- Commit'ler worktree dışındaki `.git` index'i nedeniyle sandbox yükseltmesi
-  gerektirdi; global git kimliği değiştirilmedi, commit başına `-c user.name=Codex
-  -c user.email=codex@local.invalid` kullanıldı.
-
-## 2026-10-21 — Yeni geliştirme aşaması (dilim A/B/C backend)
-
-Kullanıcı üç yeni özelliği onayladı; bekleme kapısı kalktı. Devam noktası
-`a327f48`; bu worktree temizdi, parent dal aynı ağacı merge etmişti.
-
-- **Dilim A — sahiplik:** `Customer.UserId` (+ SQL Server filtered unique index),
-  `ICustomerAccessService`, `/api/me/*` (profil, hesaplar, hareketler, alıcılar,
-  ödemeler, transfer talebi), IDOR için 404, Admin için 403. `User` artık yalnız
-  kendi verisine erişir.
-- **Dilim B — timeline/dekont:** `PaymentTimelineEvent`, `CorrelationId`,
-  gerçek olaylardan timeline; tamamlanmış işlem için yazdırılabilir demo dekont
-  (tamamlanmamışta durum özeti), maskeli hesaplar, Europe/Istanbul.
-- **Dilim C — mutabakat backend:** CSV parser (boyut/satır/başlık/UTF-8/tarih/
-  decimal/para birimi), preview+import, deterministik referans eşleme,
-  eşleşen/yalnız dış/yalnız sistem/tutar/para birimi/mükerrer, pending ayrımı,
-  batch kalıcılığı, formül enjeksiyonuna dayanıklı export, istisna iş akışı
-  (Open→InReview→Proposed→Closed/Rejected, reopen), farklı Admin onayı, RowVersion,
-  audit. Bakiye düzeltmesi yok.
-- Testler: **128 xUnit** (95 baseline korunarak). Migration:
-  `20261020212050_AddCustomerOwnershipTimelineReconciliation` (SQL Server'da
-  uygulanmadı).

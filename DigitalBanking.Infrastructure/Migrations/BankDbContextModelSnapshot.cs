@@ -746,6 +746,11 @@ namespace DigitalBanking.Infrastructure.Migrations
 
                     b.HasIndex("Role", "Status");
 
+                    b.HasIndex("Role")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Users_Role_OwnerUnique")
+                        .HasFilter("[Role] = 3");
+
                     b.ToTable("Users");
                 });
 

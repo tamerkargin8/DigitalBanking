@@ -96,13 +96,38 @@ try
                     AutoReplenishment = true
                 }));
 
+        // Setup is a one-time bootstrap action, not registration. Keeping it in a
+        // separate partition means a busy smoke/register run cannot make the local
+        // Owner setup screen look like a login failure.
+        options.AddPolicy("setup", httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 5,
+                    Window = TimeSpan.FromMinutes(10),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                }));
+
         options.OnRejected = async (context, cancellationToken) =>
         {
+            var policy = context.HttpContext.GetEndpoint()?
+                .Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
+
+            var (retryAfterSeconds, message) = policy switch
+            {
+                "setup" => (600, "Çok fazla kurulum denemesi yapıldı. Lütfen bir süre sonra tekrar deneyin."),
+                "register" => (600, "Çok fazla kayıt denemesi yapıldı. Lütfen bir süre sonra tekrar deneyin."),
+                _ => (60, "Çok fazla giriş denemesi yapıldı. Lütfen kısa bir süre sonra tekrar deneyin.")
+            };
+
             context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.HttpContext.Response.Headers["Retry-After"] = retryAfterSeconds.ToString();
             context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
             await context.HttpContext.Response.WriteAsync(
                 JsonSerializer.Serialize(
-                    ApiResponse.Failure("Too many login requests. Please wait and try again."),
+                    ApiResponse.Failure(message),
                     new JsonSerializerOptions(JsonSerializerDefaults.Web)),
                 cancellationToken);
         };

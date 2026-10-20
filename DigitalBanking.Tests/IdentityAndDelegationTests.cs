@@ -5,6 +5,8 @@ using DigitalBanking.Application.Exceptions;
 using DigitalBanking.Domain.Enums;
 using DigitalBanking.Infrastructure.Security;
 using DigitalBanking.Infrastructure.Services;
+using DigitalBanking.Infrastructure.Persistence;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigitalBanking.Tests;
@@ -68,6 +70,72 @@ public class IdentityAndDelegationTests
         var member = await f.Context.Users.SingleAsync(x => x.Username == "new-member");
         Assert.Equal(UserRole.Customer, member.Role);
         Assert.Equal(UserStatus.PendingActivation, member.Status);
+    }
+
+    [Fact]
+    public async Task ConcurrentOwnerSetupCreatesOneOwnerAndReturnsConflictForLoser()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"digitalbanking-owner-{Guid.NewGuid():N}.db");
+        var options = new DbContextOptionsBuilder<BankDbContext>()
+            .UseSqlite($"Data Source={path};Default Timeout=30")
+            .Options;
+
+        try
+        {
+            await using (var setup = new BankDbContext(options))
+                await setup.Database.EnsureCreatedAsync();
+
+            var hasher = new PasswordHasher();
+            var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            async Task<Exception?> AttemptAsync(string username)
+            {
+                await gate.Task;
+                await using var context = new BankDbContext(options);
+                var identity = new UserIdentityService(
+                    context, hasher, new AuditService(context), new ApprovalAuthorizationService(context));
+                try
+                {
+                    await identity.SetupOwnerAsync(new SetupOwnerRequest
+                    {
+                        Username = username,
+                        Email = username + "@demo.invalid",
+                        FirstName = "Concurrent",
+                        LastName = "Owner",
+                        Password = "SyntheticOwner1",
+                        ConfirmPassword = "SyntheticOwner1"
+                    });
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    return ex;
+                }
+            }
+
+            // Two real DbContexts and two separate SQLite connections race on an
+            // empty database. The filtered unique index must decide the winner,
+            // and the loser must be translated to a domain conflict (HTTP 409).
+            var attempts = new[]
+            {
+                AttemptAsync("race-owner-a"),
+                AttemptAsync("race-owner-b")
+            };
+            gate.SetResult();
+            var results = await Task.WhenAll(attempts);
+
+            Assert.Single(results, result => result is null);
+            Assert.Single(results, result => result is ConflictException);
+
+            await using var verify = new BankDbContext(options);
+            Assert.Equal(1, await verify.Users.CountAsync(x => x.Role == UserRole.Owner));
+            Assert.Equal(1, await verify.Users.CountAsync(x => x.Role == UserRole.Owner && x.Status == UserStatus.Active));
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(path)) File.Delete(path);
+        }
     }
 
     [Fact]

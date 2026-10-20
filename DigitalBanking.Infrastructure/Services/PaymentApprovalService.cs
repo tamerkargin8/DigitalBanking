@@ -199,19 +199,33 @@ public class PaymentApprovalService : IPaymentApprovalService
             CreatedAt = now
         };
 
-        _context.PaymentApprovals.Add(approval);
-        await _context.SaveChangesAsync(cancellationToken);
+        // The approval row, its timeline and the audit entry must be created
+        // atomically. The generated identity is only available after the first
+        // save, so both saves share one transaction.
+        await using var createTransaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _context.PaymentApprovals.Add(approval);
+            await _context.SaveChangesAsync(cancellationToken);
 
-        AddTimeline(approval, PaymentTimelineEventType.Created, now, dbActor, false,
-            $"{RequestTypeLabel(requestType)} request created.");
-        AddTimeline(approval, PaymentTimelineEventType.Pending, now.AddTicks(1), dbActor, true,
-            "Awaiting Owner or delegated approver.");
+            AddTimeline(approval, PaymentTimelineEventType.Created, now, dbActor, false,
+                $"{RequestTypeLabel(requestType)} request created.");
+            AddTimeline(approval, PaymentTimelineEventType.Pending, now.AddTicks(1), dbActor, true,
+                "Awaiting Owner or delegated approver.");
 
-        _auditService.Add("APPROVAL_REQUEST_CREATED", "PaymentApproval", approval.Id.ToString(), dbActor.Username, true,
-            $"Type: {requestType}, Amount: {approval.Amount}, Currency: {approval.Currency}, " +
-            $"Requester: {dbActor.UserId}, Correlation: {approval.CorrelationId}");
+            _auditService.Add("APPROVAL_REQUEST_CREATED", "PaymentApproval", approval.Id.ToString(), dbActor.Username, true,
+                $"Type: {requestType}, Amount: {approval.Amount}, Currency: {approval.Currency}, " +
+                $"Requester: {dbActor.UserId}, Correlation: {approval.CorrelationId}");
 
-        await _context.SaveChangesAsync(cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+            await createTransaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await SafeRollbackAsync(createTransaction, cancellationToken);
+            throw;
+        }
+
         return _mapper.Map<PaymentApprovalResponse>(approval);
     }
 
@@ -324,6 +338,8 @@ public class PaymentApprovalService : IPaymentApprovalService
                 throw new BusinessRuleException("Yalnız bekleyen talepler onaylanabilir.");
             if (approval.RequestedByUserId == dbReviewer.UserId)
                 throw new BusinessRuleException("Kendi oluşturduğunuz talebi onaylayamazsınız (maker-checker).");
+
+            await EnsureRequestOwnershipStillValidAsync(approval, cancellationToken);
 
             var permission = await _authorization.CheckAsync(
                 dbReviewer.UserId, OperationFor(approval.RequestType), approval.Currency, approval.Amount, cancellationToken);
@@ -466,7 +482,15 @@ public class PaymentApprovalService : IPaymentApprovalService
         AddTimeline(approval, PaymentTimelineEventType.Rejected, now, dbReviewer, false, "Rejected by reviewer.");
         _auditService.Add("APPROVAL_REQUEST_REJECTED", "PaymentApproval", approval.Id.ToString(), dbReviewer.Username, true,
             $"Reason: {reason}");
-        await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _context.ChangeTracker.Clear();
+            throw new ConcurrencyException("Talep başka bir incelemeci tarafından işlendi.");
+        }
     }
 
     public async Task CancelAsync(int approvalId, ActorContext actor, CancellationToken cancellationToken = default)
@@ -486,7 +510,36 @@ public class PaymentApprovalService : IPaymentApprovalService
         AddTimeline(approval, PaymentTimelineEventType.Cancelled, now, dbActor, false, "Request cancelled.");
         _auditService.Add("APPROVAL_REQUEST_CANCELLED", "PaymentApproval", approval.Id.ToString(), dbActor.Username, true,
             "Pending request cancelled; no balance changed.");
-        await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _context.ChangeTracker.Clear();
+            throw new ConcurrencyException("Talep başka bir kullanıcı tarafından değiştirildi.");
+        }
+    }
+
+    private async Task EnsureRequestOwnershipStillValidAsync(PaymentApproval approval, CancellationToken cancellationToken)
+    {
+        if (approval.RequestedCustomerId is not { } requestedCustomerId
+            || approval.RequestType == ApprovalRequestType.AccountOpening)
+            return;
+
+        var customer = await _context.Customers.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == requestedCustomerId, cancellationToken);
+        if (customer?.UserId != approval.RequestedByUserId)
+            throw new BusinessRuleException(
+                "Talebi oluşturan kullanıcı artık bu müşteri profiline bağlı değil; onay güvenlik nedeniyle reddedildi.");
+
+        var accountCustomerId = await _context.Accounts.AsNoTracking()
+            .Where(x => x.Id == approval.FromAccountId)
+            .Select(x => x.CustomerId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (accountCustomerId != requestedCustomerId)
+            throw new BusinessRuleException(
+                "Hesap sahipliği talep oluşturulduktan sonra değişmiş; onay güvenlik nedeniyle reddedildi.");
     }
 
     private async Task EnsureAvailableBalanceAsync(Guid accountId, decimal amount, CancellationToken cancellationToken)

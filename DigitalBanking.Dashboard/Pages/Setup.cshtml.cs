@@ -41,8 +41,30 @@ public class SetupModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
+        // A form opened before setup completed can be submitted later. Re-check
+        // the authoritative setup state before accepting any password material.
+        var status = await _auth.GetSetupStatusAsync(cancellationToken);
+        if (status is null)
+        {
+            ClearSecrets();
+            Error = "API'ye ulaşılamıyor. Yerel servislerin çalıştığını kontrol edin.";
+            return Page();
+        }
+        if (!status.NeedsOwner)
+        {
+            ClearSecrets();
+            return RedirectToPage("/Login", new { setup = true });
+        }
+        if (!status.SetupEnabled)
+        {
+            ClearSecrets();
+            Error = "Owner kurulumu yalnız localhost/Development ortamında açıktır.";
+            return Page();
+        }
+
         if (Password != ConfirmPassword)
         {
+            ClearSecrets();
             Error = "Şifre ve şifre doğrulaması eşleşmiyor.";
             return Page();
         }
@@ -51,10 +73,27 @@ public class SetupModel : PageModel
             Username, Email, FirstName, LastName, Password, ConfirmPassword, cancellationToken);
         if (!result.Success)
         {
-            Error = result.Message;
+            // A concurrent setup may have won between the status check and POST.
+            // Treat that as a completed setup, not as a form error or a 500.
+            var after = await _auth.GetSetupStatusAsync(cancellationToken);
+            if (after is { NeedsOwner: false })
+            {
+                ClearSecrets();
+                return RedirectToPage("/Login", new { setup = true });
+            }
+
+            ClearSecrets();
+            Error = result.Message ?? "Kurulum tamamlanamadı. Lütfen tekrar deneyin.";
             return Page();
         }
 
+        ClearSecrets();
         return RedirectToPage("/Login", new { setup = true });
+    }
+
+    private void ClearSecrets()
+    {
+        Password = string.Empty;
+        ConfirmPassword = string.Empty;
     }
 }

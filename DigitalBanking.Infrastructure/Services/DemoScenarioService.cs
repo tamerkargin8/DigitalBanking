@@ -28,6 +28,7 @@ public sealed class DemoScenarioService : IDemoScenarioService
     private readonly IPaymentApprovalService _payments;
     private readonly IAuditService _audit;
     private readonly IDelegationService _delegations;
+    private readonly IApprovalAuthorizationService _authorization;
     private readonly IHostEnvironment _environment;
     private readonly ILogger _logger;
 
@@ -36,12 +37,14 @@ public sealed class DemoScenarioService : IDemoScenarioService
         IPaymentApprovalService payments,
         IAuditService audit,
         IDelegationService delegations,
+        IApprovalAuthorizationService authorization,
         IHostEnvironment environment)
     {
         _context = context;
         _payments = payments;
         _audit = audit;
         _delegations = delegations;
+        _authorization = authorization;
         _environment = environment;
         _logger = Log.ForContext<DemoScenarioService>();
     }
@@ -64,6 +67,7 @@ public sealed class DemoScenarioService : IDemoScenarioService
     public async Task<DemoSeedResultDto> SeedAsync(ActorContext actor, CancellationToken cancellationToken = default)
     {
         EnsureDevelopment();
+        await EnsureActiveOwnerAsync(actor, cancellationToken);
 
         var owner = await RequireOwnerAsync(cancellationToken);
         var customerA = await RequireUserAsync("customer.a", UserRole.Customer, cancellationToken);
@@ -125,6 +129,7 @@ public sealed class DemoScenarioService : IDemoScenarioService
     public async Task<DemoResetResultDto> ResetAsync(ActorContext actor, CancellationToken cancellationToken = default)
     {
         EnsureDevelopment();
+        await EnsureActiveOwnerAsync(actor, cancellationToken);
 
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         var demoPayments = await _context.PaymentApprovals
@@ -469,6 +474,13 @@ public sealed class DemoScenarioService : IDemoScenarioService
         {
             // Another seed/run created it concurrently.
         }
+    }
+
+    private async Task EnsureActiveOwnerAsync(ActorContext actor, CancellationToken cancellationToken)
+    {
+        var active = await _authorization.RequireActiveActorAsync(actor.UserId, cancellationToken);
+        if (active.Role != UserRole.Owner)
+            throw new ForbiddenException("Demo merkezi yalnız aktif Owner tarafından kullanılabilir.");
     }
 
     private async Task<User> RequireOwnerAsync(CancellationToken cancellationToken)

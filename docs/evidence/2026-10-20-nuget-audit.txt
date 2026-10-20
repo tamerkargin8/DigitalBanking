@@ -1,5 +1,7 @@
-# NuGet vulnerability audit - 2026-10-20
-$ bash scripts/dotnet.sh list DigitalBanking.slnx package --vulnerable --include-transitive
+DigitalBanking NuGet vulnerability audit — 2026-10-20
+Command: bash scripts/dotnet.sh list DigitalBanking.slnx package --vulnerable --include-transitive
+Scope: 6 projects + transitive packages; no restore/version changes
+
   Determining projects to restore...
   All projects are up-to-date for restore.
 

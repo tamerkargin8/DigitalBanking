@@ -1,156 +1,160 @@
-# DigitalBanking — banking operations portfolio demo
+# DigitalBanking — banking controls portfolio demo
 
-> **Delivery status (2026-10-20):** the .NET 10 API, banking rules, security controls and automated tests are implemented and verified locally. The existing Razor dashboard is intentionally kept minimal in this delivery; the full customer/admin dashboard is designed in [`docs/DASHBOARD_PRODUCT_BRIEF.md`](docs/DASHBOARD_PRODUCT_BRIEF.md) and will be built as the next stage. SQL Server migrations were generated but **not applied or tested**. This is an educational demo, not a production banking system.
+> **Status (2026-10-20):** working .NET 10 API + Razor dashboard, **147 xUnit tests** and **272 end-to-end smoke checks** passing locally. SQL Server migrations are generated but **not applied or verified**. This is an educational, synthetic demo — not production banking software.
 
-A working, testable simulation of the operational controls behind retail payments: customers and accounts, deposits/withdrawals, maker-checker payment approvals, risk levels, audit, reports, decimal money and JWT-based identity.
+DigitalBanking is a small retail-banking back office that makes the controls behind money movement visible: a **one-time Owner**, **delegated approval authority**, **maker-checker for every financial request**, **inclusive per-operation limits**, **live revocation**, **idempotent posting**, **customer ownership**, **timeline/receipt**, and **day-end reconciliation with an exception workflow**.
 
 ## The 30-second version
 
-DigitalBanking is a small banking back office built with ASP.NET Core 10 and EF Core. It demonstrates the parts of banking software that are usually invisible in CRUD demos: a **maker-checker approval workflow**, **risk-based routing**, **idempotent money movement**, **atomic audit**, **role/claim enforcement**, and **decimal/currency correctness**.
+Most banking demos stop at CRUD. This one starts where operations actually get hard: who may approve what, for how much, in which currency, and what happens when authority is revoked, two requests overcommit one balance, or an external statement does not match the ledger.
 
-- **Stack:** C# / .NET 10, ASP.NET Core Web API, Razor Pages, EF Core 10, SQL Server (default) + SQLite (Development only), xUnit.
-- **Verified locally:** build 0 warnings / 0 errors, **95 automated tests**, **71 end-to-end smoke checks**.
-- **Try it:** `bash scripts/dotnet.sh build DigitalBanking.slnx` then `python3 scripts/run_local.py --api-port 5180 --dashboard-port 5181`.
-- **API/Swagger:** <http://127.0.0.1:5180/swagger> · **Dashboard:** <http://127.0.0.1:5181>
+Every customer financial request — transfer, deposit, withdrawal, account opening — is created as **Pending** and moves no money. The Owner or an explicitly delegated approver must approve it. The delegated limit is **inclusive**: a **100,000.00 TRY** request is allowed; **100,000.01 TRY** requires the Owner. The Owner's own request also cannot be self-approved. All authority is re-read from the database on every approval, so a revoked delegation or stale JWT stops working immediately.
 
-## Business context
+- **Stack:** C# / .NET 10, ASP.NET Core Web API + Razor Pages, EF Core 10, SQL Server (default) / SQLite (Development only), xUnit.
+- **Verified locally:** build 0 warnings / 0 errors, **147 xUnit tests**, **272 smoke checks**, NuGet vulnerable-package audit clean.
+- **Try it:** `bash scripts/dotnet.sh build DigitalBanking.slnx`, then `python3 scripts/run_local.py --api-port 5180 --dashboard-port 5181`, open <http://127.0.0.1:5181>.
+- **API/Swagger:** <http://127.0.0.1:5180/swagger> · **Health:** <http://127.0.0.1:5180/health>
 
-The project translates day-to-day banking operations into software: a customer asks for a payment, operations checks limits and balances, a second person approves high-risk items, and every movement leaves an audit trail. The domain model deliberately stays small so the controls are visible and testable.
+## Roles and authority
 
-It is a portfolio project, not a claim about any employer's systems. The author's background is in banking operations, payments, SWIFT operations, operational risk/controls and management information systems; this repository shows how those controls can be expressed in backend code.
+| Role | Who | Can do | Cannot do |
+|---|---|---|---|
+| **Owner / SuperAdmin** | First local setup only; never seeded or self-registered | Activate/disable members; change Customer/DelegatedApprover roles; assign per-user, per-operation, per-currency limits; see all requests, audit, customers, accounts, reconciliation, demo center; approve any request | Approve/reject **own** request; disable/demote the last Owner; create a second Owner through public registration |
+| **DelegatedApprover** | Active member promoted by Owner | Approve/reject requests matching an active delegation (operation + currency + `amount <= max` and optional daily total/expiry) | Self-approve; approve another currency/operation/limit; manage users, roles or delegations; escalate self/others to Owner |
+| **Customer** | Public registration, then Owner activation | See only own profile/accounts/transactions; request transfers, deposits, withdrawals, account opening; track own timeline; download a completed demo receipt | Move money directly, approve anything, see another customer's data |
+| **PendingActivation** | Public registration default | Sign in is blocked | Any business action until Owner activates |
 
-## Demo personas and end-to-end scenario
+Public registration accepts only **username, email, first/last name, password + confirmation**. Role, limits, ownership and balance are never accepted from the client. There is no email-verification claim.
 
-The target demo (dashboard stage) uses synthetic personas only:
+### Approval and limit rules
 
-| Persona | Role | Purpose |
+- **No auto-approval.** A low-risk request is still `Pending`; risk is shown, not used to bypass approval.
+- **No money moves at creation.** Pending outgoing transfers/withdrawals reserve available balance, but the ledger changes only on approval. The request row, timeline and audit entry are created in one transaction.
+- **Ownership is rechecked at approval.** If the requester is no longer linked to the customer profile, or the source account has moved to another customer while the request was pending, approval is refused without moving money.
+- **Inclusive boundary.** `100,000.00 TRY` is eligible for a delegation with `MaxAmount = 100,000.00`; `100,000.01 TRY` is denied and routed to the Owner.
+- **Daily cumulative limit** is optional per delegation and counts approvals by that approver for the same operation/currency/UTC day.
+- **Live authority.** Role, status, delegation `IsActive`, `ExpiresAt`, limit and daily usage are checked from the database at approval time — not trusted from the JWT or the screen.
+- **Last Owner protection.** The Owner cannot be disabled, demoted, or assigned through the role endpoint; setup closes permanently after the first Owner exists.
+- **Owner's own request** is subject to the same maker-checker self-approval block and needs another authorized reviewer.
+- **Live demo-center authority.** Demo seed/reset also re-read the caller's current Owner/Active state from the database; a stale Owner JWT is not enough.
+
+## Demo personas (synthetic only)
+
+| Username | Role | Purpose |
 |---|---|---|
-| Customer A | `User` linked to synthetic customer A | Own balance cards, statement, transfer request |
-| Customer B | `User` linked to synthetic customer B | Recipient / second customer view |
-| Admin maker | `Admin` | Creates operational payments and approval requests |
-| Admin checker | second `Admin` | Reviews and approves/rejects maker requests |
+| *(chosen locally)* | Owner | Created once through `/Setup`; password is chosen by the local user, never seeded or committed |
+| `customer.a` | Customer | TRY 250,000 / USD 3,000 / EUR 1,500 synthetic accounts |
+| `customer.b` | Customer | TRY 25,000 / USD 800 / EUR 400 synthetic accounts |
+| `approver.100k` | DelegatedApprover | Transfer/deposit/withdrawal/account-opening TRY limit 100,000; reconciliation exceptions without a monetary cap |
+| `approver.low` | DelegatedApprover | TRY transfer limit 10,000, for the "over my limit" path |
+| `applicant.pending` | PendingActivation | Demonstrates blocked login until Owner activation |
 
-End-to-end story: Admin maker creates a request from Customer A's TRY account to Customer B. Low-risk amounts are auto-approved; medium/high/critical amounts enter the pending queue. Admin checker opens the queue, sees risk/status badges, approves or rejects, and the customer sees the result and ledger entry. A customer can never approve their own request, spend another customer's money, or create money by "depositing" it.
+Demo passwords are generated locally into `.local/credentials.json` (mode `0600`, git-ignored) and are never committed or shown by the smoke test. The Owner password is chosen during local setup and is not part of the seed.
 
-**Current interim state:** the backend supports the full maker-checker flow for Admin users. `User` currently has no business-data access (deny-by-default) because the data model has no User–Customer ownership yet; it can only authenticate and read its own identity. The ownership extension, customer self-service endpoints and four-persona dashboard are specified but **not implemented**; see the product brief.
+## First-run flow
 
-## Feature and role matrix
+1. Delete/archive `.local/digitalbanking.db*` if you need a clean synthetic database.
+2. Start the API and dashboard.
+3. Open <http://127.0.0.1:5181>. The dashboard redirects to **`/Setup`** while no Owner exists.
+4. Create the first Owner (loopback + Development only). The endpoint then closes and returns `409` on any repeat. A filtered unique DB index guarantees that two simultaneous setup requests cannot create two Owners; the loser receives `409`.
+5. Sign in as Owner. Activate `applicant.pending` or a newly registered member, assign **Customer** or **DelegatedApprover**, then use **Yetkiler & Limitler** to grant operation/currency limits.
+6. Demo data is seeded deterministically; the Owner-only **Demo Merkezi** can seed the scenario set and reset only `IsDemo` rows.
 
-| Capability | Admin | User (current) | User (next dashboard phase, planned) |
-|---|:---:|:---:|:---:|
-| Sign in / JWT identity | ✅ | ✅ | ✅ |
-| Read customers/accounts/reports | ✅ | — (yalnız kimlik) | ✅ (own data only) |
-| Open customer / open account | ✅ | — | — |
-| Deposit / withdraw (teller demo) | ✅ | — | — (operations only) |
-| Direct transfer below 50,000 | ✅ | — | — |
-| Create payment approval request | ✅ | — | ✅ (from own account) |
-| Approve/reject payment request | ✅ (different Admin) | — | — (Admin checker) |
-| View pending approval queue | ✅ | — | — |
-| Audit log | ✅ | — | — |
-| User management | ✅ | — | — |
-| Own profile / balances / statement | — | — | ✅ |
-| Transfer request status tracking | — | — | ✅ |
+Rate limits are deliberately separated: login 20/min per IP, registration 5/10 min, Owner setup 5/10 min. A `429` returns a Turkish JSON message and `Retry-After` (60 s login, 600 s registration/setup).
 
-`✅` = implemented and tested in the API/backend; the current minimal dashboard exposes only login/logout, a small panel, an Admin-only top-account report and Admin user list. `—` = not permitted. Planned items are not implemented yet.
+Public registration at `/Register` can never create an Owner. There is no client-supplied role, limit, ownership or balance.
 
-**Current User access:** a standard `User` can authenticate and read only its own identity (`GET /api/auth/me`). Customer/account/report endpoints are Admin-only until User–Customer ownership is implemented. This deny-by-default choice avoids leaking another customer’s synthetic data.
+## End-to-end scenarios to try
 
-## Architecture and data flow
+| Scenario | What to observe |
+|---|---|
+| Customer transfer below/at/above limit | `99,999.99` and `100,000.00` TRY can be approved by `approver.100k`; `100,000.01` is absent from the delegated queue and returns a safe denial; Owner can reject it |
+| Owner self-approval | Owner-created request stays `Pending`; Owner approve/reject returns `400`; another reviewer or cancellation is required |
+| Revocation / old JWT | Deactivate a delegation or change the approver's role; the already-issued token immediately loses authority from the DB check |
+| Pending overcommit | Two outgoing requests cannot reserve more than the available balance; cancelling frees the reservation |
+| Timeline / receipt | Pending request shows status but no completed receipt; approved request shows Created → Pending → Approved → Completed and a masked, DEMO-marked printable receipt |
+| Reconciliation | Upload matched CSV → preview → import; duplicate file is detected by SHA-256; mismatches become only-external/only-system/amount/currency/duplicate rows |
+| Exception workflow | Open → InReview → ResolutionProposed → Closed/Rejected; proposer cannot approve own resolution; no balance adjustment is ever made |
+| Demo center | Seed is idempotent; reset removes only demo-marked payments/transactions/timeline; Owner-only and Development-only, endpoints return 404 outside Development |
+
+## Architecture
 
 ```text
-Browser (Razor Pages)
-   │  session cookie (JWT kept server-side in session; never rendered)
+Browser (Razor Pages, Turkish UI)
+   │  server-side session cookie (JWT never rendered)
    ▼
 Dashboard ── HTTP + Bearer JWT ──► ASP.NET Core API
-                                     │
-                                     ├─ ExceptionMiddleware → ApiResponse envelope
-                                     ├─ JWT auth (Guid nameidentifier, role claim)
-                                     ├─ Rate limiter + login-attempt throttle
-                                     ├─ Idempotency-Key filter (money endpoints)
-                                     ├─ Controllers (role policy from claims)
-                                     └─ Services
-                                          ├─ LedgerOperations (decimal balances + ledger rows)
-                                          ├─ PaymentApprovalService (risk/maker-checker)
-                                          ├─ AuditService (same transaction for money)
-                                          └─ EF Core ──► SQL Server (default)
-                                                          SQLite (Development demo)
+                                     ├─ JWT auth: Guid nameidentifier, role claim
+                                     ├─ Exception middleware → ApiResponse
+                                     ├─ Rate limiter + per-user login throttle
+                                     ├─ Idempotency-Key filter (money/approval endpoints)
+                                     ├─ Controllers (coarse role policy)
+                                     └─ Services (authoritative checks from DB)
+                                          ├─ PaymentApprovalService (all-request maker-checker)
+                                          ├─ ApprovalAuthorizationService (delegation/limit)
+                                          ├─ UserIdentityService / DelegationService
+                                          ├─ CustomerPortalService / PaymentTimelineService
+                                          ├─ ReconciliationService (preview/import/exceptions)
+                                          ├─ DemoScenarioService (Development-only)
+                                          └─ EF Core → SQL Server (default) / SQLite (local)
 ```
 
-Key request flow for a payment:
+Key payment path:
 
-1. Controller builds an `ActorContext` **only** from validated JWT claims.
-2. Service re-checks role, accounts, currency, balance, amount scale and current status.
-3. Money and audit are written in one database transaction; `RowVersion` blocks concurrent double approval.
-4. `Idempotency-Key` prevents a retried HTTP request from moving money twice.
-5. The response is wrapped in `ApiResponse<T>`; the dashboard maps failures to safe Turkish messages.
+1. Controller builds `ActorContext` only from validated JWT claims.
+2. Service re-reads the **current** user role/status and delegation rows.
+3. It revalidates account ownership, currency, available balance, amount scale and request status.
+4. Approval writes balance + debit/credit ledger + status + timeline + audit in one transaction; `RowVersion` blocks a concurrent double approval.
+5. A replay with the same `Idempotency-Key` returns the stored response; a different payload returns `409`.
 
-## Technology choices and rationale
+## Money, security and data rules
 
-- **ASP.NET Core 10 / C#** — modern runtime, strong typing, good fit for API + Razor Pages in one solution.
-- **EF Core 10** — explicit relational model, optimistic concurrency (`rowversion`), transactions, provider portability.
-- **SQL Server as the default provider** — realistic banking storage and decimal semantics; migrations kept intact.
-- **SQLite only for local Development** — disposable playground, no SQL Server proof; `EnsureCreated` is used, migrations are not applied.
-- **Razor Pages** — no new frontend framework; server-rendered pages keep the demo small and accessible, while the API remains independently consumable.
-- **JWT + role claims** — stateless API authentication; the dashboard stores the token only in server-side session.
-- **xUnit + SQLite in-memory** — fast rule-level tests. They do not replace SQL Server integration tests.
-
-## Money, identity and control decisions
-
-- **Money is decimal.** All amounts use `decimal`, two decimal places; more precision is rejected instead of silently rounded. No `double`/`float` conversion "to make SQLite work".
-- **Identity comes from the JWT.** `PaymentApproval.RequestedByUserId`/`ReviewedByUserId` are `Guid` values matching `User.Id`. Request bodies cannot choose a requester or reviewer. See ADR-0001.
-- **Maker-checker.** Low-risk payments (`< 50,000` in the account currency) are auto-approved by system policy; medium/high/critical payments stay `Pending` for a **different** Admin. Self-approval and self-rejection are blocked.
-- **Direct-transfer limit.** Direct transfers are Admin-only and must be below the approval threshold; larger payments must use the approval flow, so the maker-checker path cannot be bypassed.
-- **Risk levels.** Low / Medium / High / Critical thresholds are explicit and mapped to the actual workflow, not just displayed.
-- **Currency.** TRY/USD/EUR/GBP are supported; transfers and approvals require matching account currencies. No FX conversion is performed, and cross-currency totals are never summed.
-- **Idempotency.** Money-moving endpoints accept `Idempotency-Key`; a completed key replays the original response, a different payload with the same key returns `409`, and an in-progress key returns `409` instead of applying money twice.
-- **Atomic audit.** Balance, debit/credit ledger rows, approval status and audit record commit or roll back together. Audit details never contain passwords or tokens.
-- **Login hardening.** PBKDF2-SHA256 (600k iterations) with legacy SHA-256 rehash-on-login, new-password policy (8+ chars, letter + digit), per-username failed-attempt lockout, and a per-IP login rate limit.
-- **Reports.** Date-only `to` filters are inclusive of the whole day; ranges are capped at 366 days; top-account reports are scoped to one currency.
-
-Full decision record: [`docs/adr/0001-payment-and-role-policy.md`](docs/adr/0001-payment-and-role-policy.md).
+- **Decimal only**, two decimal places; extra scale is rejected, never rounded. TRY/USD/EUR/GBP; **no FX** and no cross-currency totals.
+- **Ownership from the database:** `Customer.UserId` joins accounts and payments to the JWT user. IDOR attempts return `404`, not another customer's data.
+- **JWT identity:** Guid `NameIdentifier` + role claim; passwords PBKDF2-SHA256 600k with rehash; login throttle and rate limiting.
+- **Direct movement endpoints are disabled** (`POST /api/accounts/transfer`, `/open`, `/api/transactions/deposit|withdraw` return `400` with the approval-request route). All financial movement must use the request workflow.
+- **Reconciliation is operational only.** Closing/rejecting an exception records a decision; it never changes a customer balance. Imported batch results are immutable; pending approvals are excluded from "only in system" and counted separately.
+- **CSV export is formula-safe:** cells beginning `= + - @` are prefixed with `'` before export.
+- **Timeline/receipt** is built from persisted events, enforces payment ownership, shows completed receipt data only after completion, masks account numbers, uses `Europe/Istanbul` for display and carries an explicit **DEMO** disclaimer.
+- **UTC storage**; report date ranges are UTC with an inclusive whole-day `to`. Receipt display converts to Europe/Istanbul.
 
 ## Verified results
 
-Environment: macOS ARM64, .NET SDK **10.0.402**, EF Core **10.0.3**, SQLite Development database. Date: **2026-10-20**.
+Environment: macOS ARM64, .NET SDK **10.0.402**, EF Core **10.0.3**, SQLite Development database, 2026-10-20.
 
 | Check | Result |
 |---|---|
 | `bash scripts/dotnet.sh build DigitalBanking.slnx` | **0 warnings, 0 errors** |
-| `bash scripts/dotnet.sh test DigitalBanking.slnx` | **95 passed, 0 failed, 0 skipped** |
-| `python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181` | **71 checks passed** |
-| NuGet vulnerable-package audit (6 projects, transitive) | no vulnerable packages reported by current sources |
+| `bash scripts/dotnet.sh test DigitalBanking.slnx` | **147 passed, 0 failed, 0 skipped** |
+| `python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181` | **272 checks passed** |
+| NuGet vulnerable-package audit | no vulnerable packages reported by current sources |
 | `git diff --check` | clean |
 
-The smoke run covers health, unauthorized access, login/claims/roles, login throttling, customers, accounts, decimal balances, currency mismatch, deposit/withdraw/transfer, maker-checker, self-approval rejection, double-approval rejection, idempotent replay, audit, report filters and dashboard session/role flows. Evidence: [`docs/evidence/`](docs/evidence/).
+The smoke run covers setup closure, membership activation, role/limit boundaries (`99,999.99 / 100,000.00 / 100,000.01` TRY), other currency, daily limit, reserve-aware overcommit, live revocation and stale JWT, Owner self-approval block, IDOR, timeline/receipt/masking, reconciliation replay/match/mismatch/exception flow, formula-safe export, demo seed/reset, audit and dashboard session/role guards. Evidence: [`docs/evidence/`](docs/evidence/); details: [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md).
 
-**Not verified:** SQL Server connection, applying the new migration to SQL Server, SQL Server decimal/concurrency behaviour, production hardening, browser UI automation/manual UAT. Do not treat the SQLite demo as SQL Server proof. Details: [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md), [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
+**Not verified:** SQL Server connection/apply, real SQL Server decimal/concurrency behaviour, production hardening, load/penetration/accessibility audits, and manual browser UAT. SQLite is not SQL Server proof.
 
 ## Quick start
 
-Prerequisites: macOS/Linux with the bundled .NET 10 SDK at `~/Documents/Codex/toolchains/dotnet` (or `DOTNET_ROOT` pointing at a .NET 10 SDK), Python 3.
+Prerequisites: macOS/Linux with the bundled .NET 10 SDK at `~/Documents/Codex/toolchains/dotnet` (or `DOTNET_ROOT`), Python 3.
 
 ```sh
-# 1) Build (the wrapper uses the bundled SDK if dotnet is not on PATH)
 bash scripts/dotnet.sh build DigitalBanking.slnx
-
-# 2) Run API + dashboard on loopback only
 python3 scripts/run_local.py --api-port 5180 --dashboard-port 5181
 
-# 3) In another terminal: synthetic end-to-end smoke (no real data)
+# another terminal, disposable synthetic DB:
 python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181
 ```
 
 - Dashboard: <http://127.0.0.1:5181>
-- API/Swagger: <http://127.0.0.1:5180/swagger>
+- Swagger: <http://127.0.0.1:5180/swagger>
 - Health: <http://127.0.0.1:5180/health>
 
-The first run creates `.local/credentials.json` (mode `0600`) with a random demo password and JWT secret. **Never commit or share this file.** Read the password locally when signing in; do not paste it into chat, screenshots or issues. `.local/` is git-ignored.
-
-The demo uses synthetic data only. It never contacts live banking/payment systems.
+The first run writes `.local/credentials.json` (mode `0600`) with a random demo password and JWT secret. **Never commit, share, screenshot or paste this file.** `.local/` is git-ignored.
 
 ### Database reset
 
-SQLite uses `EnsureCreated`, not migrations. After a schema change, archive/delete `.local/digitalbanking.db*` and restart; the next run creates the current schema and re-seeds `admin` and `tamer`.
+SQLite uses `EnsureCreated`, not migrations. After a schema change, archive/delete `.local/digitalbanking.db*`; the next start creates the current schema and reseeds synthetic personas. A fresh DB has **no Owner**; use `/Setup` once.
 
 ### Tests
 
@@ -158,43 +162,48 @@ SQLite uses `EnsureCreated`, not migrations. After a schema change, archive/dele
 bash scripts/dotnet.sh test DigitalBanking.slnx
 ```
 
-The harness used for this delivery needed single-node/no-shared-compilation flags because its sandbox blocks the shared compiler; the plain command above is the normal developer path.
+This harness required single-node/no-shared-compilation flags (`-p:UseSharedCompilation=false -m:1 -nr:false`) because the sandbox blocked the shared Roslyn compiler. The plain command is the normal developer path.
 
-## Current dashboard scope
+The smoke test needs the local Owner login. It reads `owner_username`/`owner_password` from `.local/credentials.json` or `SMOKE_OWNER_USERNAME`/`SMOKE_OWNER_PASSWORD`. On a clean DB it can create the one-time Owner itself; never commit those values. Demo persona passwords remain `password` in the same local file.
 
-The existing Razor Pages are deliberately minimal: login/logout, a small panel, top-account report filters and Admin user management. They have been migrated to the new API contracts with safe error/401/403 handling, but they are **not** the finished portfolio dashboard.
+## Dashboard scope
 
-The next phase (documented, not started) adds:
+Implemented Razor Pages (Turkish, navy/neutral palette, local Bootstrap, session guards):
 
-- Admin operations overview, customer/account management, payment/approval queue with risk/status badges, audit and reports.
-- Customer self-service: own profile/accounts, balance cards per currency, recent transactions, recipient selection, transfer request, result/receipt/status tracking.
-- The ownership and server-side authorization model required for safe customer self-service (User–Customer–Account), plus schema/migration/tests.
+- **Setup / Login / Register / Logout**, role-based landing.
+- **Owner:** overview, approval queue + details + receipt, membership activation/roles, **Delegations (Yetkiler & Limitler)**, customers/accounts, operational request form, audit, reconciliation (list/details/exceptions/sample/export), demo center, top-account report.
+- **DelegatedApprover:** eligible approval queue, own reviewed history; user/role/delegation pages are denied.
+- **Customer:** home balance cards per currency, own accounts/details, transfer wizard with pre-confirmation, requests, payments/timeline and printable demo receipt.
+- Every screen has empty/error/success states; money is formatted per culture; account numbers are masked in customer/receipt views; no fake logos and no fabricated screenshots.
 
-See [`docs/DASHBOARD_PRODUCT_BRIEF.md`](docs/DASHBOARD_PRODUCT_BRIEF.md) for scope, four personas, UX/accessibility rules, security model, schema/migration impact, test plan and effort. Manual acceptance steps are in [`docs/UAT_CHECKLIST.md`](docs/UAT_CHECKLIST.md).
+### Screenshots
 
-## Screenshots (reserved for the dashboard phase)
+Captured from the running local demo on **2026-10-20** with headless Chrome, synthetic data and no credentials/tokens visible. These are real screenshots, not mockups.
 
-No screenshots are fabricated. Real screenshots will be added after the dashboard phase, showing:
-
-| Screen | What it should demonstrate |
+| Owner overview | Owner approval queue |
 |---|---|
-| Admin overview | pending approvals by risk, balances/totals per currency |
-| Approval queue | maker/checker separation, risk and status badges |
-| Customer home | own balance cards (TRY/USD/EUR, not summed), recent activity |
-| Transfer wizard | account/recipient/amount summary before confirmation |
-| Receipt/status | transfer result and pending/approved/rejected state |
-| Audit | filterable operational trail without secrets |
+| ![Owner overview](docs/screenshots/owner-overview.png) | ![Owner approval queue](docs/screenshots/owner-approval-queue.png) |
+
+| Delegated authority and limits | Reconciliation |
+|---|---|
+| ![Delegations](docs/screenshots/owner-delegations.png) | ![Reconciliation](docs/screenshots/owner-reconciliation.png) |
+
+| Customer home (separate currencies) | Completed demo receipt |
+|---|---|
+| ![Customer home](docs/screenshots/customer-home.png) | ![Customer receipt](docs/screenshots/customer-receipt.png) |
+
+The transfer wizard screenshot is in [`docs/screenshots/customer-transfer.png`](docs/screenshots/customer-transfer.png). Capture was done against a disposable SQLite Development database; the Owner password and `.local` files are not shown. No screenshot was fabricated or edited to add data.
 
 ## Project structure
 
 ```text
-DigitalBanking.API            HTTP API, JWT auth, filters, middleware, Swagger
-DigitalBanking.Application    service contracts, DTOs, validators, policies
+DigitalBanking.API            HTTP API, JWT, idempotency filter, middleware, Swagger
+DigitalBanking.Application    contracts, DTOs, validators, CSV parser, policy
 DigitalBanking.Domain         entities and enums
-DigitalBanking.Infrastructure EF Core, migrations, security, services
-DigitalBanking.Dashboard      Razor Pages (minimal current UI)
-DigitalBanking.Tests          xUnit rule and contract tests
-docs/                         ADR, reports, evidence, UAT, product brief
+DigitalBanking.Infrastructure EF Core, migrations, security, services, seed
+DigitalBanking.Dashboard      Razor Pages (Owner / DelegatedApprover / Customer)
+DigitalBanking.Tests          xUnit rule, ownership, reconciliation and identity tests
+docs/                         reports, ADR, UAT, migration/reconciliation docs, evidence
 scripts/                      dotnet wrapper, local runner, smoke test, VS Code SDK checks
 ```
 
@@ -202,73 +211,55 @@ scripts/                      dotnet wrapper, local runner, smoke test, VS Code 
 
 | Endpoint | Access | Notes |
 |---|---|---|
-| `POST /api/auth/login` | anonymous | JWT + role; rate limited and throttled |
-| `GET /api/customers`, `POST /api/customers` | read: authenticated; create: Admin | wrapped `ApiResponse<T>` |
-| `GET /api/accounts`, `POST /api/accounts/open` | read: authenticated; open: Admin | currency + opening balance |
-| `POST /api/transactions/deposit`, `/withdraw` | Admin | `Idempotency-Key` supported |
-| `POST /api/accounts/transfer` | Admin | only below 50,000; `Idempotency-Key` |
-| `POST /api/paymentapprovals` | Admin (current) | risk routing; `Idempotency-Key` |
-| `GET /api/paymentapprovals/pending`, `GET /{id}` | Admin | approval queue/detail |
-| `POST /api/paymentapprovals/{id}/approve`, `/reject` | Admin, different from requester | maker-checker |
-| `GET /api/transactions/statement/{id}`, `/daily-summary/{id}`, `/top-accounts` | authenticated | inclusive end-of-day, currency-scoped top accounts |
-| `GET /api/audit` | Admin | filter + page; no secrets |
-| `GET /api/users`, `POST /api/users` | Admin | wrapped response |
+| `GET /api/setup/status`, `POST /api/setup/owner` | anonymous, loopback + Development only | one-time Owner setup; closes with `409` |
+| `POST /api/auth/register`, `/login` | anonymous | registration → `PendingActivation`; no role input |
+| `GET /api/auth/me` | authenticated | identity from validated claims |
+| `GET /api/me/*`, `POST /api/me/transfers`, `/requests` | Customer | own data only; all financial requests `Pending` |
+| `GET /api/me/payments/{id}/timeline`, `/receipt` | Customer (owner) | persisted events; completed-only receipt data |
+| `GET /api/paymentapprovals/queue`, `/{id}` | Owner / eligible delegated | DB-checked eligibility |
+| `POST /api/paymentapprovals/{id}/approve`, `/reject`, `/cancel` | Owner / delegated / requester rules | self-approval and self-reject blocked |
+| `POST /api/paymentapprovals/requests` | Owner | operational transfer/deposit/withdrawal/account opening |
+| `GET/POST /api/users`, `/activate`, `/disable`, `/role` | Owner | last-Owner and role-escalation protections |
+| `GET/POST /api/delegations`, `PUT`, `/deactivate` | Owner | per operation/currency limit; live revocation |
+| `POST /api/reconciliation/preview`, `/{id}/import`, `batches`, `export` | Owner | `.csv`, SHA-256 duplicate detection |
+| `GET/POST /api/reconciliation/exceptions/*` | Owner / DelegatedApprover | Open → InReview → Proposed → Closed/Rejected; reopen |
+| `GET/POST /api/demo/*` | Owner, Development only | seed/reset/sample; 404 elsewhere |
+
+Direct `POST /api/accounts/transfer`, `/open`, `/api/transactions/deposit|withdraw` intentionally return `400` and point to the approval workflow.
 
 ## Known limitations
 
-- **SQL Server is not verified.** The new migration is written and documented, but never applied to SQL Server here. SQLite tests are not SQL Server evidence. Production migration/backfill requires an operator; see [`docs/migrations/README.md`](docs/migrations/README.md).
-- **No User–Customer ownership yet.** The current `User` role can authenticate but has no business-data access (deny-by-default); the planned customer self-service experience is specified in the product brief and requires a schema/migration/authorization change. Do not treat the current dashboard as customer-ready.
-- **No FX conversion.** Risk thresholds use nominal account-currency amounts; multi-currency totals are not converted or summed.
-- **Login throttle is in-memory.** Multiple API instances would need a shared store.
-- **UTC report dates.** No local-time/zone conversion or banking cut-off calendar.
-- **No production hardening.** Demo credentials are local-only; no secret manager, WAF, full observability, retention/immutability policy or compliance certification is claimed.
-- **VS Code GUI SDK discovery.** The C# Dev Kit log showed `dotnet` missing from the GUI PATH. Prerequisite scripts/settings are provided; the GUI change needs a user-run launchd step and a VS Code restart, and was not verified by the agent.
-- **AI contribution.** The implementation and documentation were produced in an AI-assisted workflow (DeepSeek-based coding agent) with human review; see [`docs/PORTFOLIO_NOTES.md`](docs/PORTFOLIO_NOTES.md). Do not read this repository as an unattended production system.
+- **SQL Server is unverified.** The two recent SQL Server migrations are generated and documented, not applied. SQLite tests are not SQL Server evidence. Operators must map legacy `Admin=1` / `User=2` roles explicitly; they are intentionally invalid and never converted to Owner/Customer.
+- **No FX conversion.** Limits and risk are nominal in the account currency.
+- **Login throttle is in-memory.** A multi-instance deployment needs a shared store.
+- **UTC report dates.** Receipt display uses Europe/Istanbul, but report ranges are UTC; no banking cut-off calendar.
+- **No production hardening.** No secret manager, WAF, distributed observability/retention/immutability, compliance certification or penetration test is claimed.
+- **VS Code GUI SDK discovery** needs the user-run launchd step and a VS Code restart; the GUI was not verified by the agent.
+- **Manual UAT** is documented in [`docs/UAT_CHECKLIST.md`](docs/UAT_CHECKLIST.md) but has not been executed/filled by the user.
+- **AI contribution** is real; see [`docs/PORTFOLIO_NOTES.md`](docs/PORTFOLIO_NOTES.md).
 
 ## Documentation
 
 - [Development completion report](docs/DEVELOPMENT_COMPLETION_REPORT.md)
 - [Test report](docs/TEST_REPORT.md)
-- [Verification](docs/VERIFICATION.md)
-- [Progress](docs/PROGRESS.md)
+- [Verification record](docs/VERIFICATION.md)
+- [Progress / continuation notes](docs/PROGRESS.md)
 - [Findings and limits](docs/DEEPSEEK_FINDINGS.md)
-- [Payment/role policy ADR](docs/adr/0001-payment-and-role-policy.md)
+- [Payment/role/delegation ADR](docs/adr/0001-payment-and-role-policy.md)
 - [Migration operator notes](docs/migrations/README.md)
-- [Dashboard product brief (next phase)](docs/DASHBOARD_PRODUCT_BRIEF.md)
+- [Reconciliation CSV format](docs/RECONCILIATION_FORMAT.md)
+- [Dashboard scope](docs/DASHBOARD_PRODUCT_BRIEF.md)
 - [Manual UAT checklist](docs/UAT_CHECKLIST.md)
 - [Portfolio/CV notes](docs/PORTFOLIO_NOTES.md)
 - [Local development](docs/LOCAL_DEVELOPMENT.md)
+- [Integration handoff / manifest](docs/INTEGRATION_HANDOFF.md)
 
 ## Türkçe özet
 
-DigitalBanking, bankacılık operasyonlarındaki **maker-checker onay akışını**, risk
-seviyelerini, audit izini ve decimal para kurallarını gösteren bir .NET 10 demo
-uygulamasıdır. Backend ve iş kuralları tamamlanmış; **95 otomatik test** ve
-**71 uçtan uca smoke kontrolü** başarılıdır. Mevcut Razor dashboard'u bu teslimde
-bilinçli olarak minimaldir; müşteri ve admin için tam deneyim
-[`docs/DASHBOARD_PRODUCT_BRIEF.md`](docs/DASHBOARD_PRODUCT_BRIEF.md) içinde
-tasarlanmıştır ve sonraki aşamada geliştirilecektir.
+DigitalBanking, .NET 10 ile geliştirilmiş sentetik bir bankacılık operasyon demosudur. Müşteri transferi, para yatırma/çekme ve hesap açılışı dahil **her finansal talep** oluşturulduğunda `Pending` kalır; para hareket etmez. **Owner** tüm talepleri görür ve onaylayabilir; **DelegatedApprover** yalnız kendisine verilen operasyon/para birimi/limit kapsamında onaylayabilir. Limit **dahildir**: 100.000,00 TRY onaylanabilir, 100.000,01 TRY Owner'a gider. Owner kendi talebini onaylayamaz. Rol, limit, günlük kullanım ve yetki iptali her onayda veritabanından okunur; eski JWT veya açık ekran yetki vermez.
 
-Hızlı başlangıç, roller ve sınırlar için yukarıdaki bölümler; günlük geliştirme
-için [`docs/LOCAL_DEVELOPMENT.md`](docs/LOCAL_DEVELOPMENT.md); manuel kabul
-adımları için [`docs/UAT_CHECKLIST.md`](docs/UAT_CHECKLIST.md) kullanılabilir.
+Üyelik kaydı yalnız kullanıcı adı, e-posta, ad-soyad ve şifre alır; hesap **Owner aktivasyonuna kadar** `PendingActivation` durumundadır. Owner ilk kez yalnız localhost `/Setup` üzerinden oluşturulur, sonrasında bu uç kapanır; public kayıt asla Owner yaratamaz. Demo müşterileri `customer.a`, `customer.b`, yetkililer `approver.100k`, `approver.low`, bekleyen üye `applicant.pending` sentetiktir. Şifreler `.local/credentials.json` içinde yerel ve gizlidir; commit edilmez.
 
-**Önemli sınırlar:** SQL Server bağlantısı/migration'ı bu ortamda test edilmedi;
-SQLite yalnızca Development oyun alanıdır. Müşteri–kullanıcı sahipliği henüz yok;
-standart `User` şu an yalnız kimlik doğrulaması yapabilir; müşteri/hesap/rapor verisi okuyamaz. Gerçek banka/para/kurum verisi kullanılmaz.
-Bu bir eğitim/portföy projesidir, üretim sistemi değildir.
+Ekranlar Türkçe, lacivert/nötr tasarımlı; müşteri yalnız kendi hesap ve hareketlerini görür, tamamlanmış işlem için maskeli ve **DEMO** uyarılı yazdırılabilir dekont alır. Gün sonu mutabakatta CSV önizleme/içe aktarma, SHA-256 mükerrer kontrolü, eşleşme/eşleşmeme sınıfları ve istisna iş akışı vardır; istisna kapatmak **bakiye düzeltmez**.
 
-## Author
-
-**Tamer Kargın** — Banking Operations & Payments Professional
-
-- 13 years of banking operations experience
-- Operations Coordinator at VakıfBank
-- MSc in Management Information Systems
-- [LinkedIn](https://www.linkedin.com/in/tamer-kargin-2a9564214/) · [GitHub](https://github.com/tamerkargin8)
-
-## Disclaimer
-
-This project is intended for educational and portfolio purposes only. It does not
-represent any internal system, software or confidential process of any financial
-institution. It must not be used to process real money or real customer data.
+Doğrulama: **0 uyarı/0 hata build**, **147 xUnit testi**, **272 smoke kontrolü**. SQL Server migration'ları üretildi ancak **uygulanmadı/doğrulanmadı**; SQLite sonucu SQL Server kanıtı değildir. Üretim güvenliği, gerçek banka entegrasyonu veya kur çevrimi iddiası yoktur. AI katkısı ve insan yönlendirmesi [`docs/PORTFOLIO_NOTES.md`](docs/PORTFOLIO_NOTES.md) içinde açıklanmıştır.

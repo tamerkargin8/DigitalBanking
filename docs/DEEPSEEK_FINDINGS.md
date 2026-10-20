@@ -1,68 +1,60 @@
 # DEEPSEEK FINDINGS
 
-Bu dosya bulguları, uygulanan çözümleri ve bilinçli olarak ertelenen sınırları
-kaydeder. Eski README/refactoring raporları tarihseldir.
+Bu dosya uygulanan çözümleri, kullanıcı kararlarıyla değişen modeli ve bilinçli
+sınırları kaydeder. Eski auto-approval/iki-rol anlatıları tarihseldir.
 
 ## Çözülen bulgular
 
 | # | Bulgu | Çözüm | Durum |
 |---|-------|-------|-------|
-| 1 | `PaymentApproval.RequestedByUserId`/`ReviewedByUserId` int, `User.Id` Guid; kimlik istemci gövdesinden geliyordu | Entity/DTO/servis/controller Guid'e taşındı; kimlik yalnız doğrulanmış JWT claim'inden (`ActorContext`) alınıyor | Çözüldü |
-| 2 | `RelatedTransactionId` int, `Transaction.Id` Guid | Guid'e taşındı; onay/otomatik onay sırasında debit işlem id'si yazılıyor | Çözüldü |
-| 3 | Eşzamanlı çift onay ve idempotency yok | `PaymentApproval.RowVersion`, `Idempotency-Key` filtresi + kalıcı `IdempotencyRecords` tablosu | Çözüldü |
-| 4 | Audit, para hareketinden sonra ayrı `SaveChanges` ile yazılıyordu; kısmi işlem riski | Audit aynı DbContext/transaction içinde `IAuditService.Add` ile ekleniyor; tek commit | Çözüldü |
-| 5 | Doğrudan transfer maker-checker'ı atlayabiliyordu | Admin + 50.000 altı doğrudan transfer; üstü yalnız onay akışı. ADR-0001 | Çözüldü |
-| 6 | Risk seviyesi hesaplanıyor ama yetkiye bağlanmıyordu | Düşük risk otomatik onay; orta+ Admin checker; risk politikası tek yerde (`PaymentPolicy`) | Çözüldü |
-| 7 | `AccountService` Currency/InitialBalance'ı yok sayıyordu | Para birimi ve açılış bakiyesi işleniyor; açılış deposit işlemi + audit yazılıyor | Çözüldü |
-| 8 | Raporlarda `to` gece yarısı olduğunda gün sonu dışlanıyordu | `ReportDateRange` gün sonu dahil normalize ediyor; 366 gün sınırı | Çözüldü |
-| 9 | Şifre alt sınırı 4 karakterdi; giriş denemesi sınırı yoktu | 8+ harf+rakam politikası; kullanıcı adı başına 5 hata/5 dk kilit; auth rate limit | Çözüldü |
-| 10 | Dashboard `Error = ex.Message` ile teknik ayrıntı gösterebiliyordu | Hata/401/403/boş durumları için güvenli `ApiResult` katmanı | Devam ediyor (dashboard) |
-| 11 | SQLite/TEXT ve decimal davranışı test edilmemişti | Decimal para testleri (0.01, 100.25, 10.10), 3 haneli küsurat reddi | Çözüldü (SQLite) |
-| 12 | Audit görüntüleme yoktu | `/api/audit` (Admin, filtre + sayfalama) ve dashboard ekranı | API çözüldü |
+| 1 | Kullanıcı kimlikleri istemci gövdesinden geliyordu; int/Guid uyumsuzluğu | Guid claim tabanlı `ActorContext`; DTO/entity Guid; istemci requester/reviewer seçemez | Çözüldü |
+| 2 | Düşük risk otomatik onayı bankacılık onay politikasını atlıyordu | **Tüm finansal talepler Pending**; risk yalnız bilgi; Owner/delegated onayı zorunlu | Çözüldü (politika tersine çevrildi) |
+| 3 | Rol modeli Admin/User idi; limit ve müşteri sahipliği yoktu | Owner / DelegatedApprover / Customer; `Customer.UserId`; üyelik aktivasyonu; minimal kayıt | Çözüldü |
+| 4 | Owner/Delegated limitleri ve self-approval kontrolü yoktu | Operasyon+para birimi+`MaxAmount` (dahil), opsiyonel günlük/expiry, DB'den canlı kontrol; Owner dahil self-approval engeli | Çözüldü |
+| 5 | İki bekleyen talep bakiyeyi aşabiliyordu | Pending giden talepler available balance rezervasyonu; onayda yeniden kontrol | Çözüldü |
+| 6 | Çift onay/idempotency | `RowVersion`, status kontrolü, kalıcı `IdempotencyRecords`, replay/409 | Çözüldü |
+| 7 | Audit para hareketinden ayrı yazılabiliyordu | Ledger + timeline + status + audit aynı transaction | Çözüldü |
+| 8 | Müşteri self-servis için sahiplik yoktu | `Customer.UserId`, server-side join, IDOR 404, yalnız kendi verisi | Çözüldü |
+| 9 | Timeline/dekont yoktu | `PaymentTimelineEvent`; tamamlanmış işlemde maskeli, Europe/Istanbul, DEMO uyarılı receipt; pending'de completed veri yok | Çözüldü |
+| 10 | Gün sonu mutabakat/istisna yoktu | CSV preview/import, SHA-256 mükerrer, eşleşme sınıfları, istisna maker-checker, formül-safe export, bakiye düzeltmesiz kapanış | Çözüldü |
+| 11 | Demo verisi tekrar üretilemiyor/temizlenemiyordu | Development-only, Owner-only deterministic seed; `IsDemo` scoped reset | Çözüldü |
+| 12 | Public kayıt rol/limit kabul ediyordu | Yalnız minimal alanlar; rol/limit/sahiplik yok sayılır; PendingActivation; Owner yalnız localhost setup | Çözüldü |
+| 13 | Son Owner/rol yükseltme koruması yoktu | Owner disable/demote/atama engeli; setup tek seferlik; legacy roller geçersiz | Çözüldü |
+| 14 | Doğrudan transfer/deposit onay akışını atlayabiliyordu | Doğrudan uçlar `400`; tüm hareketler approval request | Çözüldü |
+| 15 | Dashboard eski API/rollere göreydi | Setup/Login/Register; Owner, delegated ve customer sayfaları; guard'lar; Türkçe UI; invariant decimal binding | Çözüldü |
+| 16 | Smoke eski auto-approval modelini test ediyordu | 272 kontrollük yeni akış: Owner setup, üyelik, limit sınırı, revocation, stale JWT, mutabakat, demo, dashboard | Çözüldü |
+| 17 | Eşzamanlı iki `/api/setup/owner` iki Owner oluşturabiliyordu | DB filtered unique index (`Role=3`), transaction, duplicate-key'i `409`'a eşleme; iki gerçek context ile regression testi | Çözüldü |
+| 18 | Setup sayfası Owner oluştuktan sonra açık kalıyor; setup 429 İngilizce login mesajı veriyordu | GET/POST setup durumunu yeniden kontrol ediyor, stale POST login bildirimine gidiyor; setup ayrı rate-limit partition'ı, Türkçe 429 + `Retry-After` | Çözüldü |
+| 19 | Onay anında müşteri–hesap sahipliği yeniden doğrulanmıyordu | Onay öncesi `Customer.UserId` ve kaynak hesabın `CustomerId` kontrolü; uyuşmazlıkta `400`, para hareketi yok | Çözüldü |
+| 20 | Talep oluşturma iki ayrı `SaveChanges` ile audit/timeline’dan kopabiliyordu; reject/cancel yarışı 500 üretebiliyordu | Oluşturma tek transaction; reject/cancel `DbUpdateConcurrencyException` → `409` | Çözüldü |
+| 21 | Demo seed/reset eski Owner JWT’siyle çağrılabiliyordu | Service, aktörün güncel DB rolünü/durumunu doğruluyor | Çözüldü |
 
-## Bilinçli sınırlar / ertelenenler
+## Bilinçli sınırlar
 
-- **SQL Server doğrulaması yok**: Bu ortamda SQL Server yok. Migration dosyası
-  üretildi ve veri koruma adımları belgelendi; `dotnet ef database update`
-  çalıştırılmadı. SQLite testleri SQL Server kanıtı değildir.
-- **Eski int kullanıcı kimlikleri**: Gerçek veride int→Guid dönüşümü otomatik
-  yapılamaz. Migration eski değerleri `LegacyPaymentApprovalIds` tablosuna
-  kopyalar, yeni alanları ilk Admin ile doldurur; operatör uzlaştırması gerekir.
-- **Müşteri–kullanıcı sahipliği yok**: Modelde User ile Customer/Account arasında
-  ilişki yok. Bu nedenle standart `User` rolü yalnız kimlik doğrulaması yapar;
-  müşteri/hesap/rapor verisi, para hareketleri ve onay işlemleri Admin'e kapalıdır
-  (deny-by-default). Keyfi sahiplik varsayımı
-  kurulmadı. Gelecekte `Customer.UserId` eklenirse satır düzeyi yetki tasarlanmalı.
-- **Tek onay kademesi**: İki rol (Admin/User) korundu. Risk seviyesi iş akışını
-  (otomatik vs maker-checker) belirler; ayrı bir "senior approver" rolü yoktur.
-  Bu, uygulanan kuralla tutarlı olarak README/ADR'de açıkça yazılır.
-- **FX yok**: Risk eşikleri hesap para birimi cinsinden nominal değerlerdir; kur
-  çevrimi yapılmaz. Farklı para birimli transfer/onay reddedilir.
-- **Login throttle bellek içi**: Çok örnekli dağıtımda paylaşımlı store gerekir.
-- **Rapor saat dilimi**: Tarihler UTC kabul edilir; yerel saat dilimi dönüşümü yok.
-- **Audit saklama/arşiv**: Retention, değiştirilemezlik ve dış log aktarımı yok.
-- **Paket lisansları**: AutoMapper/FluentValidation lisans ve bakım değerlendirmesi
-  kapsam dışı bırakıldı (paket sürümleri değiştirilmedi).
-- **VS Code GUI doğrulaması**: SDK keşfi için launchd/PATH düzeltmesi yapıldı;
-  çalışan VS Code penceresinin yeniden başlatılmadan doğrulanması mümkün değil.
+- **SQL Server doğrulanmadı.** İki yeni migration üretildi/belgelendi; apply,
+  decimal ve gerçek concurrency testi yapılmadı. SQLite Development atılabilir.
+- **Legacy roller:** `Admin=1`, `User=2` bilinçli geçersiz; otomatik Owner/
+  Customer dönüşümü yok. Operatör eşlemesi gerekir.
+- **FX yok.** Limit/risk hesap para birimi cinsindendir; çapraz para birimi
+  transfer/onay reddedilir.
+- **Rapor saat dilimi UTC.** Dekont Europe/Istanbul; bankacılık gün sonu takvimi
+  yok.
+- **Login throttle bellek içi.** Dağıtık örneklerde paylaşımlı store gerekir.
+- **Production sertleştirmesi yok.** Secret manager, WAF, dağıtık gözlemlenebilirlik,
+  audit retention/immutability, sızma/yük/erişilebilirlik denetimi, uyumluluk
+  sertifikası yok.
+- **Manuel UAT yapılmadı.** Checklist kullanıcı içindir.
+- **Screenshot:** gerçek dashboard'dan 7 ekran alındı; sahte görsel üretilmedi.
+  Yine de manuel UAT ve güncel UI kontrolü gerekir.
+- **VS Code GUI doğrulanmadı.** launchd/PATH adımı kullanıcıda.
+- **Tarayıcı görsel otomasyonu yok.** Smoke HTTP ve dashboard guard düzeyinde;
+  gerçek DOM/ekran görüntüsü testi değil.
+- **Paket lisans/bakım değerlendirmesi** kapsam dışı; sürümler topluca
+  yükseltilmedi.
 
-## Dashboard uyumluluğu ve sonraki aşama bulguları
+## Portföy notu
 
-| # | Bulgu | Çözüm / plan | Durum |
-|---|-------|--------------|-------|
-| 13 | Mevcut dashboard eski API sözleşmelerini kullanıyordu (raw users/customers, `int` requester, `Error=ex.Message`) | Dashboard `ApiClient`/`ApiResult` katmanına taşındı; zarf/raw yanıt, 401/403/500 güvenli mesaj, kullanıcı/rol session'ı, çıkış temizliği, rapor filtreleri | Çözüldü (minimal uyumluluk) |
-| 14 | Standart `User` yalnız kimlik doğrulayabiliyor; müşteri self-servis için User–Customer–Account sahipliği yok | Keyfi sahiplik varsayılmadı; tüm müşteri/hesap/rapor okumaları Admin'e kapatıldı (deny-by-default). `Customer.UserId` + unique index, sunucu tarafı erişim, yeni endpoint/testler sonraki aşama olarak `DASHBOARD_PRODUCT_BRIEF.md` içinde tasarlandı | Açık / sonraki aşama |
-| 15 | Dashboard ürün hedefi (4 persona, lacivert/nötr tasarım, erişilebilirlik, mobil, makbuz/durum, para birimi bazlı kartlar) yok | Ürün brief'i, UAT checklist ve kaba efor kaydedildi; kapsamlı ekran geliştirmesi başlatılmadı | Planlandı |
-| 16 | README tarihsel/abartılı özellikler içeriyordu | README İngilizce ana anlatı + Türkçe özet olarak yeniden yazıldı; yalnız uygulanan özellikler, gerçek test sayıları, ekran görüntüsü yerleri ve sınırlar | Çözüldü |
-| 17 | VS Code GUI `dotnet --info` bulamıyor (`launchd` PATH boş) | `.vscode` ayarları + `scripts/setup_macos_vscode_env.sh` + `scripts/verify_vscode_sdk.sh`; ajan oturumunda `launchctl setenv` reddedildi, kullanıcı normal terminalde çalıştırıp VS Code'u yeniden başlatmalı | Kısmi (kullanıcı adımı) |
-| 18 | SQL Server int→Guid migration'ı gerçek veride otomatik yapılamaz | Legacy tablo + backfill + operatör adımları; migration bu ortamda uygulanmadı | Belgelenmiş sınır |
-| 19 | Portföy/CV anlatısı ve AI beyanı eksikti | `PORTFOLIO_NOTES.md` kanıta dayalı 3 madde + dürüst AI katkısı; abartılı unvan/ölçüm yok | Çözüldü |
-| 20 | Manuel kabul kriterleri yoktu | `UAT_CHECKLIST.md`: 2 rol, 4 persona, mevcut backend + sonraki dashboard senaryoları; ajan testi yapılmış gibi işaretlenmedi | Hazır |
-
-## Ürün hedefi notu
-
-Kullanıcı projeyi GitHub'da yayınlayıp CV'sine ekleyecek. README ilk 30 saniyede
-problemi, kontrol kararlarını ve kanıtlanmış sonuçları anlatacak şekilde
-İngilizce; Türkçe özet ve rehber bağlantılarıyla desteklendi. Dashboard tamamlanana
-kadar "tamamlanmış dashboard" izlenimi verilmemeli; ekran görüntüleri gerçek
-ekranlardan alınmalı. AI katkısı `PORTFOLIO_NOTES.md` içinde açıkça belirtildi.
+README İngilizce 30 saniyelik anlatı + Türkçe özet, gerçek test sayıları ve dürüst
+sınırlarla yazıldı. AI katkısı [`PORTFOLIO_NOTES.md`](PORTFOLIO_NOTES.md) içinde
+açıklandı. Screenshot'lar gerçek dashboard'dan alınana kadar eklenmemeli; mevcut
+sayfalar shot list olarak README'de belirtildi.

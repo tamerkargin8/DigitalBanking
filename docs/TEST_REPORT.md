@@ -1,9 +1,9 @@
-# Test report — 2026-10-20
+# Test report — Owner model, approvals, reconciliation and dashboard
 
+- Tarih: **2026-10-20** (Europe/Istanbul)
 - Ortam: macOS ARM64, .NET SDK **10.0.402** (runtime 10.0.13), EF Core **10.0.3**
-- Dal: `dsh/dsh-mvh4pdzy-u7y7j4`
-- Backend commit: `2316572`; dashboard uyumluluk + smoke commit: `095a31b`; güvenlik: `9f6b8ac`
-- Test veritabanı: SQLite in-memory (Development/lab); **SQL Server değil**
+- Dal: `dsh/dsh-mvh4pdzy-u7y7j4`; backend `11684b2`, dashboard `d2e90e3`
+- Test veritabanı: SQLite in-memory / disposable SQLite Development; **SQL Server değil**
 - Demo: API `127.0.0.1:5180`, dashboard `127.0.0.1:5181`
 
 ## Özet
@@ -11,107 +11,114 @@
 | Kontrol | Sonuç |
 |---|---|
 | Solution build | **0 uyarı, 0 hata** |
-| xUnit | **95 geçti, 0 başarısız, 0 atlandı** |
-| End-to-end smoke | **71 kontrol geçti** |
-| NuGet vulnerable-package audit | 6 projede bilinen açık yok (mevcut kaynaklar) |
+| xUnit | **147 geçti, 0 başarısız, 0 atlandı** |
+| End-to-end smoke | **272 kontrol geçti** |
+| NuGet vulnerable package audit | 6 projede bilinen açık yok (mevcut kaynaklar) |
 | `git diff --check` | temiz |
 
-**Önceki baseline korundu:** 10 xUnit testi ve 21 smoke senaryosu silinmedi veya
-gevşetilmedi; aynı/artan kapsamla 95 test ve 71 smoke kontrolüne genişletildi.
+Önceki teslim 95 xUnit + 71 smoke idi. Auto-approval kaldırıldığı, roller
+Owner/DelegatedApprover/Customer olarak değiştiği ve tüm finansal talepler
+onaya bağlandığı için **eski auto-approval beklentileri bilinçli olarak
+kaldırıldı**; test sayısı 95 → 147'ye, smoke 71 → 272'ye genişletildi. Kaldırılan
+tek davranış düşük risk otomatik onayıdır; yerine "low risk dahil Pending"
+testi geldi. Diğer güvenlik/para/idempotency kapsamı korunmuştur.
 
 ## Çalıştırılan komutlar
 
 ```sh
-# Normal geliştirici komutları
+# Normal geliştirici yolu
 bash scripts/dotnet.sh build DigitalBanking.slnx
 bash scripts/dotnet.sh test DigitalBanking.slnx
 python3 scripts/run_local.py --api-port 5180 --dashboard-port 5181
 python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181
 ```
 
-Bu delivery harness'ında sandbox paylaşımlı Roslyn derleyicisini engellediği için
-fiilen şu biçim kullanıldı (sonuçlar aynı):
+Harness sandbox'ı paylaşımlı Roslyn derleyicisini engellediği için fiilen:
 
 ```sh
-bash scripts/dotnet.sh build DigitalBanking.slnx -p:UseSharedCompilation=false -m:1 -nr:false
-bash scripts/dotnet.sh test DigitalBanking.slnx -p:UseSharedCompilation=false -m:1 -nr:false --no-build
+DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh build DigitalBanking.slnx \
+  -p:UseSharedCompilation=false -m:1 -nr:false
+DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh test DigitalBanking.slnx \
+  -p:UseSharedCompilation=false -m:1 -nr:false --no-build
 ```
 
 Kanıt: [`evidence/2026-10-20-build.txt`](evidence/2026-10-20-build.txt),
 [`evidence/2026-10-20-test.txt`](evidence/2026-10-20-test.txt),
 [`evidence/2026-10-20-smoke.txt`](evidence/2026-10-20-smoke.txt).
 
-## Test envanteri (95 test)
+## Test envanteri (147)
 
-| Dosya | Test sayısı | Kapsam |
+| Dosya | Test | Kapsam |
 |---|---:|---|
-| `MoneyAndPolicyTests` | 10 attribute / theory genişlemesi | Decimal ölçek/pozitiflik, para birimi normalizasyonu, gün sonu tarih aralığı, 366 gün sınırı, risk eşikleri, şifre politikası |
-| `AccountServiceTests` | 5 attribute | Para birimi + açılış bakiyesi, açılış deposit ledger'ı, audit, Admin zorunluluğu, geçersiz para birimi, negatif bakiye, olmayan müşteri |
-| `TransactionServiceTests` | 8 attribute | Deposit/withdraw decimal, rol reddi, transfer tipleri/bakiyeleri, 50.000 doğrudan transfer sınırı, aynı hesap/yetersiz/olmayan hesap/para birimi/ölçek, DB hatasında rollback, gün sonu statement, para birimi kapsamlı top-accounts, sayfalama |
-| `PaymentApprovalServiceTests` | 8 attribute | Düşük risk otomatik onay, orta risk Pending, checker onayı, ikinci onayın parayı ikizlememesi, self-approval/self-reject reddi, red gerekçesi, geçersiz talep senaryoları, standart kullanıcı reddi, `RowVersion` stale onay |
-| `AuthAndClaimsTests` | 7 attribute | JWT Guid/rol/issuer/audience claim'leri, hatalı giriş throttle + audit'te şifre yokluğu, başarılı girişte sayaç sıfırlama, legacy SHA-256 rehash, claim'den ActorContext, eksik/geçersiz claim fail-closed, eksik issuer hatası |
-| `IdempotencyTests` | 6 attribute | Aynı anahtar+payload replay, farklı payload `409`, in-progress `409`, başlıksız istek, unique index, hata sonrası rezervasyon serbest bırakma |
-| `DashboardLoginContractTests` | 10 attribute | JSON login sözleşmesi, güvenli hata/429/erişilemez API, `ApiResponse` zarfı, raw legacy dizi, 401/403/500 güvenli eşleme, business mesajı, Idempotency-Key iletimi |
-| `ReportFilterTests` | 4 attribute | Varsayılan 30 gün, geçerli tarih/limit, limit clamp, hatalı tarih/aralık/limit mesajları |
-| `LocalConcurrencyTests` | 1 attribute | Eski bakiye güncellemesinin `RowVersion` ile reddi (baseline) |
-| `PasswordHasherTests` | 3 attribute | PBKDF2 salt/yanlış şifre, legacy doğrulama/rehash, bozuk kayıtlar (baseline) |
+| `AccountServiceTests` | 6 | Para birimi/açılış bakiyesi, ledger+audit, Owner zorunluluğu, geçersiz para birimi, negatif bakiye, sıfır bakiye |
+| `AuthAndClaimsTests` | 7 | Guid/rol/issuer/audience claim, throttle+audit, sayaç reset, legacy rehash, ActorContext, fail-closed, eksik issuer |
+| `CsvStatementParserTests` | 17 | Geçerli/BOM/CRLF, katı başlık, UTF-8, boyut/satır, geçersiz GUID/tutar/para birimi/tarih/boş alan, unclosed quote |
+| `CustomerPortalTests` | 10 | Sahiplik, IDOR 404, maskeli beneficiary, transfer Pending, başka hesaptan transfer reddi, timeline/dekont, red, deposit/account opening Pending, profil yok/aktif değil |
+| `DashboardLoginContractTests` | 11 | JSON login, güvenli 400/401/429/erişilemez API, zarf/raw dizi, decimal, 401/403/500, Idempotency-Key |
+| `IdempotencyTests` | 6 | Replay, farklı payload 409, in-progress 409, header yok, unique index, hata sonrası rezervasyon |
+| `IdentityAndDelegationTests` | 7 | Tek Owner setup, **iki gerçek context ile eşzamanlı Owner yarışı**, kayıt validasyonu, Pending activation, Owner koruması, limit/para birimi/expiry/revocation, delegated rol yasağı |
+| `LocalConcurrencyTests` | 1 | Stale `RowVersion` reddi |
+| `MoneyAndPolicyTests` | 26 | Decimal/ölçek, para birimi, gün sonu, 366 gün, risk eşikleri, şifre politikası |
+| `PasswordHasherTests` | 5 | PBKDF2 salt/yanlış şifre, legacy rehash, bozuk kayıt fail-closed |
+| `PaymentApprovalServiceTests` | 16 | Low-risk Pending, 100.000 dahil sınır, currency/operation, Owner self-approval, revocation/expiry, stale JWT, pending/customer onay yasağı, çift onay, rezervasyon, onayda yetersiz bakiye, deposit/account opening, reject/cancel, günlük limit, **onayda sahiplik değişimi**, **approve/reject yarışı** |
+| `SetupPageTests` | 5 | Setup tamamlanmışken GET/POST, yarışı kaybeden form, Türkçe 429, localhost/Development kapalı mesajı |
+| `ReconciliationServiceTests` | 9 | Preview/import idempotency, mismatch sınıfları, invalid batch, satır hataları, formül export, istisna farklı onay, reopen, yetki, eşzamanlı onay |
+| `ReportFilterTests` | 8 | Varsayılan 30 gün, geçerli filtre, limit clamp, hatalı tarih/aralık/limit |
+| `TransactionServiceTests` | 13 | Decimal deposit/withdraw, rol reddi, transfer tipleri, doğrudan limit, aynı/eksik/yetersiz/kur/ölçek, rollback, statement/rapor, sayfalama |
 
-> Not: attribute sayıları `[Theory]` satırlarıyla çoğaldığı için toplam 95'tir.
+Toplam **147**.
 
-## Smoke kapsamı (71 kontrol)
+## Smoke kapsamı (272 kontrol)
 
-Tek komutla, sentetik veriyle, gerçek API + dashboard üzerinden:
+Tek komut, gerçek API + dashboard, sentetik veri:
 
-1. `/health`, tokensız `401`, hatalı login `400`.
-2. Admin login; token claim'lerinde **Guid nameidentifier** ve `Admin` rolü.
-3. Swagger, müşteri oluşturma/listeleme, iki hesap açma.
-4. Deposit/withdraw/transfer; yetersiz bakiye ve negatif tutar reddi;
-   bakiye **70.10 / 20.05** decimal doğrulaması.
-5. Tarih aralıklı daily summary/top accounts.
-6. `tamer` (User) login; rol `User`; customers/accounts/history/top-accounts,
-   deposit/withdraw/transfer/approval/audit/users çağrılarında **403**
-   (deny-by-default; sahiplik yok).
-7. İkinci Admin oluşturma/login.
-8. 100.000 deposit + 75.000 maker-checker talebi: `Pending`, `Medium`, `TRY`,
-   Guid requester.
-9. Maker'ın kendi talebini onaylaması **400**; checker onayı **204**; bakiyeler
-   **25.070,10 / 75.020,05**; ikinci onay **400**, bakiye değişmez.
-10. Düşük risk 100 → `AutoApproved`.
-11. Red senaryosu: orta risk talep → checker reddi **204**, bakiyeler değişmez.
-12. Idempotent deposit: aynı anahtar+payload ikinci kez → `Idempotency-Replayed`,
-    bakiye bir kez artar; farklı payload → **409**.
-13. USD hesap açma (açılış bakiyesi 10.05); TRY→USD transfer/onay **400**.
-14. Audit: `PAYMENT_APPROVED`, `PAYMENT_REJECTED`, `PAYMENT_AUTO_APPROVED`,
-    `DEPOSIT_SUCCESS`; şifre/token yok.
-15. Geçersiz token **401**; 5 hatalı login sonrası **429**.
-16. Dashboard: admin login, kullanıcılar sayfası, rapor sayfası hatasız; çıkış;
-    User rolünde Admin sayfası ve rapor "Admin yetkisi"; oturumsuz rapor → Login.
+1. Health, tokensız 401, hatalı login; **aynı boş DB'ye iki eşzamanlı Owner
+   setup** → tam olarak `200 + 409` (iki Owner yok), tekrar kurulumun kapalı
+   olması; tamamlanmış Setup GET/POST'un login bildirimine yönlenmesi; setup
+   rate-limit 429'unun Türkçe mesaj + `Retry-After: 600` döndürmesi.
+2. Owner claim'leri; Owner-only users/customers/accounts/audit/delegations/demo;
+   Swagger; geçersiz token 401.
+3. Public kayıt → `PendingActivation`; login 403; **role=Owner injection ignore**;
+   duplicate 409; invalid e-posta/şifre 400.
+4. Owner aktivasyonu; Customer/DelegatedApprover rol değişimi; Owner disable/demote
+   400; delegated'ın users/delegations/rol/operasyonel talep denemeleri 403.
+5. Delegasyon oluşturma; **100.000,00 TRY dahil**, **99.999,99 onay**,
+   **100.000,01 approver 400 + kuyrukta yok**; diğer para birimi 400; günlük
+   50.000 limit; rezervasyonlu overcommit 400; iptal rezervasyonu serbest bırakır.
+6. Customer account opening → Pending → Owner onayı → hesap; 300.000 deposit ve
+   100 withdrawal → Pending → onay → bakiye; oluşturmada para hareketi yok.
+7. IDOR: Customer B/A hesabı ve ödeme 404; A başka müşterinin ödemesini göremez.
+8. Low-risk 1 TRY → Pending; explicit no-auto-approval kontrolü.
+9. **Owner kendi talebini onaylayamaz/reddedemez**; iptal eder. Customer red
+   gerekçesini kendi detayında görür.
+10. Delegasyon iptali sonrası eski token 400; rol düşürme sonrası eski token 403
+    ve talep Pending kalır.
+11. Doğrudan transfer/deposit/withdraw/open `400`; bakiye değişmez.
+12. Timeline Created/Pending/Approved/Completed; receipt tamamlanmışta maskeli ve
+    Europe/Istanbul + DEMO; tamamlanmamışta `IsCompleted=false`; başka müşteri 404.
+13. Demo seed idempotent; catalog; Customer demo 403; matched CSV preview/import,
+    SHA-256 replay; mismatch sınıfları; **istisna Open→InReview→Proposed→Closed**,
+    proposer self-approval 400, farklı approver kapatır, **bakiye değişmez**,
+    reopen; formül-safe export; invalid/empty/`.txt` CSV reddi.
+14. Dashboard: anonymous→Login; Owner 10 sayfa; approver queue + yönetim reddi;
+    Customer 5 sayfa + admin reddi; Owner customer sayfası reddi; logout.
+15. Audit aksiyonları (OWNER_SETUP, MEMBERSHIP_ACTIVATED, USER_ROLE_CHANGED,
+    DELEGATION_CREATED/DEACTIVATED, APPROVAL_* , RECONCILIATION_IMPORTED,
+    RECON_EXCEPTION_CLOSED, DEMO_SEEDED) ve şifre/token sızıntısı yok.
+16. Demo reset scoped; UAT hesabı korunur; 5 hatalı login sonrası 429; Setup
+    limitinin login/register limitinden ayrı olması.
 
-## Doğrulanmayan / çalıştırılmayan kontroller
+## Doğrulanmayan / çalıştırılmayan
 
-- **SQL Server**: bağlantı, migration uygulama, decimal, transaction rollback ve
-  gerçek eşzamanlılık testleri yapılmadı. Migration yalnız üretildi/belgelendi.
-- **Gerçek migration/backfill**: `LegacyPaymentApprovalIds` operatör adımları
-  çalıştırılmadı.
-- **Tarayıcı otomasyonu / manuel UAT**: yapılmadı. `UAT_CHECKLIST.md` kullanıcı
-  tarafından doldurulmalı.
-- **Yük/performans, güvenlik sızma testi, erişilebilirlik denetimi**: yapılmadı.
-- **VS Code GUI SDK keşfi**: launchd adımı ajan oturumunda uygulanamadı; GUI
-  doğrulanmadı.
-- **Dashboard tamamı**: kapsamlı ekranlar henüz yok; mevcut minimal dashboard
-  uyumluluk testleri ve smoke ile sınırlı.
-
-## Kanıt dosyaları
-
-- [`evidence/2026-10-20-build.txt`](evidence/2026-10-20-build.txt)
-- [`evidence/2026-10-20-test.txt`](evidence/2026-10-20-test.txt)
-- [`evidence/2026-10-20-smoke.txt`](evidence/2026-10-20-smoke.txt)
-- [`evidence/2026-10-20-nuget-audit.txt`](evidence/2026-10-20-nuget-audit.txt)
-- [`evidence/2026-10-20-vscode-sdk.txt`](evidence/2026-10-20-vscode-sdk.txt)
+- **SQL Server**: bağlantı, migration apply, decimal, transaction rollback ve
+  gerçek eşzamanlılık testi yapılmadı.
+- **Manuel UAT / tam görsel regresyon** yapılmadı; 7 gerçek screenshot alındı
+  (`docs/screenshots/`) ancak bunlar otomatik assertion değildir.
+- **Yük, sızma, erişilebilirlik denetimi** yapılmadı.
+- **VS Code GUI SDK keşfi** kullanıcı launchd adımına bağlı.
+- **Dağıtık login throttle, secret manager, audit retention/immutability** yok.
 
 ## Sonuç
 
-Bu ortamda build, 95 xUnit testi ve 71 smoke kontrolü başarılıdır. Bu sonuçlar
-**SQL Server, production veya tam dashboard** için kanıt değildir. Kalan işler
-`DEVELOPMENT_COMPLETION_REPORT.md` ve `DASHBOARD_PRODUCT_BRIEF.md` içinde
-listelenmiştir.
+Bu ortamda build, 147 xUnit testi ve 272 smoke kontrolü başarılıdır. Bu sonuçlar
+SQL Server, production veya manuel kabul kanıtı değildir.

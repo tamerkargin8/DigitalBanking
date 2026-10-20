@@ -1,152 +1,176 @@
-# Development completion report — backend, rules and tests
+# Development completion report — Owner model, approvals, reconciliation and dashboard
 
 - Tarih: **2026-10-20** (Europe/Istanbul)
 - Ortam: macOS ARM64, .NET SDK **10.0.402** (runtime 10.0.13), EF Core **10.0.3**
 - Dal: `dsh/dsh-mvh4pdzy-u7y7j4` (izole worktree)
-- Taban commit: `0ceead9`
-- Backend commit'i: `2316572`
-- Dashboard uyumluluk + smoke commit'i: `095a31b`
-- Dokümantasyon/portföy commit'i: `354fa0f`
-- Deny-by-default güvenlik commit'i: `9f6b8ac`
+- Backend: `11684b2` — Owner/delegation/approval request model
+- Dashboard: `d2e90e3` — Owner, delegated approver and customer Razor Pages
+- Önceki dilim: `cac7f00` — ownership, timeline, receipts, reconciliation backend
+- QA/final düzeltmeleri (single-owner invariant, Setup/rate-limit, approval ownership/atomicity, demo auth): **commit bekliyor**; manifest `docs/INTEGRATION_HANDOFF.md`
 - Ana kopya `../DigitalBanking` / `integration/local-development` **değiştirilmedi**
 - Demo: API `http://127.0.0.1:5180`, dashboard `http://127.0.0.1:5181`
 
-## Teslim kapısı
+## Teslim kapsamı
 
-Bu teslim **backend + bankacılık kuralları + güvenlik + test + rapor** aşamasıdır.
-Kullanıcının güncel talimatıyla kapsamlı dashboard ekran/tasarım geliştirmesi
-**başlatılmadı**. Mevcut dashboard yalnızca değişen API sözleşmeleriyle çalışır
-kalması için zorunlu uyumluluk düzeltmeleri aldı. Dashboard ürün gereksinimleri
-[`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md) içinde kayıtlıdır.
+Kullanıcı bekleme kapısını kaldırdı ve şu üç özelliği onayladı: gün sonu
+mutabakat/istisna yönetimi, işlem timeline'ı + yazdırılabilir demo dekont ve
+Development-only demo senaryo merkezi. Ardından rol modelini **Owner /
+DelegatedApprover / Customer** olarak kesinleştirdi; tüm finansal taleplerin
+onaya tabi olmasını, limitlerin kişi/operasyon/para birimi bazında verilmesini ve
+Owner'ın kendi talebini dahi onaylayamamasını istedi. Bu rapor uygulanan son
+durumu kaydeder.
 
 ## Tamamlananlar
 
-### 1. Kimlik, roller ve oturum
+### 1. Üyelik, Owner ve oturum
 
-- `ActorContext` yalnız doğrulanmış JWT claim'lerinden üretiliyor
-  (`NameIdentifier` = Guid, `Name`, `Role`).
-- `PaymentApproval.RequestedByUserId`/`ReviewedByUserId` **int → Guid**; istemci
-  gövdesinden kullanıcı kimliği kabul edilmiyor.
-- Controller + service katmanında rol kontrolü: para hareketleri, onay, audit ve
-  kullanıcı yönetimi Admin; standart `User` yalnız kimlik doğrulaması/`me` (sahiplik olmadığı için müşteri/hesap/rapor verisi yok).
-- Login: PBKDF2-SHA256 600k + legacy SHA-256 rehash, 8+ harf/rakam şifre
-  politikası, kullanıcı adı başına 5 hatalı deneme/5 dk kilit, IP başına login
-  rate limit. Şifre/token audit veya ekrana yazılmıyor.
-- Dashboard session: HttpOnly/SameSite=Strict, 30 dk idle, çıkışta tam temizlik,
-  401'de girişe yönlendirme.
+- Public kayıt yalnız `username`, `email`, `firstName`, `lastName`, `password`,
+  `confirmPassword` alır; istemci rol/limit/sahiplik/bakiye gönderemez.
+- Yeni kayıt **PendingActivation**; Owner aktive edene kadar login `403`.
+- İlk Owner yalnız **localhost + Development + Owner yokken** `POST /api/setup/owner`
+  ile oluşturulur. Owner oluşunca uç `409` ile kapanır. Public kayıt Owner yaratamaz.
+- Son Owner devre dışı bırakılamaz, rolü değiştirilemez; rol endpoint'i yalnız
+  Customer/DelegatedApprover atar, Owner atayamaz.
+- Aktivasyon Customer profili oluşturur. Disable, delegasyonları kapatır.
+- Login PBKDF2-SHA256 600k, legacy rehash, 5 hatalı deneme/5 dk kilit ve IP rate
+  limit ile korunur. Dashboard oturumu HttpOnly/SameSite=Strict ve 30 dk idle.
 
-### 2. Bankacılık kuralları
+### 2. Onay modeli — istisnasız maker-checker
 
-- **Maker-checker**: düşük risk (< 50.000) otomatik onay; orta/yüksek/kritik
-  `Pending`; farklı Admin onayı/reddi; talep sahibi kendi talebini inceleyemez.
-- **Doğrudan transfer**: yalnız Admin ve 50.000 altı; üstü onay akışına zorunlu.
-- **Risk**: Low/Medium/High/Critical eşikleri gerçek workflow'a bağlı.
-- **Para**: decimal, 2 hane; fazla küsurat reddi; TRY/USD/EUR/GBP; transfer ve
-  onayda para birimi eşleşmesi; FX yok.
-- **Doğrulamalar**: aynı hesap, yetersiz bakiye, olmayan hesap, negatif/sıfır
-  tutar, aşırı tutar, geçersiz para birimi, geçersiz tarih aralığı.
-- **Eşzamanlılık**: `PaymentApproval.RowVersion` ile çift onay engeli; hesap
-  `RowVersion` korunuyor.
-- **Idempotency**: kalıcı `IdempotencyRecords` tablosu + `Idempotency-Key` filtresi;
-  tamamlanmış yanıt replay, farklı payload `409`, in-progress `409`.
-- **Atomiklik**: bakiye + debit/credit ledger + onay durumu + audit aynı DB
-  transaction'ında; hata/rollback'te kısmi işlem yok.
-- **Hesap açılışı**: para birimi ve açılış bakiyesi işleniyor; açılış deposit
-  ledger satırı ve audit yazılıyor.
-- **Raporlar**: tarih-only `to` gün sonu dahil; 366 gün sınırı; para birimi
-  kapsamlı top-accounts; statement/daily summary; sayfalama clamp.
-- **Audit**: `/api/audit` Admin, tarih/aksiyon/kullanıcı filtresi + sayfalama;
-  detaylarda şifre/token yok.
+- Transfer, deposit, withdrawal ve account opening **her zaman** `Pending`
+  oluşur; oluşturma anında para hareket etmez.
+- Düşük risk dahil hiçbir talep otomatik onaylanmaz. Risk seviyesi yalnız bilgi
+  ve kuyruk filtresidir.
+- Owner tüm talepleri onaylayabilir/reddedebilir; **kendi oluşturduğu talebi
+  onaylayamaz/reddedemez**.
+- DelegatedApprover yalnız aktif delegasyonunun kapsadığı operasyon, para birimi
+  ve limit içinde onaylar. Limit **dahildir**: 100.000,00 TRY onaylanır,
+  100.000,01 TRY Owner'a kalır. Opsiyonel günlük kümülatif limit, UTC günü ve
+  aynı operasyon/para birimi için uygulanır.
+- Yetki her onayda veritabanından okunur: rol, durum, `IsActive`, `ExpiresAt`,
+  limit ve günlük kullanım. İptal/rol değişikliği eski JWT ile hemen etkisizdir.
+- Onay anında hesap, sahiplik, para birimi, bakiye, amount scale ve güncel durum
+  yeniden doğrulanır. `RowVersion` çift onayı engeller.
+- Bekleyen giden transfer/withdrawal **available balance** rezervasyonu yapar;
+  iki talep bakiyeyi aşamaz. İptal/red rezervasyonu serbest bırakır.
+- Owner'ın operasyonel talebi de aynı self-approval kontrolüne tabidir.
+- Kuyruk filtreleri: `Pending`, request type, currency ve delegated görünümü;
+  Owner tüm durumları görür. Müşteri yalnız kendi taleplerini ve red gerekçesini.
 
-### 3. Şema / migration
+### 3. Limit/Yetki yönetimi
 
-- Yeni migration:
-  `20261020203345_PaymentApprovalGuidApproversAndIdempotency`.
-- `PaymentApprovals` int→Guid kullanıcı/işlem alanları, `RowVersion`,
-  `IdempotencyRecords`, audit indeks/uzunlukları.
-- Eski migration dosyaları **değiştirilmedi**.
-- Gerçek veride int→Guid dönüşümü otomatik yapılamaz; eski değerler
-  `LegacyPaymentApprovalIds` tablosuna kopyalanır, yeni alanlar ilk Admin ile
-  doldurulur, `RelatedTransactionId` NULL yapılır. Operatör adımları:
-  [`migrations/README.md`](migrations/README.md).
-- **SQL Server'a uygulanmadı/doğrulanmadı.** SQLite Development `EnsureCreated`
-  kullanır; eski `.local/digitalbanking.db` arşivlenip yeniden oluşturuldu.
+- `ApprovalDelegation`: kullanıcı + operasyon + para birimi + `MaxAmount`,
+  opsiyonel `DailyLimit`, `ExpiresAt`, `IsActive`, `RowVersion`.
+- Owner CRUD + anında deactivate. DelegatedApprover bu uçlara ve rol
+  yönetimine erişemez.
+- Reconciliation exception onayı operasyon iznine bağlıdır; parasal limit
+  uygulanmaz (tutarsız kayıt operasyonel kapatılır, bakiye değişmez).
 
-### 4. VS Code SDK keşfi
+### 4. Sahiplik, timeline ve dekont
 
-- C# Dev Kit logu `dotnet --info` için `dotnet: command not found` ve
-  `Could not find installed SDK` gösteriyordu; GUI uygulamaları shell PATH'ini
-  okumuyor.
-- `.vscode/settings.json`: `dotnet.defaultSolution`, `existingDotnetPath`,
-  terminal env eklendi/güncellendi.
-- `scripts/setup_macos_vscode_env.sh` launchd `DOTNET_ROOT`/`PATH` önerir;
-  `scripts/verify_vscode_sdk.sh` yerel SDK/global.json/.vscode önkoşullarını
-  denetler.
-- Bu ajan oturumunda `launchctl setenv` **"Not privileged to set domain environment"**
-  ile reddedildi. Kullanıcı normal terminalde script'i çalıştırıp VS Code'u
-  yeniden başlatmalı. **GUI doğrulaması ajan tarafından yapılmadı.** Kanıt:
-  [`evidence/2026-10-20-vscode-sdk.txt`](evidence/2026-10-20-vscode-sdk.txt).
+- `Customer.UserId` (+ SQL Server filtered unique index) ile müşteri–login
+  sahipliği kuruldu. `/api/me/*` yalnız kendi verisini döner; IDOR `404`.
+- `PaymentTimelineEvent` gerçek kalıcı olaylardan timeline üretir; legacy
+  kayıtlar için kontrollü fallback vardır.
+- Dekont yalnız tamamlanmış ödemede tamamlanmış veri döner; pending/rejected
+  durumda `IsCompleted=false` ve açıklama. Hesap numaraları maskeli, saat
+  Europe/Istanbul, açık **DEMO — GERÇEK BANKACILIK DEKONTU DEĞİLDİR** uyarısı.
+- Tarayıcı print-to-PDF kullanılır; PDF kütüphanesi yok.
 
-## API sözleşmesi değişiklikleri (dikkat)
+### 5. Gün sonu mutabakat ve istisnalar
 
-- `POST /api/paymentapprovals` gövdesinden `requestedByUserId` kaldırıldı;
-  `POST /{id}/approve` gövdesiz; `POST /{id}/reject` yalnız `rejectionReason`.
-- `PaymentApprovalResponse` kullanıcı kimlikleri Guid, `relatedTransactionId` Guid.
-- `GET /api/customers`, `GET/POST /api/users` artık `ApiResponse<T>` zarfında.
-- `POST /api/customers`/`users` yanıtı `data` altında.
-- `GET /api/transactions/top-accounts` `currency` parametresi alır (varsayılan TRY).
-- Statement/daily/top yanıtları para birimi ve transfer toplamları içerir.
-- Yetkisiz para/onay/audit/users çağrıları `403`; tokensız `401`.
-- Dashboard bu sözleşmelere uyarlandı; smoke testi silinmedi/gevşetilmedi,
-  21 baseline senaryosu korunarak **71** kontrolle genişletildi.
+- CSV: UTF-8 (BOM kabul), katı başlık, 2 MB / 5.000 satır sınırı, tırnaklı alan,
+  2 hane decimal, TRY/USD/EUR/GBP, UTC tarih, Debit/Credit doğrulaması.
+- Önizleme kalıcı batch üretir; import ayrı ve idempotent adımdır. Dosya SHA-256
+  + scope anahtarı ile mükerrer yükleme algılanır.
+- Deterministik referans eşleme; `Matched`, `OnlyExternal`, `OnlySystem`,
+  `AmountMismatch`, `CurrencyMismatch`, `DuplicateReference`, `Invalid`.
+- Bekleyen onaylar "only system"den ayrı sayılır. Import sonrası batch sonucu
+  değişmez.
+- İstisna: `Open → InReview → ResolutionProposed → Closed/Rejected`; yeniden
+  açma. Öneriyi yapan kendi çözümünü onaylayamaz/reddedemez. Close **bakiye
+  düzeltmez**; yalnız operasyonel kayıttır.
+- Export formül enjeksiyonuna karşı `= + - @` hücrelerini `'` ile nötrler.
+
+### 6. Development-only demo merkezi
+
+- Owner-only, ayrıca service ve controller düzeyinde Development kontrolü;
+  Development dışında `404`.
+- Sentetik senaryolar: başarılı transfer, yetersiz bakiye, yüksek tutarlı
+  maker-checker, self-approval engeli, mükerrer istek, red, eşleşen/eşleşmeyen
+  mutabakat.
+- Seed deterministik/idempotent; reset yalnız `IsDemo` işaretli ödeme, hareket,
+  timeline ve batch kayıtlarını kaldırır, kullanıcı/hesap/UAT verisini korur.
+- Örnek CSV indirme uçları dinamik ve sentetiktir.
+
+### 7. Dashboard
+
+- Türkçe, lacivert/nefes alan nötr tasarım, yerel Bootstrap, mobil/erişilebilir
+  temel; boş/yükleniyor/hata/başarı durumları.
+- Owner: özet, onay kuyruğu/detay/dekont, üyelik aktivasyon/rol, **Yetkiler &
+  Limitler**, müşteri/hesap, operasyonel talep, audit, mutabakat liste/detay/
+  istisna/örnek/export, demo merkezi, rapor.
+- DelegatedApprover: yalnız uygun kuyruk ve kendi incelediği kayıtlar; yönetim
+  sayfaları reddedilir.
+- Customer: ana sayfa para birimi bazlı kartlar, hesaplar, transfer sihirbazı
+  (ön özet), talepler, ödeme/timeline, dekont.
+- Rol yönlendirmeleri ve guard'lar sunucu tarafında; buton gizleme güvenlik
+  sınırı değildir.
+
+### 8. Doğrudan hareket uçları
+
+`POST /api/accounts/transfer`, `/api/accounts/open`,
+`/api/transactions/deposit`, `/api/transactions/withdraw` bilinçli olarak `400`
+döner ve onay talebi yolunu gösterir. Onay akışı atlanamaz.
 
 ## Doğrulama sonuçları
 
-| Kontrol | Komut | Sonuç |
-|---|---|---|
-| Build | `bash scripts/dotnet.sh build DigitalBanking.slnx` | **0 uyarı, 0 hata** |
-| Test | `bash scripts/dotnet.sh test DigitalBanking.slnx` | **95 geçti, 0 kaldı, 0 atlandı** |
-| Smoke | `python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181` | **71 kontrol geçti** |
-| NuGet audit | `dotnet list ... package --vulnerable --include-transitive` | 6 projede bilinen açık yok |
-| Diff kontrol | `git diff --check` | temiz |
+| Kontrol | Sonuç |
+|---|---|
+| Build | **0 uyarı, 0 hata** |
+| xUnit | **147 geçti, 0 başarısız, 0 atlandı** |
+| Smoke | **272 kontrol geçti** |
+| NuGet audit | bilinen açık yok (mevcut kaynaklar) |
+| `git diff --check` | temiz |
 
-Smoke kapsamı: health, yetkisiz erişim, login/claim/rol, login throttle,
-müşteri/hesap, decimal bakiye, para birimi, yatırma/çekme/transfer,
-maker-checker, kendi talebini onaylama reddi, çift onay reddi, idempotent replay,
-audit, rapor filtreleri, dashboard oturum/rol/çıkış.
+Test envanteri ve smoke kapsamı: [`TEST_REPORT.md`](TEST_REPORT.md).
+Kanıt: [`evidence/`](evidence/).
 
-Kanıt dosyaları:
+## Şema / migration
 
-- [`evidence/2026-10-20-build.txt`](evidence/2026-10-20-build.txt)
-- [`evidence/2026-10-20-test.txt`](evidence/2026-10-20-test.txt)
-- [`evidence/2026-10-20-smoke.txt`](evidence/2026-10-20-smoke.txt)
-- [`evidence/2026-10-20-nuget-audit.txt`](evidence/2026-10-20-nuget-audit.txt)
-- [`evidence/2026-10-20-vscode-sdk.txt`](evidence/2026-10-20-vscode-sdk.txt)
+- `20261020212050_AddCustomerOwnershipTimelineReconciliation`: `Customer.UserId`,
+  filtered unique index, timeline, reconciliation tabloları, `CorrelationId`,
+  `IsDemo`, string uzunlukları.
+- `20261020213624_AddOwnerDelegationAndApprovalRequests`: User ad/e-posta/
+  durum/aktivasyon alanları, `ApprovalDelegations`, `RequestType`,
+  `CreatedAccountId`, `RequestedCustomerId`, `RequestedInitialBalance`.
+- `20261021011500_EnforceSingleOwner`: `Users` üzerinde `[Role] = 3` filtered
+  unique index. İki eşzamanlı setup'tan yalnız biri commit eder; kaybeden `409`
+  alır. Mevcut DB'de >1 Owner varsa migration **veri silmeden** açık hata verir;
+  operatör önce hangi hesabın Owner kalacağına karar verir. Başlangıçta da
+  Serilog warning üretilir.
+- Eski `Admin=1` / `User=2` rolleri **bilinçli olarak geçersizdir**; otomatik
+  Owner/Customer dönüşümü yapılmaz. Operatör eşlemesi gerekir.
+- SQL Server migration'ları **uygulanmadı/doğrulanmadı**. SQLite Development
+  `EnsureCreated` kullanır ve atılabilir. Ayrıntı:
+  [`migrations/README.md`](migrations/README.md).
 
-## Kalan işler ve riskler
+## Bilinen sınırlar
 
-1. **Kapsamlı dashboard** (sonraki aşama): Admin özet/müşteri/hesap/onay
-   kuyruğu/audit/raporlar; müşteri self-servis bakiye/hareket/transfer talebi/
-   durum. Tasarım: [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md).
-2. **User–Customer–Account sahipliği**: Müşteri self-servis için zorunlu.
-   `Customer.UserId` + unique index, yeni migration, sunucu tarafı erişim
-   kontrolleri, yeni testler. Şu an `User` veri erişimine sahip değil; buton gizleyerek
-   çözülmemeli.
-3. **SQL Server doğrulaması**: bağlantı, migration, decimal, concurrency ve
-   rollback testleri bu ortamda yapılmadı. Migration operatör adımları hazır ama
-   uygulanmadı.
-4. **Manuel UAT**: [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) kullanıcı tarafından
-   doldurulacak; ajan manuel test yapmadı.
-5. **Üretim sertleştirmesi**: secret manager, dağıtık login throttle, gözlemlenebilirlik,
-   audit retention/immutability, WAF, uyumluluk sertifikasyonu yok; iddia
-   edilmiyor.
-6. **FX / saat dilimi**: kur çevrimi ve bankacılık gün sonu takvimi yok; tarihler UTC.
-7. **VS Code GUI**: kullanıcı launchd adımını çalıştırıp IDE'yi yeniden başlatmalı;
-   ajan GUI'yi doğrulamadı.
+1. SQL Server bağlantısı/migration/gerçek SQL Server concurrency testi yapılmadı;
+   eşzamanlı Owner yarışı ayrı SQLite dosyaları ve iki context ile test edildi.
+2. Manuel UAT yapılmadı; [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) kullanıcı içindir.
+3. Gerçek tarayıcı ekran görüntüleri `docs/screenshots/` altında alındı;
+sahte/editleme yok. Manuel UAT yine yapılmadı.
+4. FX yok; rapor tarihleri UTC; bankacılık gün sonu takvimi yok.
+5. Login throttle bellek içi; dağıtık ortam için paylaşımlı store gerekir.
+6. Üretim secret manager, WAF, observability, retention/immutability, sızma/
+   yük/erişilebilirlik denetimi ve uyumluluk iddiası yoktur.
+7. VS Code GUI SDK adımı kullanıcı tarafından doğrulanmalıdır.
 
 ## Sonuç
 
-Backend ve iş kuralları bu ortamda çalışıyor ve test edildi; demo 5180/5181
-üzerinde çalışıyor. Ancak proje **production-ready değildir**, SQL Server
-doğrulanmamıştır ve dashboard tamamlanmamıştır. Bu sınırlar README ve test
-raporunda açıkça belirtilmiştir.
+Backend, iş kuralları, güvenlik kontrolleri, mutabakat/timeline ve üç rollü
+dashboard bu ortamda çalışır ve test edilmiştir. Proje **production-ready
+değildir** ve SQL Server doğrulanmamıştır; bu sınırlar README ve test raporunda
+açıkça belirtilmiştir.

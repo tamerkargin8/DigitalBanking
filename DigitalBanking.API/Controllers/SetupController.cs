@@ -40,7 +40,7 @@ public class SetupController : ControllerBase
     }
 
     [HttpPost("owner")]
-    [EnableRateLimiting("register")]
+    [EnableRateLimiting("setup")]
     public async Task<IActionResult> CreateOwner(
         [FromBody] SetupOwnerRequest request,
         CancellationToken cancellationToken)

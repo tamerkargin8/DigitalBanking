@@ -1,73 +1,116 @@
 # Portfolio / CV notes
 
-Bu notlar yalnızca bu depoda gerçekten uygulanan ve doğrulanan işlere dayanır.
-Ölçüm, unvan, sertifika veya kurumsal uygunluk iddiası eklenmemelidir.
+These notes describe only work that exists in this repository and was actually
+verified locally. No production, employer, certification or performance claim is
+made.
 
-## CV için 2–3 kısa madde
+## 30-second English narrative
 
-1. **Maker-checker ödeme onayı ve risk yönlendirmesi (ASP.NET Core 10 / EF Core 10).**
-   JWT claim'lerinden türetilen Guid kullanıcı kimliği, 50.000 eşikli doğrudan
-   transfer sınırı, düşük riskte otomatik onay, orta/yüksek/kritik riskte farklı
-   Admin onayı, kendi talebini onaylama engeli, `rowversion` ile eşzamanlı çift
-   onay koruması ve `Idempotency-Key` ile tekrar istek engeli. Kanıt: ADR-0001,
-   `PaymentApprovalService`, `IdempotencyFilter`, 95 xUnit testi ve 71 smoke kontrolü.
+> DigitalBanking is a .NET 10 banking-controls portfolio project: a Razor
+> dashboard and API where every customer financial request stays pending until
+> an Owner or an explicitly delegated approver authorizes it. It demonstrates
+> inclusive per-operation/currency limits (100,000.00 TRY passes, 100,000.01
+> goes to the Owner), owner self-approval blocking, live DB-backed revocation,
+> reserve-aware balances, idempotent posting, customer ownership/IDOR protection,
+> real payment timelines and receipts, and day-end reconciliation with a
+> maker-checker exception workflow. It includes 147 xUnit tests, 272 end-to-end
+> smoke checks, SQL Server migrations documented but not applied, and a clear
+> "demo, not production" boundary.
 
-2. **Decimal para ve atomik audit disiplini.** Bakiye/ledger/onay/audit aynı
-   transaction'da; 2 haneden fazla küsurat reddediliyor; TRY/USD/EUR/GBP için
-   para birimi doğrulaması ve farklı para birimli transferin reddi; gün sonu dahil
-   tarih filtreleri ve para birimi kapsamlı raporlama. Kanıt: `LedgerOperations`,
-   `Money`, `ReportDateRange`, `AuditService`, testler.
+## CV bullets (3–4)
 
-3. **Güvenli JWT kimliği ve operasyonel giriş sertleştirmesi.** `int` kullanıcı
-   kimliklerinin Guid'e taşınması, istemci gövdesinden kimlik kabul edilmemesi,
-   600k iterasyon PBKDF2 + legacy SHA-256 rehash, 8+ harf/rakam şifre politikası,
-   kullanıcı adı başına hatalı giriş kilidi ve IP bazlı login rate limit. Kanıt:
-   migration + `AuthService` + `InMemoryLoginAttemptLimiter` + testler.
+1. **Built a three-role banking approval platform (Owner / DelegatedApprover /
+   Customer) in ASP.NET Core 10 and EF Core 10.** Enforced maker-checker on every
+   transfer, deposit, withdrawal and account opening; blocked self-approval even
+   for the Owner; implemented inclusive per-operation/per-currency limits,
+   optional daily caps, expiry and immediate DB-backed revocation. Verified the
+   99,999.99 / 100,000.00 / 100,000.01 TRY boundary with unit and end-to-end tests.
 
-İsterseniz dördüncü madde olarak: **"SQL Server migration'ı üretildi, ancak bu
-ortamda uygulanmadı; SQLite testleri SQL Server kanıtı değildir"** dürüst sınır
-notu olarak eklenebilir. Bunu başarı maddesi gibi yazmayın.
+2. **Designed a safe customer self-service boundary.** Added `Customer.UserId`
+   ownership with server-side joins, minimal PendingActivation registration,
+   one-time localhost Owner bootstrap, last-Owner protection, IDOR-as-404, masked
+   account data, persisted payment timelines and a status-gated, DEMO-marked
+   printable receipt. The dashboard has separate Owner, delegated and customer
+   navigation with server-side guards.
 
-## Proje anlatımı (kısa)
+3. **Implemented reserve-aware money movement and operational reconciliation.**
+   Pending outflows reduce available balance so two requests cannot overcommit;
+   approvals revalidate ownership, currency, balance and current authority inside
+   one transaction with `RowVersion` double-approval protection and
+   `Idempotency-Key` replay. Added strict CSV preview/import, SHA-256 duplicate
+   detection, deterministic match classes, formula-safe export and an
+   Open→InReview→ResolutionProposed→Closed/Rejected exception workflow that never
+   adjusts balances.
 
-> Bankacılık operasyonlarındaki maker-checker kontrolünü, risk eşiklerini,
-> idempotent para hareketini ve audit izini .NET 10 ile uygulayan bir portföy
-> demosu. Backend ve iş kuralları test edildi; müşteri/admin dashboard deneyimi
-> ayrı bir aşama olarak tasarlandı.
+4. **Produced verifiable engineering evidence.** 147 xUnit tests + 272 end-to-end
+   smoke checks passing locally, 0 build warnings/errors, NuGet audit clean,
+   documented SQL Server migrations and an honest limitations/UAT report. Kept
+   SQLite as a disposable Development playground rather than claiming SQL Server
+   proof.
 
-## AI katkısı (dürüst beyan)
+## Türkçe özet (CV/portföy için)
 
-- Bu teslim, DeepSeek tabanlı bir kodlama ajanı (DSH harness) ile AI-destekli
-  olarak geliştirildi; mimari/ürün kararları ve kapsam kullanıcı talimatlarıyla
-  yönlendirildi, çıktılar testler ve yerel demo ile doğrulandı.
-- AI, üretim ortamı erişimi olmadan çalıştı; SQL Server, gerçek banka sistemi,
-  gerçek müşteri/para verisi veya canlı ödeme ağı kullanılmadı.
-- Testlerin ve smoke kontrollerinin çalıştırıldığı tarih/ortam raporlarda açıktır.
-  Gelecekteki bir mülakatta "şu kadar kullanıcı/performans" gibi ölçümler
-  uydurulmamalıdır; bu depoda böyle bir ölçüm yoktur.
-- Dashboard'un tamamlanmış gibi sunulmaması gerekir; mevcut Razor ekranları
-  sınırlıdır ve ürün brief'i sonraki aşamayı tanımlar.
+- **Üç rollü onay platformu:** Owner, DelegatedApprover ve Customer; transfer,
+  yatırma, çekme ve hesap açılışının tamamı onaya tabi. Owner kendi talebini
+  onaylayamaz; limitler operasyon/para birimi bazında ve **100.000,00 TRY dahil**,
+  100.000,01 Owner'a kalır. Günlük limit, expiry ve anında iptal desteklenir.
+- **Güvenli müşteri self-servisi:** `Customer.UserId` sahipliği, PendingActivation
+  kayıt, tek seferlik localhost Owner kurulumu, son Owner koruması, IDOR'da 404,
+  maskeli hesap, kalıcı timeline ve tamamlanmış işlemde DEMO uyarılı dekont.
+- **Para ve mutabakat:** rezervasyonlu bakiye, atomik ledger+audit, idempotent
+  tekrar, `RowVersion` çift onay koruması; CSV önizleme/import, SHA-256 mükerrer
+  kontrolü, eşleşme sınıfları, formül-safe export ve bakiye düzeltmeyen istisna
+  akışı.
+- **Kanıt:** 147 xUnit, 272 smoke, 0 uyarı/0 hata; SQL Server migration'ları
+  belgelendi ancak uygulanmadı. SQLite sonucu SQL Server kanıtı değildir.
 
-## Mülakatta anlatılabilecek kararlar
+## What not to claim
 
-- Neden maker-checker? Operasyonel risk ve görevler ayrılığı; yüksek tutarlı
-  ödemenin tek kişi tarafından uygulanmasını engellemek.
-- Neden düşük risk otomatik? Düşük tutarlı operasyonu gereksiz yavaşlatmamak;
-  risk seviyesi iş akışını belirliyor, rol hiyerarşisini değil.
-- Neden `RowVersion` + status kontrolü? İki checker aynı anda onaylarsa para iki
-  kez hareket etmemeli.
-- Neden idempotency tablosu? Ağ hatasında istemci aynı isteği tekrar gönderirse
-  para ikinci kez uygulanmamalı; tamamlanmış yanıt yeniden oynatılmalı.
-- Neden audit aynı transaction? Para hareketi ile kanıtı ayrışmamalı.
-- Neden müşteri self-servis henüz yok? Modelde User–Customer–Account sahipliği
-  yok; buton gizlemek güvenlik değildir. Önce sunucu tarafı sahiplik ve migration
-  tasarlanmalı (DASHBOARD_PRODUCT_BRIEF).
+- No real bank/payment-network integration, real customer data or live money.
+- No production hardening, compliance certification, penetration test, load test
+  or accessibility certification.
+- No verified SQL Server run. The migrations are operator-ready documentation,
+  not proof.
+- No user counts, transaction volumes or performance numbers; none were measured.
+- Real screenshots are committed in `docs/screenshots/` (headless Chrome, synthetic
+  data). No fabricated/edited screenshots exist.
 
-## Yayın öncesi kontrol
+## AI contribution (honest disclosure)
 
-- [ ] README'deki ekran görüntüsü yerleri gerçek dashboard tamamlandıktan sonra
-      gerçek görüntülerle dolduruldu; sahte görsel yok.
-- [ ] `.local/credentials.json`, JWT anahtarı, token veya gerçek veri commit'te yok.
-- [ ] Test/smoke sayıları son çalıştırmayla güncel.
-- [ ] SQL Server/migration doğrulanmadı ifadesi korunuyor.
-- [ ] Kapsam dışı üretim iddiası yok.
+- The implementation and documentation were produced in an AI-assisted workflow:
+  a DeepSeek-based coding agent in the DSH harness, directed and reviewed by the
+  user/GPT. Architecture, scope and rejection decisions came from the user.
+- The agent had no production or SQL Server access and used synthetic data only.
+  It did not push, publish or deploy.
+- Tests, smoke runs, build results and limitations are recorded with commands and
+  evidence dates. A future interview must not invent metrics beyond these.
+- Manual UAT and SQL Server verification remain human/operator tasks; screenshots
+  should be refreshed after UI changes.
+
+## Interview talking points
+
+- **Why all requests need approval?** Low-risk auto-approval was explicitly
+  removed after the role/limit model changed: authority is per person and per
+  operation, so "low risk" cannot silently bypass an approval policy.
+- **Why inclusive limits?** `amount <= MaxAmount` is unambiguous; 100,000.00 is
+  allowed and 100,000.01 is not. Tests pin both sides.
+- **Why re-read the DB on every approval?** A JWT is a snapshot. Revocation,
+  expiry, role change or daily-limit use must take effect immediately.
+- **Why reserve pending outflows?** Creation-time checks alone allow two pending
+  requests to overcommit one balance.
+- **Why `RowVersion` + status check?** Two reviewers must not move money twice.
+- **Why no balance adjustment on exception close?** The reconciliation record is
+  operational evidence; money changes require the normal ledger workflow.
+- **Why is SQL Server unverified?** No SQL Server environment was available.
+  SQLite is a disposable Development convenience, not evidence of SQL Server
+  decimal/concurrency behavior.
+
+## Publish checklist
+
+- [x] Real screenshots captured from the current dashboard, synthetic data only,
+      no `.local` content/passwords/tokens.
+- [ ] README test counts match the last run.
+- [ ] `.local/credentials.json`, JWT secret, tokens and real data absent from git.
+- [ ] SQL Server "not applied/verified" statement preserved.
+- [ ] UAT checklist filled by a human; no item marked done without evidence.
+- [ ] No production/compliance/metric claims added.

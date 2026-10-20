@@ -1,6 +1,13 @@
-# Build evidence - 2026-10-20 (Europe/Istanbul)
-# Harness workaround: hidden worktree files and sandboxed shared compiler require single-node/no shared compilation.
-$ bash scripts/dotnet.sh build DigitalBanking.slnx -p:UseSharedCompilation=false -m:1 -nr:false
+DigitalBanking build evidence — final source 2026-10-20/21
+Branch: dsh/dsh-mvh4pdzy-u7y7j4
+Commit: 7340a1c + uncommitted final source changes
+Environment: macOS ARM64, .NET SDK 10.0.402, EF Core 10.0.3
+Command: DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh build DigitalBanking.slnx -p:UseSharedCompilation=false -m:1 -nr:false
+
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  DigitalBanking.Domain -> /Users/tamerkargin/Documents/Codex/2026-10-20/gpt-imdi-x20/outputs/DigitalBanking-DeepSeek/.dsh-worktrees/dsh-mvh4pdzy-u7y7j4/DigitalBanking.Domain/bin/Debug/net10.0/DigitalBanking.Domain.dll
+  DigitalBanking.Application -> /Users/tamerkargin/Documents/Codex/2026-10-20/gpt-imdi-x20/outputs/DigitalBanking-DeepSeek/.dsh-worktrees/dsh-mvh4pdzy-u7y7j4/DigitalBanking.Application/bin/Debug/net10.0/DigitalBanking.Application.dll
   DigitalBanking.Infrastructure -> /Users/tamerkargin/Documents/Codex/2026-10-20/gpt-imdi-x20/outputs/DigitalBanking-DeepSeek/.dsh-worktrees/dsh-mvh4pdzy-u7y7j4/DigitalBanking.Infrastructure/bin/Debug/net10.0/DigitalBanking.Infrastructure.dll
   DigitalBanking.API -> /Users/tamerkargin/Documents/Codex/2026-10-20/gpt-imdi-x20/outputs/DigitalBanking-DeepSeek/.dsh-worktrees/dsh-mvh4pdzy-u7y7j4/DigitalBanking.API/bin/Debug/net10.0/DigitalBanking.API.dll
   DigitalBanking.Dashboard -> /Users/tamerkargin/Documents/Codex/2026-10-20/gpt-imdi-x20/outputs/DigitalBanking-DeepSeek/.dsh-worktrees/dsh-mvh4pdzy-u7y7j4/DigitalBanking.Dashboard/bin/Debug/net10.0/DigitalBanking.Dashboard.dll
@@ -10,4 +17,4 @@ Build succeeded.
     0 Warning(s)
     0 Error(s)
 
-Time Elapsed 00:00:02.21
+Time Elapsed 00:00:02.16

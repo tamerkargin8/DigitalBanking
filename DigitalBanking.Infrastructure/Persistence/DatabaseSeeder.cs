@@ -2,6 +2,7 @@ using DigitalBanking.Domain.Entities;
 using DigitalBanking.Domain.Enums;
 using DigitalBanking.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 namespace DigitalBanking.Infrastructure.Persistence;
 
@@ -44,6 +45,19 @@ public static class DatabaseSeeder
         var users = await SeedUsersAsync(context, passwordHasher, demoPassword);
         await SeedDemoCustomersAndAccountsAsync(context, users);
         await context.SaveChangesAsync();
+
+        var ownerCount = await context.Users.CountAsync(x => x.Role == UserRole.Owner);
+        if (ownerCount > 1)
+        {
+            // Never delete or auto-demote an Owner. A legacy/raced database needs
+            // an explicit operator decision; the migration preflight also stops
+            // before creating the unique index.
+            Log.Warning(
+                "Database contains {OwnerCount} users with Role=Owner. No data was changed. " +
+                "An operator must decide which account stays Owner before applying " +
+                "20261021011500_EnforceSingleOwner; the filtered unique index will " +
+                "otherwise reject the migration.", ownerCount);
+        }
     }
 
     private static async Task<Dictionary<string, User>> SeedUsersAsync(

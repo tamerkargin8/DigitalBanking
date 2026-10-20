@@ -33,6 +33,13 @@ public class BankDbContext : DbContext
             entity.HasIndex(x => x.Username);
             entity.HasIndex(x => x.Email);
             entity.HasIndex(x => new { x.Role, x.Status });
+            // A single Owner is a database invariant, not just a service check.
+            // The filtered unique index lets Customers/DelegatedApprovers repeat
+            // freely while allowing at most one row with Role = Owner (3).
+            entity.HasIndex(x => x.Role)
+                .IsUnique()
+                .HasDatabaseName("IX_Users_Role_OwnerUnique")
+                .HasFilter("[Role] = 3");
         });
 
         modelBuilder.Entity<Customer>(entity =>

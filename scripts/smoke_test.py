@@ -11,9 +11,11 @@ Run it against a disposable Development database only.
 """
 import argparse
 import base64
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import http.cookiejar
+from html import unescape
 from html.parser import HTMLParser
 import json
 import os
@@ -162,16 +164,48 @@ request("/api/auth/login", {"username": "nobody-smoke", "password": "WrongPass1"
         expected=400, auth=False)
 
 setup = request("/api/setup/status", auth=False)
-if setup["needsOwner"]:
-    created_owner = request("/api/setup/owner", {
-        "username": owner_username,
-        "email": f"{owner_username}@demo.invalid",
-        "firstName": "Yerel",
+active_owner_username = owner_username
+setup_posts = 0
+
+
+def raw_owner_attempt(username):
+    body = {
+        "username": username,
+        "email": f"{username}@demo.invalid",
+        "firstName": "Yarış",
         "lastName": "Owner",
         "password": owner_password,
         "confirmPassword": owner_password,
-    }, auth=False)
-    check(created_owner["data"]["role"] == "Owner", "setup did not create Owner")
+    }
+    req = urllib.request.Request(
+        api + "/api/setup/owner",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST")
+    try:
+        response = urllib.request.urlopen(req, timeout=30)
+        payload = response.read()
+        return response.code, (json.loads(payload) if payload else None)
+    except urllib.error.HTTPError as error:
+        payload = error.read()
+        return error.code, (json.loads(payload) if payload else None)
+
+
+if setup["needsOwner"]:
+    # Two real HTTP requests, two different usernames, one empty database.
+    # The DB-level filtered unique index must let exactly one win; the other
+    # must receive the domain 409, never a 500.
+    race_names = [owner_username, owner_username + "-race"]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        race_results = list(pool.map(raw_owner_attempt, race_names))
+    setup_posts = 2
+    codes = sorted(code for code, _ in race_results)
+    check(codes == [200, 409], f"concurrent Owner setup returned {codes}, expected [200, 409]")
+    winner = next(payload for code, payload in race_results if code == 200)
+    loser = next(payload for code, payload in race_results if code == 409)
+    check(winner["data"]["role"] == "Owner", "winning setup did not create Owner")
+    check("Owner zaten kurulmuş" in loser["message"], "losing setup did not explain the closed endpoint")
+    active_owner_username = winner["data"]["username"]
 else:
     # A repeat setup must be closed once an Owner exists.
     request("/api/setup/owner", {
@@ -182,11 +216,12 @@ else:
         "password": "SyntheticOwner2",
         "confirmPassword": "SyntheticOwner2",
     }, expected=409, auth=False)
+    setup_posts = 1
 
 status = request("/api/setup/status", auth=False)
 check(status["needsOwner"] is False, "setup status still needs an Owner")
 
-token = login(owner_username, owner_password)
+token = login(active_owner_username, owner_password)
 owner_data = request("/api/auth/me")["data"]
 owner_id = owner_data["userId"]
 check(owner_data["role"] == "Owner", "Owner claims role mismatch")
@@ -626,7 +661,37 @@ anonymous_page = anonymous.open(dashboard + "/Admin/Users/Index", timeout=30)
 check(urllib.parse.urlparse(anonymous_page.url).path == "/Login",
       "anonymous dashboard admin page did not require login")
 
-owner_browser = dashboard_login(owner_username, owner_password, "/Admin/Overview")
+# A stale Setup form must not submit after the one-time Owner exists.
+setup_browser = urllib.request.build_opener(
+    urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+stale_setup_page = setup_browser.open(dashboard + "/Setup", timeout=30)
+stale_html = stale_setup_page.read().decode()
+stale_path = urllib.parse.urlparse(stale_setup_page.url)
+check(stale_path.path == "/Login" and "setup" in urllib.parse.parse_qs(stale_path.query),
+      "completed Setup GET did not redirect to the login notice")
+stale_form = AntiForgeryParser()
+stale_form.feed(stale_html)
+check(stale_form.value is not None, "stale Setup page had no antiforgery token")
+stale_payload = urllib.parse.urlencode({
+    "Username": "late-owner-" + suffix,
+    "Email": f"late-owner-{suffix}@demo.invalid",
+    "FirstName": "Late",
+    "LastName": "Owner",
+    "Password": "SyntheticOwner1",
+    "ConfirmPassword": "SyntheticOwner1",
+    "__RequestVerificationToken": stale_form.value,
+}).encode()
+stale_result = setup_browser.open(
+    urllib.request.Request(dashboard + "/Setup", data=stale_payload), timeout=30)
+stale_result_html = stale_result.read().decode()
+stale_result_path = urllib.parse.urlparse(stale_result.url)
+check(stale_result_path.path == "/Login" and "setup" in urllib.parse.parse_qs(stale_result_path.query),
+      "stale Setup POST did not redirect to login")
+check("Too many" not in stale_result_html and "Owner oluşturuldu" in unescape(stale_result_html),
+      "stale Setup POST did not show the Turkish completed-setup notice")
+setup_browser.open(dashboard + "/Logout", timeout=30)
+
+owner_browser = dashboard_login(active_owner_username, owner_password, "/Admin/Overview")
 for path in ["/Admin/Overview", "/Admin/Approvals/Index", "/Admin/Users/Index",
              "/Admin/Delegations/Index", "/Admin/Customers/Index", "/Admin/Requests/New",
              "/Admin/Audit/Index", "/Admin/Reconciliation/Index", "/Admin/Demo/Index",
@@ -686,13 +751,41 @@ check(request("/api/demo/scenarios")["data"][0]["relatedPaymentId"] is None,
 check(account_balance(new_account_id, customer_token) == Decimal("139900.01"),
       "demo reset touched non-demo UAT account")
 
+# Setup has its own 5/10-minute partition. This must be a Turkish 429 with
+# Retry-After, not the generic English login message and not an unlimited bypass.
+remaining_setup_posts = max(6 - setup_posts, 1)
+for _ in range(remaining_setup_posts - 1):
+    request("/api/setup/owner", {
+        "username": "post-setup-" + uuid.uuid4().hex[:6],
+        "email": "post-setup@demo.invalid",
+        "firstName": "Post",
+        "lastName": "Setup",
+        "password": "SyntheticOwner1",
+        "confirmPassword": "SyntheticOwner1",
+    }, expected=409, auth=False)
+rate_payload, rate_response = request("/api/setup/owner", {
+    "username": "post-setup-" + uuid.uuid4().hex[:6],
+    "email": "post-setup@demo.invalid",
+    "firstName": "Post",
+    "lastName": "Setup",
+    "password": "SyntheticOwner1",
+    "confirmPassword": "SyntheticOwner1",
+}, expected=429, auth=False, return_response=True)
+check("kurulum" in rate_payload["message"].lower(), "setup 429 message is not Turkish")
+check("Too many" not in rate_payload["message"], "setup 429 leaked the old English message")
+check(rate_response.headers.get("Retry-After") == "600",
+      "setup 429 did not return Retry-After: 600")
+check(rate_response.headers.get("Content-Type", "").startswith("application/json"),
+      "setup 429 content type is not JSON")
+
 lock_name = "lockout." + uuid.uuid4().hex[:8]
 for _ in range(5):
     login(lock_name, "WrongPass1", expected=400)
 login(lock_name, "WrongPass1", expected=429)
 
 print(
-    f"PASS: {checks} local checks: Owner setup closure, membership activation, "
+    f"PASS: {checks} local checks: concurrent Owner setup (200/409), stale Setup "
+    "POST/login notice, setup 429 Retry-After, membership activation, "
     "Customer/DelegatedApprover/Owner boundaries, all-request approval, "
     "99,999.99/100,000.00/100,000.01 TRY, other currency, daily limit, "
     "reserve-aware overcommit, live revocation/stale JWT, owner self-approval block, "

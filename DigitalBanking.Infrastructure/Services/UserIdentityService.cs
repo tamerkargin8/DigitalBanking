@@ -75,7 +75,7 @@ public sealed class UserIdentityService : IUserIdentityService
     public async Task<UserAdminDto> SetupOwnerAsync(SetupOwnerRequest request, CancellationToken cancellationToken = default)
     {
         if (await OwnerExistsAsync(cancellationToken))
-            throw new ConflictException("Owner zaten kurulmuş. Kurulum endpoint'i kapatıldı.");
+            throw OwnerAlreadyConfigured();
 
         var (username, email, firstName, lastName) = ValidateAndNormalize(
             request.Username, request.Email, request.FirstName, request.LastName);
@@ -102,12 +102,48 @@ public sealed class UserIdentityService : IUserIdentityService
             CreatedDate = DateTime.UtcNow,
             ActivatedAt = DateTime.UtcNow
         };
-        _context.Users.Add(owner);
-        _audit.Add("OWNER_SETUP", "User", owner.Id.ToString(), owner.Username, true,
-            "First Owner created through localhost setup; endpoint is now closed.");
-        await _context.SaveChangesAsync(cancellationToken);
-        return Map(owner);
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // Re-check inside the transaction. The filtered unique index on
+            // Users.Role is the authoritative guard if a concurrent setup wins
+            // this race; this check keeps the common sequential path cheap.
+            if (await OwnerExistsAsync(cancellationToken))
+                throw OwnerAlreadyConfigured();
+
+            _context.Users.Add(owner);
+            _audit.Add("OWNER_SETUP", "User", owner.Id.ToString(), owner.Username, true,
+                "First Owner created through localhost setup; endpoint is now closed.");
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Map(owner);
+        }
+        catch (ConflictException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+        catch (DbUpdateException)
+        {
+            // SQL Server duplicate-key (2601/2627) and SQLite UNIQUE/busy errors
+            // surface as DbUpdateException. Roll back, then distinguish a real
+            // concurrent Owner creation from an unrelated persistence failure.
+            await transaction.RollbackAsync(cancellationToken);
+            _context.ChangeTracker.Clear();
+            if (await OwnerExistsAsync(cancellationToken))
+                throw OwnerAlreadyConfigured();
+            throw;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
+
+    private static ConflictException OwnerAlreadyConfigured() =>
+        new("Owner zaten kurulmuş. Kurulum endpoint'i kapatıldı; lütfen giriş yapın.");
 
     public async Task<List<UserAdminDto>> GetUsersAsync(string? status, string? role, CancellationToken cancellationToken = default)
     {

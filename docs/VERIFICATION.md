@@ -4,27 +4,32 @@ Tarih: **20 Ekim 2026** (Europe/Istanbul). Ortam: macOS ARM64, .NET SDK **10.0.4
 (runtime 10.0.13), EF Core **10.0.3**.
 
 - Dal: `dsh/dsh-mvh4pdzy-u7y7j4` (izole worktree)
-- Backend commit: `2316572`
-- Dashboard uyumluluk + smoke commit: `095a31b`
-- Dokümantasyon/portföy commit: `354fa0f`
-- Deny-by-default güvenlik commit: `9f6b8ac`
+- Backend commit: `11684b2` — Owner/delegation/approval model
+- Dashboard commit: `d2e90e3` — üç rollü Razor Pages
+- Önceki ownership/timeline/reconciliation backend: `cac7f00`
+- QA/final düzeltmeleri: **commit bekliyor** (index erişimi sandbox tarafından engellendi; `docs/INTEGRATION_HANDOFF.md`)
 - Ana kopya `../DigitalBanking` / `integration/local-development` değiştirilmedi.
 
 ## Çalıştırılan kontroller
 
 | Kontrol | Sonuç |
 |---|---|
-| Solution build (`bash scripts/dotnet.sh build DigitalBanking.slnx`) | başarılı, **0 uyarı, 0 hata** |
-| xUnit (`bash scripts/dotnet.sh test DigitalBanking.slnx`) | **95 başarılı, 0 başarısız, 0 atlanan** |
-| Yerel smoke (`python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181`) | **71 kontrol başarılı** |
-| NuGet audit (`dotnet list ... package --vulnerable --include-transitive`) | 6 proje + geçişli paketlerde bilinen açık yok (mevcut kaynaklar) |
+| Solution build | başarılı, **0 uyarı, 0 hata** |
+| xUnit | **147 başarılı, 0 başarısız, 0 atlanan** |
+| Yerel smoke (temiz Development DB; eşzamanlı Owner setup, stale Setup POST, setup 429 dahil) | **272 kontrol başarılı** |
+| NuGet audit (6 proje + transitif) | bilinen açık yok (mevcut kaynaklar) |
 | `git diff --check` | temiz |
-| VS Code SDK önkoşul script'i (`scripts/verify_vscode_sdk.sh`) | yerel SDK/global.json/.vscode kontrolleri geçti; GUI launchd eksik (uyarı) |
+| VS Code SDK önkoşul script'i | yerel SDK/global.json/.vscode kontrolleri geçti; GUI launchd adımı kullanıcıda |
 
-Smoke kapsamı: health, yetkisiz erişim, login/claim/rol, login throttle,
-müşteri/hesap, decimal bakiye, para birimi, yatırma/çekme/transfer,
-maker-checker, kendi talebini onaylama reddi, çift onay reddi, idempotent replay,
-audit, rapor filtreleri, dashboard oturum/rol/çıkış.
+Komutlar:
+
+```sh
+DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh build DigitalBanking.slnx \
+  -p:UseSharedCompilation=false -m:1 -nr:false
+DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh test DigitalBanking.slnx \
+  -p:UseSharedCompilation=false -m:1 -nr:false --no-build
+python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181
+```
 
 Kanıtlar: [`evidence/2026-10-20-build.txt`](evidence/2026-10-20-build.txt),
 [`evidence/2026-10-20-test.txt`](evidence/2026-10-20-test.txt),
@@ -32,27 +37,25 @@ Kanıtlar: [`evidence/2026-10-20-build.txt`](evidence/2026-10-20-build.txt),
 [`evidence/2026-10-20-nuget-audit.txt`](evidence/2026-10-20-nuget-audit.txt),
 [`evidence/2026-10-20-vscode-sdk.txt`](evidence/2026-10-20-vscode-sdk.txt).
 
-Ayrıntılı raporlar: [`DEVELOPMENT_COMPLETION_REPORT.md`](DEVELOPMENT_COMPLETION_REPORT.md),
+Ayrıntı: [`DEVELOPMENT_COMPLETION_REPORT.md`](DEVELOPMENT_COMPLETION_REPORT.md),
 [`TEST_REPORT.md`](TEST_REPORT.md).
 
 ## Doğrulanmayanlar ve sınırlar
 
-- **SQL Server bağlantısı/migration'ı test edilmedi.** Yeni migration üretildi ve
-  operatör adımları belgelendi; `dotnet ef database update` çalıştırılmadı.
-  SQLite testleri SQL Server davranışının kanıtı değildir.
+- **SQL Server bağlantısı/migration'ı test edilmedi.** İki yeni migration
+  üretildi ve operatör adımları belgelendi; `dotnet ef database update`
+  çalıştırılmadı. SQLite testleri SQL Server davranışının kanıtı değildir.
+- **Legacy rol eşlemesi yapılmadı.** `Admin=1` / `User=2` bilinçli geçersiz;
+  operatör Owner/Customer/DelegatedApprover eşlemesi yapmadan login çalışmaz.
 - **Manuel UAT yapılmadı.** [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) kullanıcı
   tarafından doldurulacak.
-- **Kapsamlı dashboard yok.** Mevcut Razor ekranları minimaldir; müşteri/admin
-  dashboard'u [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md) ile
-  sonraki aşamaya bırakıldı.
-- **User–Customer sahipliği yok.** Standart `User` şu an yalnız kimlik doğrular; müşteri
-  self-servis güvenli biçimde açılamaz.
-- **VS Code GUI doğrulanmadı.** Bu ajan oturumunda `launchctl setenv` reddedildi; kullanıcı
-  `scripts/setup_macos_vscode_env.sh` çalıştırıp VS Code'u yeniden başlatmalı.
-- **Production sertleştirmesi yok.** Secret manager, dağıtık throttle, yük/performans,
-  sızma testi, erişilebilirlik denetimi, audit retention/immutability ve uyumluluk
-  iddiası yoktur.
-- **AI katkısı** vardır; [`PORTFOLIO_NOTES.md`](PORTFOLIO_NOTES.md) içinde dürüstçe
-  belirtilmiştir.
+- **Screenshot:** 7 gerçek dashboard ekranı alındı (`docs/screenshots/`);
+  sahte görsel yok. Manuel UAT yine yapılmadı.
+- **VS Code GUI** kullanıcı launchd adımını çalıştırıp yeniden başlatmalı.
+- **Production sertleştirmesi yok.** Secret manager, WAF, dağıtık throttle,
+  yük/sızma/erişilebilirlik, audit retention/immutability ve uyumluluk iddiası
+  yoktur.
+- **AI katkısı** vardır; [`PORTFOLIO_NOTES.md`](PORTFOLIO_NOTES.md) içinde
+  dürüstçe belirtilmiştir.
 
 Bu sonuçlar "production-ready" veya "SQL Server doğrulandı" anlamına gelmez.

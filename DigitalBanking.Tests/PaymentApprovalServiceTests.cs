@@ -240,6 +240,79 @@ public class PaymentApprovalServiceTests
     }
 
     [Fact]
+    public async Task CustomerRequestIsRejectedIfLoginNoLongerOwnsCustomerProfile()
+    {
+        var f = await CreateFixtureAsync();
+        await using var _ = f.Db;
+
+        var payment = await f.Service.CreateCustomerTransferRequestAsync(
+            f.AccountTry, f.AccountB, 10m, "Ownership changed", f.Customer);
+
+        var customer = await f.Context.Customers.SingleAsync(x => x.Id == f.CustomerId);
+        customer.UserId = null;
+        await f.Context.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            f.Service.ApprovePaymentAsync(payment.Id, f.Owner));
+
+        Assert.Contains("bağlı değil", exception.Message);
+        Assert.Equal(PaymentApprovalStatus.Pending,
+            (await f.Context.PaymentApprovals.SingleAsync(x => x.Id == payment.Id)).Status);
+        Assert.Equal(300_000m, (await f.Context.Accounts.SingleAsync(x => x.Id == f.AccountTry)).Balance);
+    }
+
+    [Fact]
+    public async Task CustomerRequestIsRejectedIfAccountOwnershipChangedBeforeApproval()
+    {
+        var f = await CreateFixtureAsync();
+        await using var _ = f.Db;
+
+        var payment = await f.Service.CreateCustomerTransferRequestAsync(
+            f.AccountTry, f.AccountB, 10m, "Account ownership changed", f.Customer);
+
+        var otherCustomerId = await f.Context.Customers
+            .Where(x => x.Id != f.CustomerId)
+            .Select(x => x.Id)
+            .FirstAsync();
+        var account = await f.Context.Accounts.SingleAsync(x => x.Id == f.AccountTry);
+        account.CustomerId = otherCustomerId;
+        await f.Context.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            f.Service.ApprovePaymentAsync(payment.Id, f.Owner));
+
+        Assert.Contains("Hesap sahipliği", exception.Message);
+        Assert.Equal(PaymentApprovalStatus.Pending,
+            (await f.Context.PaymentApprovals.SingleAsync(x => x.Id == payment.Id)).Status);
+    }
+
+    [Fact]
+    public async Task ConcurrentApproveAndRejectMapsTheLoserToConcurrencyConflict()
+    {
+        var f = await CreateFixtureAsync();
+        await using var _ = f.Db;
+
+        var payment = await f.Service.CreateCustomerTransferRequestAsync(
+            f.AccountTry, f.AccountB, 10m, "Concurrent decision", f.Customer);
+
+        await using var staleContext = f.Db.NewContext();
+        var staleService = new PaymentApprovalService(
+            staleContext, TestSupport.CreateMapper(), new AuditService(staleContext),
+            new CustomerAccessService(staleContext), new ApprovalAuthorizationService(staleContext));
+        var stalePayment = await staleContext.PaymentApprovals.SingleAsync(x => x.Id == payment.Id);
+        Assert.Equal(PaymentApprovalStatus.Pending, stalePayment.Status);
+
+        await f.Service.ApprovePaymentAsync(payment.Id, f.Owner);
+
+        await Assert.ThrowsAsync<ConcurrencyException>(() =>
+            staleService.RejectPaymentAsync(payment.Id, f.Owner, "Concurrent reject"));
+
+        Assert.Equal(PaymentApprovalStatus.Approved,
+            (await f.Context.PaymentApprovals.SingleAsync(x => x.Id == payment.Id)).Status);
+        Assert.Equal(299_990m, (await f.Context.Accounts.SingleAsync(x => x.Id == f.AccountTry)).Balance);
+    }
+
+    [Fact]
     public async Task PendingOutgoingRequestsReduceAvailableBalance()
     {
         var f = await CreateFixtureAsync();

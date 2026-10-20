@@ -1,4 +1,10 @@
-# End-to-end smoke evidence - 2026-10-20 (Europe/Istanbul)
-# Demo: API http://127.0.0.1:5180, dashboard http://127.0.0.1:5181
-$ python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181
-PASS: 71 local checks: health, authorization, claims/roles, login throttle, customers, accounts, decimal balances, currency, transfer, maker-checker, double approval rejection, idempotent replay, audit, reports and dashboard session/role flows.
+DigitalBanking end-to-end smoke evidence — final source 2026-10-20/21
+Branch: dsh/dsh-mvh4pdzy-u7y7j4
+Commit: 7340a1c + uncommitted final source changes
+Environment: macOS ARM64, .NET SDK 10.0.402, SQLite disposable Development DB (own worktree, 5180/5181 only)
+Command: python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181
+Setup: own worktree DB reset; two concurrent /api/setup/owner calls on the empty DB; no UAT copy, no real data, no credentials printed.
+
+PASS: 272 local checks: concurrent Owner setup (200/409), stale Setup POST/login notice, setup 429 Retry-After, membership activation, Customer/DelegatedApprover/Owner boundaries, all-request approval, 99,999.99/100,000.00/100,000.01 TRY, other currency, daily limit, reserve-aware overcommit, live revocation/stale JWT, owner self-approval block, IDOR, timeline/receipt/masking, reconciliation replay/match/mismatch/exceptions, formula-safe export, demo seed/reset, audit and dashboard role/session flows.
+
+Note: SQLite Development only; not SQL Server or production verification. Smoke requires a fresh disposable DB because it asserts exact Owner setup and rate-limit windows.
