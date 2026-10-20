@@ -1,3 +1,5 @@
+> **Tarihsel devir notu.** Güncel durum, tamamlananlar ve sınırlar için `docs/PROGRESS.md`, `docs/DEVELOPMENT_COMPLETION_REPORT.md`, `docs/TEST_REPORT.md` ve `docs/DASHBOARD_PRODUCT_BRIEF.md` kullanılmalıdır. Bu dosyadaki ilk dashboard kapsamı sonraki aşamaya taşınmıştır.
+
 # DigitalBanking — GPT'den DeepSeek'e kapsamlı devir
 
 Bu dosya bir görev devri hazırlığıdır. Kullanıcı GPT'nin çalışmayı sürdürmesini, kredisi %5 altına indiğinde kapsamlı prompt verilmesini istedi. Oturum kredi yüzdesine erişemiyor; bir eşik gözlemlenmeden otomatik görev başlatıldığı veya kredinin takip edildiği iddia edilmemeli. Bu hazırlık tek başına DeepSeek'in görevi devraldığı anlamına gelmez.

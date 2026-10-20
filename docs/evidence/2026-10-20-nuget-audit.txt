@@ -1,0 +1,14 @@
+# NuGet vulnerability audit - 2026-10-20
+$ bash scripts/dotnet.sh list DigitalBanking.slnx package --vulnerable --include-transitive
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+
+The following sources were used:
+   https://api.nuget.org/v3/index.json
+
+The given project `DigitalBanking.API` has no vulnerable packages given the current sources.
+The given project `DigitalBanking.Application` has no vulnerable packages given the current sources.
+The given project `DigitalBanking.Dashboard` has no vulnerable packages given the current sources.
+The given project `DigitalBanking.Domain` has no vulnerable packages given the current sources.
+The given project `DigitalBanking.Infrastructure` has no vulnerable packages given the current sources.
+The given project `DigitalBanking.Tests` has no vulnerable packages given the current sources.

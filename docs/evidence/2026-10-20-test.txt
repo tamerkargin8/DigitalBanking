@@ -1,0 +1,6 @@
+# Test evidence - 2026-10-20 (Europe/Istanbul)
+$ bash scripts/dotnet.sh test DigitalBanking.slnx -p:UseSharedCompilation=false -m:1 -nr:false --no-build
+Test run for /Users/tamerkargin/Documents/Codex/2026-10-20/gpt-imdi-x20/outputs/DigitalBanking-DeepSeek/.dsh-worktrees/dsh-mvh4pdzy-u7y7j4/DigitalBanking.Tests/bin/Debug/net10.0/DigitalBanking.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    95, Skipped:     0, Total:    95, Duration: 1 s - DigitalBanking.Tests.dll (net10.0)

@@ -1,11 +1,56 @@
 # Doğrulama kaydı
 
-Tarih: 20 Ekim 2026 (Europe/Istanbul). Ortam: macOS ARM64, .NET SDK 10.0.402.
+Tarih: **20 Ekim 2026** (Europe/Istanbul). Ortam: macOS ARM64, .NET SDK **10.0.402**
+(runtime 10.0.13), EF Core **10.0.3**.
 
-- Solution build: başarılı, 0 uyarı, 0 hata.
-- xUnit: 10 başarılı, 0 başarısız, 0 atlanan. PBKDF2 salt/yanlış şifre/eski hash/bozuk kayıtlar; dashboard JSON giriş sözleşmesi ve hata durumları; SQLite üzerinde eski bakiye güncellemesinin reddedilmesi.
-- Yerel smoke: 21 kontrol başarılı. Health, yetkisiz erişimin reddi, hatalı şifre, başarılı API girişi, Swagger, müşteri oluşturma/listeleme, iki hesap açma, yatırma/çekme/transfer, yetersiz bakiye/negatif tutar reddi, decimal bakiyeler, işlem geçmişi/raporlar, dashboard session ve rapor sayfası.
-- NuGet audit: 6 proje ve geçişli paketler tarandı; bu taramada bilinen açık bildirilmedi. Bu sonuç kod güvenlik incelemesinin yerine geçmez.
-- git diff --check: başarılı.
+- Dal: `dsh/dsh-mvh4pdzy-u7y7j4` (izole worktree)
+- Backend commit: `2316572`
+- Dashboard uyumluluk + smoke commit: `095a31b`
+- Ana kopya `../DigitalBanking` / `integration/local-development` değiştirilmedi.
 
-Sınırlar: gerçek SQL Server bağlantısı/migration test edilmedi. PaymentApproval rol/kimlik/idempotency akışları tamamlanmış sayılmaz; ayrıntılar DEEPSEEK_HANDOFF.md içinde. SQLite yalnızca sentetik Development verisi içindir. DeepSeek modeliyle canlı görev çağrısı yapılmadı; mevcut Harness bağlantısı yalnızca arayüzde gözlendi.
+## Çalıştırılan kontroller
+
+| Kontrol | Sonuç |
+|---|---|
+| Solution build (`bash scripts/dotnet.sh build DigitalBanking.slnx`) | başarılı, **0 uyarı, 0 hata** |
+| xUnit (`bash scripts/dotnet.sh test DigitalBanking.slnx`) | **95 başarılı, 0 başarısız, 0 atlanan** |
+| Yerel smoke (`python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181`) | **68 kontrol başarılı** |
+| NuGet audit (`dotnet list ... package --vulnerable --include-transitive`) | 6 proje + geçişli paketlerde bilinen açık yok (mevcut kaynaklar) |
+| `git diff --check` | temiz |
+| VS Code SDK önkoşul script'i (`scripts/verify_vscode_sdk.sh`) | yerel SDK/global.json/.vscode kontrolleri geçti; GUI launchd eksik (uyarı) |
+
+Smoke kapsamı: health, yetkisiz erişim, login/claim/rol, login throttle,
+müşteri/hesap, decimal bakiye, para birimi, yatırma/çekme/transfer,
+maker-checker, kendi talebini onaylama reddi, çift onay reddi, idempotent replay,
+audit, rapor filtreleri, dashboard oturum/rol/çıkış.
+
+Kanıtlar: [`evidence/2026-10-20-build.txt`](evidence/2026-10-20-build.txt),
+[`evidence/2026-10-20-test.txt`](evidence/2026-10-20-test.txt),
+[`evidence/2026-10-20-smoke.txt`](evidence/2026-10-20-smoke.txt),
+[`evidence/2026-10-20-nuget-audit.txt`](evidence/2026-10-20-nuget-audit.txt),
+[`evidence/2026-10-20-vscode-sdk.txt`](evidence/2026-10-20-vscode-sdk.txt).
+
+Ayrıntılı raporlar: [`DEVELOPMENT_COMPLETION_REPORT.md`](DEVELOPMENT_COMPLETION_REPORT.md),
+[`TEST_REPORT.md`](TEST_REPORT.md).
+
+## Doğrulanmayanlar ve sınırlar
+
+- **SQL Server bağlantısı/migration'ı test edilmedi.** Yeni migration üretildi ve
+  operatör adımları belgelendi; `dotnet ef database update` çalıştırılmadı.
+  SQLite testleri SQL Server davranışının kanıtı değildir.
+- **Manuel UAT yapılmadı.** [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) kullanıcı
+  tarafından doldurulacak.
+- **Kapsamlı dashboard yok.** Mevcut Razor ekranları minimaldir; müşteri/admin
+  dashboard'u [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md) ile
+  sonraki aşamaya bırakıldı.
+- **User–Customer sahipliği yok.** Standart `User` şu an salt-okunur; müşteri
+  self-servis güvenli biçimde açılamaz.
+- **VS Code GUI doğrulanmadı.** Bu ajan oturumunda `launchctl setenv` reddedildi; kullanıcı
+  `scripts/setup_macos_vscode_env.sh` çalıştırıp VS Code'u yeniden başlatmalı.
+- **Production sertleştirmesi yok.** Secret manager, dağıtık throttle, yük/performans,
+  sızma testi, erişilebilirlik denetimi, audit retention/immutability ve uyumluluk
+  iddiası yoktur.
+- **AI katkısı** vardır; [`PORTFOLIO_NOTES.md`](PORTFOLIO_NOTES.md) içinde dürüstçe
+  belirtilmiştir.
+
+Bu sonuçlar "production-ready" veya "SQL Server doğrulandı" anlamına gelmez.

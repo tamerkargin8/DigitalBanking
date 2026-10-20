@@ -1,0 +1,37 @@
+# VS Code /.NET SDK discovery evidence - 2026-10-20
+
+$ bash scripts/verify_vscode_sdk.sh
+OK   bundled dotnet executable: /Users/tamerkargin/Documents/Codex/toolchains/dotnet/dotnet
+OK   global.json SDK 10.0.402 is installed
+WARN dotnet is not on the current shell PATH; scripts/dotnet.sh still works
+WARN launchd DOTNET_ROOT is not set; run scripts/setup_macos_vscode_env.sh and restart VS Code
+WARN launchd PATH does not contain /Users/tamerkargin/Documents/Codex/toolchains/dotnet; run scripts/setup_macos_vscode_env.sh
+OK   .vscode existingDotnetPath points at the bundled SDK
+OK   solution file present: DigitalBanking.slnx
+
+VS Code SDK prerequisites: local checks passed (3 warning(s)).
+GUI verification still requires restarting VS Code and opening DigitalBanking.slnx;
+this script cannot inspect the running IDE window.
+
+GUI launchd values from this agent terminal session:
+DOTNET_ROOT=''
+PATH=''
+
+C# extension log evidence (no secrets):
+/bin/sh: dotnet: command not found
+2026-10-20 23:17:47.557 [info] Dotnet path: /Users/tamerkargin/Documents/Codex/toolchains/dotnet/dotnet
+2026-10-20 23:19:19.575 [info] The .NET SDK cannot be located: Error running dotnet --info: Error: Command failed: dotnet --info
+/bin/sh: dotnet: command not found
+/bin/sh: dotnet: command not found
+2026-10-20 23:19:20.072 [info] Dotnet path: /Users/tamerkargin/Documents/Codex/toolchains/dotnet/dotnet
+
+C# Dev Kit log evidence:
+2026-10-20 23:17:47.601 [info] Using existing .NET runtime at "/Users/tamerkargin/Documents/Codex/toolchains/dotnet/dotnet" to load C# Dev Kit processes
+2026-10-20 23:17:47.782 [info] Could not find installed SDK
+2026-10-20 23:19:20.113 [info] Using existing .NET runtime at "/Users/tamerkargin/Documents/Codex/toolchains/dotnet/dotnet" to load C# Dev Kit processes
+2026-10-20 23:19:20.255 [info] Could not find installed SDK
+
+Note: the running VS Code instance was started before the PATH change.
+launchctl setenv was denied in this agent session ('Not privileged to set domain environment'),
+so scripts/setup_macos_vscode_env.sh must be run by the user from a normal terminal
+and VS Code restarted. GUI verification was NOT performed by the agent.

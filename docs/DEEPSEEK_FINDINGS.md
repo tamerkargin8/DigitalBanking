@@ -44,3 +44,24 @@ kaydeder. Eski README/refactoring raporları tarihseldir.
   kapsam dışı bırakıldı (paket sürümleri değiştirilmedi).
 - **VS Code GUI doğrulaması**: SDK keşfi için launchd/PATH düzeltmesi yapıldı;
   çalışan VS Code penceresinin yeniden başlatılmadan doğrulanması mümkün değil.
+
+## Dashboard uyumluluğu ve sonraki aşama bulguları
+
+| # | Bulgu | Çözüm / plan | Durum |
+|---|-------|--------------|-------|
+| 13 | Mevcut dashboard eski API sözleşmelerini kullanıyordu (raw users/customers, `int` requester, `Error=ex.Message`) | Dashboard `ApiClient`/`ApiResult` katmanına taşındı; zarf/raw yanıt, 401/403/500 güvenli mesaj, kullanıcı/rol session'ı, çıkış temizliği, rapor filtreleri | Çözüldü (minimal uyumluluk) |
+| 14 | Standart `User` salt-okunur; müşteri self-servis için User–Customer–Account sahipliği yok | Keyfi sahiplik varsayılmadı; güvenli varsayılan korundu. `Customer.UserId` + unique index, sunucu tarafı erişim, yeni endpoint/testler sonraki aşama olarak `DASHBOARD_PRODUCT_BRIEF.md` içinde tasarlandı | Açık / sonraki aşama |
+| 15 | Dashboard ürün hedefi (4 persona, lacivert/nötr tasarım, erişilebilirlik, mobil, makbuz/durum, para birimi bazlı kartlar) yok | Ürün brief'i, UAT checklist ve kaba efor kaydedildi; kapsamlı ekran geliştirmesi başlatılmadı | Planlandı |
+| 16 | README tarihsel/abartılı özellikler içeriyordu | README İngilizce ana anlatı + Türkçe özet olarak yeniden yazıldı; yalnız uygulanan özellikler, gerçek test sayıları, ekran görüntüsü yerleri ve sınırlar | Çözüldü |
+| 17 | VS Code GUI `dotnet --info` bulamıyor (`launchd` PATH boş) | `.vscode` ayarları + `scripts/setup_macos_vscode_env.sh` + `scripts/verify_vscode_sdk.sh`; ajan oturumunda `launchctl setenv` reddedildi, kullanıcı normal terminalde çalıştırıp VS Code'u yeniden başlatmalı | Kısmi (kullanıcı adımı) |
+| 18 | SQL Server int→Guid migration'ı gerçek veride otomatik yapılamaz | Legacy tablo + backfill + operatör adımları; migration bu ortamda uygulanmadı | Belgelenmiş sınır |
+| 19 | Portföy/CV anlatısı ve AI beyanı eksikti | `PORTFOLIO_NOTES.md` kanıta dayalı 3 madde + dürüst AI katkısı; abartılı unvan/ölçüm yok | Çözüldü |
+| 20 | Manuel kabul kriterleri yoktu | `UAT_CHECKLIST.md`: 2 rol, 4 persona, mevcut backend + sonraki dashboard senaryoları; ajan testi yapılmış gibi işaretlenmedi | Hazır |
+
+## Ürün hedefi notu
+
+Kullanıcı projeyi GitHub'da yayınlayıp CV'sine ekleyecek. README ilk 30 saniyede
+problemi, kontrol kararlarını ve kanıtlanmış sonuçları anlatacak şekilde
+İngilizce; Türkçe özet ve rehber bağlantılarıyla desteklendi. Dashboard tamamlanana
+kadar "tamamlanmış dashboard" izlenimi verilmemeli; ekran görüntüleri gerçek
+ekranlardan alınmalı. AI katkısı `PORTFOLIO_NOTES.md` içinde açıkça belirtildi.

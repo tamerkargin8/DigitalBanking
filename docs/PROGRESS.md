@@ -1,69 +1,96 @@
 # PROGRESS
 
-Güncelleme: 2026-10-20 (Europe/Istanbul).
+Güncelleme: **2026-10-20** (Europe/Istanbul).
+
+## Durum: backend + iş kuralları + test + rapor tamam; dashboard aşaması bekliyor
+
+Kullanıcının güncel teslim sırası uygulandı: önce backend, bankacılık iş kuralları,
+güvenlik ve testler; ardından completion/test raporları; **burada duruldu**.
+Kapsamlı dashboard ekran/tasarım geliştirmesi başlatılmadı. Dashboard ürün
+gereksinimleri [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md),
+manuel kabul adımları [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) içinde kayıtlı.
 
 ## Çalışma alanı
 
 - Worktree: `/Users/tamerkargin/Documents/Codex/2026-10-20/gpt-imdi-x20/outputs/DigitalBanking-DeepSeek/.dsh-worktrees/dsh-mvh4pdzy-u7y7j4`
-- Dal: `dsh/dsh-mvh4pdzy-u7y7j4` (0ceead9 tabanlı, ana kopya `../DigitalBanking` değiştirilmedi)
-- Ana kopya: `../DigitalBanking` / `integration/local-development` (dokunulmadı)
-- Portlar: API 5180, dashboard 5181. Ana kopyanın 5080/5081 süreçlerine dokunulmadı.
+- Dal: `dsh/dsh-mvh4pdzy-u7y7j4` (taban `0ceead9`)
+- Backend commit: `2316572`
+- Dashboard uyumluluk + smoke commit: `095a31b`
+- Ana kopya: `../DigitalBanking` / `integration/local-development` — **dokunulmadı**
+- Demo: API `http://127.0.0.1:5180`, dashboard `http://127.0.0.1:5181`
+- Smoke/veri: sentetik; `.local/` git dışı; ana kopyanın 5080/5081 süreçlerine
+  dokunulmadı.
 
-Harness notu: worktree dosyaları macOS `hidden` bayrağıyla oluşturulmuştu; bu,
-`PhysicalFileProvider`'ın `appsettings.json` dosyasını görmemesine ve API'nin
-JWT issuer/audience ayarlarını okumamasına yol açtı. `chflags -R nohidden .` ile
-düzeltildi (commit dışı, yerel ortam). Harness sandbox'ı paylaşımlı Roslyn
-derleyicisini engellediği için doğrulama komutları `-p:UseSharedCompilation=false
--m:1 -nr:false` ve `DOTNET_CLI_USE_MSBUILD_SERVER=0` ile çalıştırıldı. Normal
-terminalde `bash scripts/dotnet.sh build DigitalBanking.slnx` yeterlidir.
+## Tamamlananlar
 
-## Doğrulanan baseline (değişiklik öncesi)
-
-- Build: başarılı, 0 uyarı, 0 hata.
-- xUnit: 10 başarılı.
-- Smoke: 21 kontrol başarılı.
-- Not: baseline smoke ilk çalıştırmada JWT audience hatası verdi; kök neden
-  yukarıdaki hidden dosya bayrağıydı. Düzeltmeden sonra 21/21 geçti.
-
-## Tamamlanan dilimler
-
-1. **Domain/şema**: `PaymentApproval.RequestedByUserId`/`ReviewedByUserId` Guid,
-   `RelatedTransactionId` Guid, `PaymentApproval.RowVersion`; `IdempotencyRecords`
-   tablosu. Yeni SQL Server migration'ı veri korumalı (legacy tablo + backfill)
-   olarak elle yazıldı; eski migration dosyaları değiştirilmedi.
-2. **Kimlik/yetki**: Tüm kullanıcı kimlikleri JWT claim'inden (`ActorContext`).
-   İstemci gövdesinden kullanıcı kimliği kabul edilmiyor. Login throttle (bellek
-   içi), şifre politikası (8+, harf+rakam), auth rate limit eklendi.
-3. **Para/politika**: Decimal korunuyor; 2 haneden fazla küsurat reddediliyor.
-   Doğrudan transfer yalnız Admin ve 50.000 altı; üstü maker-checker akışına
-   yönlendiriliyor. Düşük risk otomatik onay; orta/yüksek/kritik Pending.
-   Maker-checker (kendi talebini inceleyememe), çift onay engeli (RowVersion),
-   para birimi/hesap/bakiye doğrulamaları, atomik audit eklendi.
-4. **Audit ve raporlar**: Audit yazımı para hareketiyle aynı transaction'da.
-   Audit API'si (Admin) eklendi. Rapor tarih aralığı gün sonu dahil, 366 gün
-   sınırı, para birimi kapsamlı top-accounts.
-5. **Testler**: 80 xUnit testi başarılı (10 baseline + 70 yeni). SQLite üzerinde
-   çalışır; SQL Server davranışı kanıtlanmış sayılmaz.
-
-## Sıradaki adım
-
-- Dashboard ekranlarını (müşteri/hesap/işlem/onay kuyruğu/audit/raporlar) yeni
-  API sözleşmelerine göre yeniden yazmak; oturum/401/403/boş/hata durumlarını
-  Türkçe ve sırsız göstermek.
-- Smoke testini genişletmek ve çalıştırmak.
-- README/VERIFICATION/ADR ve VS Code SDK keşif düzeltmesini tamamlamak.
+1. **Kimlik/yetki**: Guid `User.Id` ile uyumlu maker-checker kullanıcı kimlikleri;
+   yalnız doğrulanmış JWT claim'inden `ActorContext`; Admin/User rol politikası;
+   login throttle + rate limit + şifre politikası; session temizliği.
+2. **Maker-checker ve risk**: düşük risk otomatik onay; orta/yüksek/kritik
+   Pending; farklı Admin onayı; kendi talebini inceleme engeli; 50.000 doğrudan
+   transfer sınırı; `RowVersion` ile çift onay engeli.
+3. **Para/veri**: decimal, 2 hane, para birimi eşleşmesi, bakiye/hesap
+   doğrulamaları, atomik ledger+audit, idempotency tablosu/filtresi.
+4. **Rapor/audit**: gün sonu dahil tarih aralığı, 366 gün sınırı, para birimi
+   kapsamlı top-accounts, audit API (Admin).
+5. **Şema/migration**: yeni migration; eski migration'lar değiştirilmedi; int→Guid
+   dönüşümü için legacy tablo + operatör adımları; SQL Server'da **uygulanmadı**.
+6. **Dashboard uyumluluğu**: mevcut minimal Razor ekranları yeni sözleşmelere
+   uyarlandı; güvenli 401/403/500 mesajları; kullanıcı adı/rol session'ı;
+   çıkışta temizlik; Admin kullanıcı listesi zarfı; rapor filtreleri.
+7. **Testler**: 95 xUnit + 68 smoke; baseline 10 test / 21 smoke korundu.
+8. **VS Code SDK önkoşulu**: `.vscode` ayarları, `setup_macos_vscode_env.sh`,
+   `verify_vscode_sdk.sh`; ajan oturumu launchd kısıtı nedeniyle GUI adımı kullanıcıda.
 
 ## Son doğrulanan sonuçlar
 
-- `bash scripts/dotnet.sh build DigitalBanking.slnx`: başarılı, 0/0.
-- `bash scripts/dotnet.sh test DigitalBanking.slnx`: 80/80 başarılı.
-- Smoke: dashboard yenilemesinden sonra çalıştırılacak.
+- Build: **0 uyarı, 0 hata**.
+- xUnit: **95 geçti, 0 kaldı, 0 atlandı**.
+- Smoke: **68 kontrol geçti**.
+- NuGet audit: 6 projede bilinen açık yok (mevcut kaynaklar).
+- `git diff --check`: temiz.
+- Kanıt: [`evidence/`](evidence/), [`TEST_REPORT.md`](TEST_REPORT.md).
 
-## Güncel teslim sırası (2026-10-20, kullanıcı talimatı)
+## Açık sınırlar
 
-Kullanıcı sırayı değiştirdi: önce backend + iş kuralları + güvenlik + testler,
-ardından `docs/DEVELOPMENT_COMPLETION_REPORT.md` ve `docs/TEST_REPORT.md`,
-sonra kısa teslim ve **DUR**. Kapsamlı dashboard ekran/tasarım geliştirmesi
-sonraki aşamaya bırakıldı. Bu aşamada yalnızca mevcut dashboard'u bozmayacak
-zorunlu API sözleşmesi uyumluluk düzeltmeleri yapılabilir. `docs/UAT_CHECKLIST.md`
-manuel kabul testi için hazırlanacak; manuel test yapılmış gibi raporlanmayacak.
+- SQL Server bağlantısı/migration'ı/gerçek concurrency testi yapılmadı; migration
+  yalnız üretildi ve belgelendi.
+- Manuel UAT yapılmadı; `UAT_CHECKLIST.md` kullanıcı tarafından doldurulacak.
+- Kapsamlı dashboard yok; müşteri self-servis için User–Customer–Account sahipliği
+  ve sunucu tarafı erişim kontrolleri gerekiyor.
+- Standart `User` şu an salt-okunur; buton gizleyerek self-servis açılmadı.
+- FX, yerel saat dilimi/bankacılık gün sonu takvimi, dağıtık throttle, production
+  secret/observability/retention yok.
+- VS Code GUI doğrulanmadı; kullanıcı launchd adımını çalıştırıp IDE'yi yeniden
+  başlatmalı.
+
+## Sıradaki adım (başlatılmadı)
+
+Dashboard aşaması: [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md).
+İlk iş `Customer.UserId` sahipliği + migration + testler; ardından Admin özet/
+müşteri/hesap/onay kuyruğu/audit/rapor ekranları, müşteri bakiye/hareket/transfer
+talebi/durum ekranları, erişilebilirlik ve UAT. Ürün brief'inde kaba efor ve
+kabul ölçütleri var.
+
+## Teslim belgeleri
+
+- [`DEVELOPMENT_COMPLETION_REPORT.md`](DEVELOPMENT_COMPLETION_REPORT.md)
+- [`TEST_REPORT.md`](TEST_REPORT.md)
+- [`VERIFICATION.md`](VERIFICATION.md)
+- [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md)
+- [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md)
+- [`PORTFOLIO_NOTES.md`](PORTFOLIO_NOTES.md)
+- [`migrations/README.md`](migrations/README.md)
+- [`adr/0001-payment-and-role-policy.md`](adr/0001-payment-and-role-policy.md)
+- [`../README.md`](../README.md)
+
+## Harness notu (devam eden oturum için)
+
+- Worktree dosyaları macOS `hidden` bayrağıyla oluşturuldu; `PhysicalFileProvider`
+  `appsettings.json`'ı göremediği için `chflags -R nohidden .` uygulandı.
+- Sandbox paylaşımlı Roslyn derleyicisini engelledi; doğrulama
+  `DOTNET_CLI_USE_MSBUILD_SERVER=0` ve `-p:UseSharedCompilation=false -m:1 -nr:false`
+  ile yapıldı. Normal terminalde sade komutlar yeterlidir.
+- Commit'ler worktree dışındaki `.git` index'i nedeniyle sandbox yükseltmesi
+  gerektirdi; global git kimliği değiştirilmedi, commit başına `-c user.name=Codex
+  -c user.email=codex@local.invalid` kullanıldı.

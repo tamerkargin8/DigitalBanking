@@ -1,0 +1,4 @@
+# End-to-end smoke evidence - 2026-10-20 (Europe/Istanbul)
+# Demo: API http://127.0.0.1:5180, dashboard http://127.0.0.1:5181
+$ python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181
+PASS: 68 local checks: health, authorization, claims/roles, login throttle, customers, accounts, decimal balances, currency, transfer, maker-checker, double approval rejection, idempotent replay, audit, reports and dashboard session/role flows.
