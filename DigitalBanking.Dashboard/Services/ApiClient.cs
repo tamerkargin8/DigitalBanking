@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -40,12 +41,83 @@ public sealed class ApiClient
         CancellationToken cancellationToken = default) =>
         SendAsync<T>(token, HttpMethod.Post, path, body, idempotencyKey, cancellationToken);
 
-    private async Task<ApiResult<T>> SendAsync<T>(
+    public async Task<ApiResult<string>> GetTextAsync(string token, string path, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return ApiResult<string>.Fail(401, "Oturum bulunamadı.");
+
+        var baseUrl = _config["Api:BaseUrl"]?.TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            return ApiResult<string>.Fail(500, "Yerel API adresi yapılandırılmamış.");
+
+        using var http = _factory.CreateClient();
+        http.BaseAddress = new Uri(baseUrl);
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        http.Timeout = TimeSpan.FromSeconds(30);
+        try
+        {
+            using var response = await http.GetAsync(path, cancellationToken);
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (response.StatusCode is HttpStatusCode.Unauthorized)
+                return ApiResult<string>.Fail(401, "Oturum süresi doldu.");
+            if (!response.IsSuccessStatusCode)
+                return ApiResult<string>.Fail((int)response.StatusCode, "Dosya indirilemedi.");
+            return ApiResult<string>.Ok(content, (int)response.StatusCode);
+        }
+        catch (HttpRequestException)
+        {
+            return ApiResult<string>.Fail(503, "API'ye ulaşılamıyor.");
+        }
+        catch (TaskCanceledException)
+        {
+            return ApiResult<string>.Fail(504, "İstek zaman aşımına uğradı.");
+        }
+    }
+
+    public Task<ApiResult<T>> PutAsync<T>(
+        string token,
+        string path,
+        object? body = null,
+        string? idempotencyKey = null,
+        CancellationToken cancellationToken = default) =>
+        SendAsync<T>(token, HttpMethod.Put, path, body, idempotencyKey, cancellationToken);
+
+    public Task<ApiResult<T>> PostFileAsync<T>(
+        string token,
+        string path,
+        byte[] content,
+        string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, path);
+        var multipart = new MultipartFormDataContent();
+        var file = new ByteArrayContent(content);
+        file.Headers.ContentType = new MediaTypeHeaderValue("text/csv");
+        multipart.Add(file, "file", fileName);
+        request.Content = multipart;
+        return SendRequestAsync<T>(token, request, path, cancellationToken);
+    }
+
+    private Task<ApiResult<T>> SendAsync<T>(
         string token,
         HttpMethod method,
         string path,
         object? body,
         string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var request = new HttpRequestMessage(method, path);
+        if (body is not null)
+            request.Content = JsonContent.Create(body);
+        if (!string.IsNullOrWhiteSpace(idempotencyKey))
+            request.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+        return SendRequestAsync<T>(token, request, path, cancellationToken);
+    }
+
+    private async Task<ApiResult<T>> SendRequestAsync<T>(
+        string token,
+        HttpRequestMessage request,
+        string path,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token))
@@ -62,12 +134,7 @@ public sealed class ApiClient
         http.BaseAddress = new Uri(baseUrl);
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         http.Timeout = TimeSpan.FromSeconds(30);
-
-        using var request = new HttpRequestMessage(method, path);
-        if (body is not null)
-            request.Content = JsonContent.Create(body);
-        if (!string.IsNullOrWhiteSpace(idempotencyKey))
-            request.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+        request.RequestUri = new Uri(baseUrl + path, UriKind.Absolute);
 
         try
         {

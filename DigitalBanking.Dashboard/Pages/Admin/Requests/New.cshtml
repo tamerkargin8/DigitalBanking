@@ -1,0 +1,86 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Requests.NewModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Yeni Finansal Talep";
+}
+
+<h3 class="mb-1">Yeni Finansal Talep</h3>
+<p class="text-muted">Tüm finansal talepler Pending başlar; Owner veya yetkili başka bir kişi onaylar. Bakiye onay anında değişir.</p>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+@if (!string.IsNullOrEmpty(Model.Flash))
+{
+    <div class="alert alert-info">@Model.Flash</div>
+}
+
+<div class="card form-card">
+    <div class="card-body">
+        <form method="post" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Talep türü</label>
+                <select class="form-select" asp-for="RequestType">
+                    @foreach (var t in new[] { "Transfer", "Deposit", "Withdrawal", "AccountOpening" })
+                    {
+                        <option value="@t" selected="@(Model.RequestType == t)">@DashboardUi.Status(t)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Müşteri (hesap açılışı)</label>
+                <select class="form-select" asp-for="CustomerId">
+                    <option value="">Seçin</option>
+                    @foreach (var c in Model.Customers)
+                    {
+                        <option value="@c.Id">@c.FirstName @c.LastName</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Kaynak / işlem hesabı</label>
+                <select class="form-select" asp-for="AccountId">
+                    <option value="">Seçin</option>
+                    @foreach (var a in Model.Accounts)
+                    {
+                        <option value="@a.Id">@DashboardUi.Account(a.AccountNumber) · @a.Currency · @DashboardUi.Money(a.Balance, a.Currency)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Hedef hesap (transfer)</label>
+                <select class="form-select" asp-for="ToAccountId">
+                    <option value="">Seçin</option>
+                    @foreach (var a in Model.Accounts)
+                    {
+                        <option value="@a.Id">@DashboardUi.Account(a.AccountNumber) · @a.Currency</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Para birimi (açılış)</label>
+                <select class="form-select" asp-for="Currency">
+                    @foreach (var c in new[] { "TRY", "USD", "EUR", "GBP" })
+                    {
+                        <option value="@c">@c</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Tutar / açılış bakiyesi</label>
+                <input class="form-control" asp-for="Amount" type="number" step="0.01" min="0" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">Açıklama</label>
+                <input class="form-control" asp-for="Description" maxlength="250" />
+            </div>
+            <div class="col-12">
+                <button class="btn btn-primary" type="submit">Talebi oluştur</button>
+                <a class="btn btn-outline-secondary" href="/Admin/Approvals">Onay kuyruğu</a>
+            </div>
+        </form>
+        <div class="form-text mt-2">Hesap açılışında müşteri + para birimi + açılış bakiyesi kullanılır; hesap seçimi gerekmez.</div>
+    </div>
+</div>

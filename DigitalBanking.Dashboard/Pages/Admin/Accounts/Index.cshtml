@@ -1,0 +1,49 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Accounts.IndexModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Hesaplar";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Hesaplar <span class="text-muted fs-6">(@Model.TotalCount)</span></h3>
+    <a class="btn btn-outline-primary" href="/Admin/Requests/New?type=AccountOpening">Hesap açılış talebi</a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark"><tr><th>Hesap</th><th>Para birimi</th><th class="text-end">Bakiye</th><th>Müşteri</th><th>Tarih</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var a in Model.Items)
+            {
+                <tr>
+                    <td style="font-family:monospace;">@DashboardUi.Account(a.AccountNumber)</td>
+                    <td>@a.Currency</td>
+                    <td class="text-end">@DashboardUi.Money(a.Balance, a.Currency)</td>
+                    <td class="small">@a.CustomerId.ToString("N")[..8]</td>
+                    <td>@DashboardUi.Date(a.CreatedDate)</td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/Admin/Accounts/Details?id=@a.Id">Aç</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (Model.TotalPages > 1)
+{
+    <nav class="mt-3"><ul class="pagination">
+        @for (var i = 1; i <= Model.TotalPages; i++)
+        {
+            <li class="page-item @(i == Model.PageNumber ? "active" : "")">
+                <a class="page-link" href="?page=@i@(Model.CustomerId is null ? "" : $"&customerId={Model.CustomerId}")">@i</a>
+            </li>
+        }
+    </ul></nav>
+}

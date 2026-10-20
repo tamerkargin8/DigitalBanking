@@ -1,0 +1,40 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Customer.Payments.IndexModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Ödemelerim";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Ödemelerim</h3>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="/Customer/Transfer">Transfer talebi</a>
+        <a class="btn btn-outline-primary" href="/Customer/Requests">Yatırma/Çekme talebi</a>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark"><tr><th>Referans</th><th>Tür</th><th class="text-end">Tutar</th><th>Risk</th><th>Durum</th><th>Tarih</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var p in Model.Items)
+            {
+                <tr>
+                    <td><a href="/Customer/Payments/Details?id=@p.Id">@p.Reference</a></td>
+                    <td>@DashboardUi.Status(p.RequestType)</td>
+                    <td class="text-end">@DashboardUi.Money(p.Amount, p.Currency)</td>
+                    <td><span class="@DashboardUi.RiskBadgeClass(p.RiskLevel)">@DashboardUi.Status(p.RiskLevel)</span></td>
+                    <td><span class="@DashboardUi.StatusBadgeClass(p.Status)">@DashboardUi.Status(p.Status)</span></td>
+                    <td>@DashboardUi.Date(p.CreatedAt)</td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/Customer/Payments/Details?id=@p.Id">Aç</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,65 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Reconciliation.IndexModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Mutabakat";
+}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h3 class="mb-1">Gün Sonu Mutabakatı</h3>
+        <div class="text-muted small">CSV önce önizlenir; hatalı satır varsa içe aktarılmaz. Aynı dosya+scope tekrar yüklenirse mükerrer batch oluşmaz.</div>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="/Admin/Reconciliation/Sample?kind=matched">Örnek eşleşen CSV</a>
+        <a class="btn btn-outline-primary" href="/Admin/Reconciliation/Sample?kind=mismatch">Örnek uyuşmayan CSV</a>
+        <a class="btn btn-outline-secondary" href="/Admin/Reconciliation/Exceptions">İstisnalar</a>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Flash))
+{
+    <div class="alert alert-info">@Model.Flash</div>
+}
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+<div class="card mb-4">
+    <div class="card-header">CSV yükle ve önizle</div>
+    <div class="card-body">
+        <form method="post" asp-page-handler="Upload" enctype="multipart/form-data" class="row g-3">
+            <div class="col-md-4"><label class="form-label">Dosya (.csv)</label><input class="form-control" type="file" asp-for="CsvFile" accept=".csv" /></div>
+            <div class="col-md-2"><label class="form-label">Para birimi</label><select class="form-select" asp-for="Currency"><option value="">Tümü</option>@foreach (var c in new[] { "TRY", "USD", "EUR", "GBP" }) { <option value="@c">@c</option> }</select></div>
+            <div class="col-md-2"><label class="form-label">Yön</label><select class="form-select" asp-for="Direction"><option value="">Tümü</option><option value="Debit">Debit</option><option value="Credit">Credit</option></select></div>
+            <div class="col-md-2"><label class="form-label">Başlangıç</label><input class="form-control" type="date" asp-for="From" /></div>
+            <div class="col-md-2"><label class="form-label">Bitiş</label><input class="form-control" type="date" asp-for="To" /></div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Önizle</button><span class="text-muted small ms-2">Maks. 2 MB / 5.000 satır; UTF-8; başlık zorunlu.</span></div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Batch geçmişi</div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark"><tr><th>Dosya</th><th>Durum</th><th>Satır</th><th class="text-end">Eşleşen</th><th class="text-end">Yalnız dış</th><th class="text-end">Yalnız sistem</th><th>Tarih</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var b in Model.Items)
+            {
+                <tr>
+                    <td>@b.FileName<br /><small class="text-muted">@b.ScopeKey</small></td>
+                    <td><span class="@DashboardUi.StatusBadgeClass(b.Status)">@DashboardUi.Status(b.Status)</span></td>
+                    <td>@b.RowCount</td>
+                    <td class="text-end">@b.MatchedCount</td>
+                    <td class="text-end">@b.OnlyExternalCount</td>
+                    <td class="text-end">@b.OnlySystemCount</td>
+                    <td>@DashboardUi.Date(b.CreatedAt)</td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/Admin/Reconciliation/Details?id=@b.Id">Aç</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

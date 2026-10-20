@@ -1,0 +1,53 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Audit.IndexModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Audit";
+}
+
+<div class="d-flex justify-content-between align-items-end mb-3">
+    <div><h3 class="mb-1">Audit Kayıtları</h3><div class="text-muted small">Salt okunur operasyon izi; şifre/token gösterilmez.</div></div>
+    <form method="get" class="d-flex flex-wrap gap-2">
+        <input class="form-control" name="action" value="@Model.ActionFilter" placeholder="Aksiyon" style="width:180px;" />
+        <input class="form-control" name="username" value="@Model.Username" placeholder="Kullanıcı" style="width:150px;" />
+        <input class="form-control" type="date" name="from" value="@Model.From" />
+        <input class="form-control" type="date" name="to" value="@Model.To" />
+        <button class="btn btn-outline-primary" type="submit">Filtrele</button>
+    </form>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark"><tr><th>Tarih</th><th>Aksiyon</th><th>Varlık</th><th>Kullanıcı</th><th>Sonuç</th><th>Detay</th></tr></thead>
+            <tbody>
+            @foreach (var a in Model.Items)
+            {
+                <tr>
+                    <td>@DashboardUi.Date(a.CreatedDate)</td>
+                    <td><strong>@a.Action</strong></td>
+                    <td>@a.EntityName @(string.IsNullOrWhiteSpace(a.EntityId) ? "" : $"#{a.EntityId[..Math.Min(8, a.EntityId.Length)]}")</td>
+                    <td>@a.Username</td>
+                    <td><span class="@(a.IsSuccess ? "badge status-ok" : "badge status-bad")">@(a.IsSuccess ? "Başarılı" : "Başarısız")</span></td>
+                    <td class="small">@a.Details</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (Model.TotalPages > 1)
+{
+    <nav class="mt-3"><ul class="pagination">
+        @for (var i = 1; i <= Model.TotalPages; i++)
+        {
+            <li class="page-item @(i == Model.PageNumber ? "active" : "")"><a class="page-link" href="?page=@i">@i</a></li>
+        }
+    </ul></nav>
+}

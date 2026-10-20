@@ -1,0 +1,89 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Customer.TransferModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Transfer Talebi";
+}
+
+<h3 class="mb-1">Transfer Talebi</h3>
+<p class="text-muted">Tüm transfer talepleri Pending başlar. Owner veya yetkili onaylayana kadar bakiye değişmez.</p>
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+<div class="card form-card">
+    <div class="card-body">
+        @if (Model.ShowSummary)
+        {
+            <h5 class="mb-3">Talebi kontrol edin</h5>
+            <div class="summary-box mb-3">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Kaynak hesap</dt><dd class="col-sm-8">@DashboardUi.Account(Model.SelectedAccount?.AccountNumber) · @Model.SelectedAccount?.Currency</dd>
+                    <dt class="col-sm-4">Alıcı</dt><dd class="col-sm-8">@Model.SelectedBeneficiary?.DisplayName · @Model.SelectedBeneficiary?.MaskedAccountNumber</dd>
+                    <dt class="col-sm-4">Tutar</dt><dd class="col-sm-8">@DashboardUi.Money(Model.Amount, Model.SelectedAccount?.Currency ?? "")</dd>
+                    <dt class="col-sm-4">Açıklama</dt><dd class="col-sm-8">@(Model.Description ?? "—")</dd>
+                    <dt class="col-sm-4">Masraf</dt><dd class="col-sm-8">Yok (demo)</dd>
+                </dl>
+            </div>
+            <form method="post">
+                <input type="hidden" asp-for="FromAccountId" />
+                <input type="hidden" asp-for="ToAccountId" />
+                <input type="hidden" asp-for="Amount" />
+                <input type="hidden" asp-for="Description" />
+                <input type="hidden" asp-for="IdempotencyKey" />
+                <input type="hidden" name="Confirm" value="true" />
+                <button class="btn btn-primary" type="submit">Talebi gönder</button>
+            </form>
+            <form method="post" class="mt-2">
+                <input type="hidden" asp-for="FromAccountId" />
+                <input type="hidden" asp-for="ToAccountId" />
+                <input type="hidden" asp-for="Amount" />
+                <input type="hidden" asp-for="Description" />
+                <input type="hidden" asp-for="IdempotencyKey" />
+                <input type="hidden" name="Confirm" value="false" />
+                <input type="hidden" name="Edit" value="true" />
+                <button class="btn btn-outline-secondary" type="submit">Düzenle</button>
+            </form>
+        }
+        else
+        {
+            <form method="post" class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Kaynak hesap</label>
+                    <select class="form-select" asp-for="FromAccountId">
+                        <option value="">Seçin</option>
+                        @foreach (var a in Model.Accounts)
+                        {
+                            <option value="@a.Id">@DashboardUi.Account(a.AccountNumber) · @a.Currency · @DashboardUi.Money(a.Balance, a.Currency)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Alıcı</label>
+                    <select class="form-select" asp-for="ToAccountId">
+                        <option value="">Seçin</option>
+                        @foreach (var b in Model.Beneficiaries)
+                        {
+                            <option value="@b.AccountId">@b.DisplayName · @b.MaskedAccountNumber · @b.Currency</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Tutar</label>
+                    <input class="form-control" asp-for="Amount" type="number" step="0.01" min="0.01" />
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Açıklama</label>
+                    <input class="form-control" asp-for="Description" maxlength="250" />
+                </div>
+                <input type="hidden" asp-for="IdempotencyKey" />
+                <input type="hidden" name="Confirm" value="false" />
+                <div class="col-12">
+                    <button class="btn btn-primary" type="submit">Özete geç</button>
+                </div>
+            </form>
+        }
+    </div>
+</div>

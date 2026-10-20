@@ -1,0 +1,152 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.OverviewModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Operasyon Özeti";
+}
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+<div class="stat-grid mb-4">
+    <div class="stat-card">
+        <div class="label">Bekleyen talep</div>
+        <div class="value">@Model.Pending.Count</div>
+        <div class="hint">Owner/DelegatedApprover onayı bekliyor</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Aktivasyon bekleyen üye</div>
+        <div class="value">@Model.PendingMembers.Count</div>
+        <div class="hint"><a href="/Admin/Users?status=PendingActivation">Üyeleri aç</a></div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Müşteri</div>
+        <div class="value">@Model.CustomerCount</div>
+        <div class="hint"><a href="/Admin/Customers">Müşterileri aç</a></div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Hesap</div>
+        <div class="value">@Model.AccountCount</div>
+        <div class="hint"><a href="/Admin/Accounts">Hesapları aç</a></div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Bekleyen talepler</span>
+                <a class="btn btn-sm btn-outline-primary" href="/Admin/Approvals">Tümü</a>
+            </div>
+            <div class="table-responsive">
+                @if (Model.Pending.Count == 0)
+                {
+                    <div class="empty-state">Bekleyen talep yok.</div>
+                }
+                else
+                {
+                    <table class="table mb-0">
+                        <thead class="table-dark"><tr><th>Referans</th><th>Tür</th><th class="text-end">Tutar</th><th>Risk</th><th>Durum</th></tr></thead>
+                        <tbody>
+                        @foreach (var p in Model.Pending.Take(8))
+                        {
+                            <tr>
+                                <td><a href="/Admin/Approvals/Details?id=@p.Id">@p.Reference</a></td>
+                                <td>@DashboardUi.Status(p.RequestType)</td>
+                                <td class="text-end">@DashboardUi.Money(p.Amount, p.Currency)</td>
+                                <td><span class="@DashboardUi.RiskBadgeClass(p.RiskLevel)">@DashboardUi.Status(p.RiskLevel)</span></td>
+                                <td><span class="@DashboardUi.StatusBadgeClass(p.Status)">@DashboardUi.Status(p.Status)</span></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">Para birimi bazında bakiyeler</div>
+            <div class="card-body">
+                @if (!Model.Accounts.Any())
+                {
+                    <div class="text-muted">Hesap bulunamadı.</div>
+                }
+                else
+                {
+                    <div class="balance-grid">
+                        @foreach (var group in Model.BalancesByCurrency)
+                        {
+                            <div class="balance-card">
+                                <div class="ccy">@group.Key</div>
+                                <div class="amount">@DashboardUi.Money(group.Sum(x => x.Balance), group.Key)</div>
+                                <div class="acct">@group.Count() hesap</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">Aktivasyon bekleyen üyeler</div>
+            <div class="card-body">
+                @if (Model.PendingMembers.Count == 0)
+                {
+                    <div class="text-muted">Bekleyen üyelik yok.</div>
+                }
+                else
+                {
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var u in Model.PendingMembers)
+                        {
+                            <li class="d-flex justify-content-between border-bottom py-2">
+                                <span>@u.FirstName @u.LastName<br /><small class="text-muted">@u.Email</small></span>
+                                <a class="btn btn-sm btn-outline-primary align-self-center" href="/Admin/Users?status=PendingActivation">Aç</a>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between">
+                <span>Aktif yetki devirleri</span>
+                <a class="btn btn-sm btn-outline-primary" href="/Admin/Delegations">Yönet</a>
+            </div>
+            <div class="card-body">
+                @if (Model.Delegations.Count == 0)
+                {
+                    <div class="text-muted">Yetki devri yok. Onay için Owner veya delegated yetki gerekir.</div>
+                }
+                else
+                {
+                    @foreach (var d in Model.Delegations.Where(x => x.IsActive).Take(6))
+                    {
+                        <div class="d-flex justify-content-between border-bottom py-2 small">
+                            <span>@d.Username · @d.Operation</span>
+                            <span>@(d.MaxAmount is null ? "Limitsiz/istisna" : DashboardUi.Money(d.MaxAmount.Value, d.Currency ?? ""))</span>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">Son audit</div>
+            <div class="card-body">
+                @foreach (var a in Model.RecentAudit)
+                {
+                    <div class="border-bottom py-2 small">
+                        <strong>@a.Action</strong><br />
+                        <span class="text-muted">@a.Username · @DashboardUi.Date(a.CreatedDate)</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

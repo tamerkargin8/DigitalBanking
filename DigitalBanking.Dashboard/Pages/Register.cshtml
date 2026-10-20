@@ -1,0 +1,59 @@
+@page
+@model DigitalBanking.Dashboard.Pages.RegisterModel
+@{
+    ViewData["Title"] = "Üyelik Başvurusu";
+}
+
+<div class="card shadow-sm" style="max-width: 720px; width: 100%;">
+    <div class="card-body p-4">
+        <h3 class="mb-2">Demo üyelik başvurusu</h3>
+        <p class="text-muted">
+            Bu akış gerçek KYC/e-posta doğrulaması değildir. Başvuru <strong>PendingActivation</strong>
+            durumunda oluşur; Owner aktive etmeden müşteri/hesap erişimi açılmaz.
+        </p>
+
+        @if (!string.IsNullOrEmpty(Model.Error))
+        {
+            <div class="alert alert-danger">@Model.Error</div>
+        }
+        @if (!string.IsNullOrEmpty(Model.Success))
+        {
+            <div class="alert alert-success">@Model.Success</div>
+            <a class="btn btn-outline-primary" href="/Login">Giriş ekranına dön</a>
+        }
+        else
+        {
+            <form method="post">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Kullanıcı adı</label>
+                        <input class="form-control" asp-for="Username" autocomplete="username" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">E-posta</label>
+                        <input class="form-control" asp-for="Email" type="email" autocomplete="email" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Ad</label>
+                        <input class="form-control" asp-for="FirstName" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Soyad</label>
+                        <input class="form-control" asp-for="LastName" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Şifre</label>
+                        <input class="form-control" asp-for="Password" type="password" autocomplete="new-password" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Şifre doğrulama</label>
+                        <input class="form-control" asp-for="ConfirmPassword" type="password" autocomplete="new-password" />
+                    </div>
+                </div>
+                <div class="form-text mt-2">En az 8 karakter, bir harf ve bir rakam.</div>
+                <button class="btn btn-primary mt-3" type="submit">Başvuru gönder</button>
+                <a class="btn btn-outline-secondary mt-3" href="/Login">Giriş</a>
+            </form>
+        }
+    </div>
+</div>

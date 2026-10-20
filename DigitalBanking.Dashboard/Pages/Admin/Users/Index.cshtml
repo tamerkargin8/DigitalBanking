@@ -1,48 +1,92 @@
 @page
 @model DigitalBanking.Dashboard.Pages.Admin.Users.IndexModel
+@using DigitalBanking.Dashboard.Services
 @{
-    ViewData["Title"] = "Kullanıcılar";
+    ViewData["Title"] = "Üyeler";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h3 class="mb-0">Kullanıcılar</h3>
-    <a class="btn btn-primary" href="/Admin/Users/Create">Kullanıcı oluştur</a>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+    <div>
+        <h3 class="mb-1">Üyeler ve yetkiler</h3>
+        <div class="text-muted small">Kayıtlar PendingActivation başlar; Owner aktive eder. Owner rolü buradan atanamaz.</div>
+    </div>
+    <form method="get" class="d-flex gap-2">
+        <select class="form-select" name="status" style="width:170px;">
+            <option value="">Tüm durumlar</option>
+            @foreach (var s in new[] { "PendingActivation", "Active", "Disabled" })
+            {
+                <option value="@s" selected="@(Model.Status == s)">@DashboardUi.Status(s)</option>
+            }
+        </select>
+        <select class="form-select" name="role" style="width:170px;">
+            <option value="">Tüm roller</option>
+            @foreach (var r in new[] { "Customer", "DelegatedApprover", "Owner" })
+            {
+                <option value="@r" selected="@(Model.Role == r)">@r</option>
+            }
+        </select>
+        <button class="btn btn-outline-primary" type="submit">Filtrele</button>
+    </form>
 </div>
 
+@if (!string.IsNullOrEmpty(Model.Flash))
+{
+    <div class="alert alert-info">@Model.Flash</div>
+}
 @if (!string.IsNullOrEmpty(Model.Error))
 {
     <div class="alert alert-danger">@Model.Error</div>
 }
 
-@if (Model.Items.Count == 0)
-{
-    <div class="alert alert-secondary">Kullanıcı bulunamadı.</div>
-}
-else
-{
-    <div class="card shadow-sm">
-        <div class="table-responsive">
-            <table class="table table-striped mb-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Id</th>
-                        <th>Kullanıcı adı</th>
-                        <th>Rol</th>
-                        <th>Oluşturulma</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var u in Model.Items)
-                    {
-                        <tr>
-                            <td style="font-family:monospace;">@u.Id.ToString("N")[..8]…</td>
-                            <td>@u.Username</td>
-                            <td><span class="badge bg-secondary">@u.Role</span></td>
-                            <td>@u.CreatedDate.ToString("yyyy-MM-dd HH:mm")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr><th>Üye</th><th>E-posta</th><th>Rol</th><th>Durum</th><th>Kayıt</th><th>Aksiyon</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var u in Model.Items)
+            {
+                <tr>
+                    <td><strong>@u.FirstName @u.LastName</strong><br /><small class="text-muted">@u.Username</small></td>
+                    <td>@u.Email</td>
+                    <td><span class="badge bg-secondary">@u.Role</span></td>
+                    <td><span class="@DashboardUi.StatusBadgeClass(u.Status)">@DashboardUi.Status(u.Status)</span></td>
+                    <td>@DashboardUi.Date(u.CreatedDate)</td>
+                    <td>
+                        @if (u.Role != "Owner")
+                        {
+                            if (u.Status == "PendingActivation")
+                            {
+                                <form method="post" asp-page-handler="Activate" class="inline-form">
+                                    <input type="hidden" name="id" value="@u.Id" />
+                                    <button class="btn btn-sm btn-success" type="submit">Aktive et</button>
+                                </form>
+                            }
+                            @if (u.Status == "Active")
+                            {
+                                <form method="post" asp-page-handler="Role" class="d-inline-flex gap-1">
+                                    <input type="hidden" name="id" value="@u.Id" />
+                                    <select class="form-select form-select-sm" name="role" style="width:160px;">
+                                        <option value="Customer" selected="@(u.Role == "Customer")">Customer</option>
+                                        <option value="DelegatedApprover" selected="@(u.Role == "DelegatedApprover")">DelegatedApprover</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-primary" type="submit">Rol</button>
+                                </form>
+                                <form method="post" asp-page-handler="Disable" class="inline-form">
+                                    <input type="hidden" name="id" value="@u.Id" />
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">Devre dışı</button>
+                                </form>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted small">Owner korumalı</span>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
     </div>
-}
+</div>

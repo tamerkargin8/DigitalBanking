@@ -1,0 +1,43 @@
+@model DigitalBanking.Application.DTOs.CustomerPortal.PaymentReceiptDto
+@using DigitalBanking.Dashboard.Services
+@{
+    var title = Model.IsCompleted ? "Demo işlem dekontu" : "İşlem durumu";
+}
+<div class="receipt">
+    <div class="demo-stamp">DEMO — GERÇEK BANKACILIK DEKONTU DEĞİLDİR</div>
+    <div class="d-flex justify-content-between align-items-start mt-3">
+        <div>
+            <div class="text-muted small">Referans</div>
+            <h4 class="mb-0">@Model.Reference</h4>
+            <div class="text-muted small mt-1">@title</div>
+        </div>
+        <span class="@DashboardUi.StatusBadgeClass(Model.Status)">@DashboardUi.Status(Model.Status)</span>
+    </div>
+
+    @if (Model.IsCompleted)
+    {
+        <dl class="mt-4">
+            <dt>Tutar</dt><dd>@DashboardUi.Money(Model.Amount, Model.Currency)</dd>
+            <dt>Durum</dt><dd>@DashboardUi.Status(Model.Status)</dd>
+            <dt>Kaynak hesap</dt><dd>@Model.FromAccountMasked</dd>
+            <dt>Hedef / ilgili hesap</dt><dd>@Model.ToAccountMasked</dd>
+            <dt>Açıklama</dt><dd>@(Model.Description ?? "—")</dd>
+            @if (Model.CompletedAtLocal is not null)
+            {
+                <dt>Tamamlanma</dt><dd>@Model.CompletedAtLocal.Value.ToString("dd.MM.yyyy HH:mm:ss") (@Model.TimeZoneId)</dd>
+            }
+        </dl>
+    }
+    else
+    {
+        <div class="alert alert-warning mt-4 mb-0">
+            @Model.StatusSummary
+            <div class="small mt-1">Bu işlem için tamamlanmış dekont üretilmez; durum özeti gösterilir.</div>
+        </div>
+    }
+
+    <div class="text-muted small mt-4">
+        Bu belge yalnız sentetik demo verisiyle üretilmiştir. Gerçek hesap, müşteri veya ödeme bilgisi içermez.
+        Şifre/token/tam kimlik numarası gösterilmez.
+    </div>
+</div>

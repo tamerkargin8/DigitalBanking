@@ -1,4 +1,6 @@
+using System.Globalization;
 using DigitalBanking.Dashboard.Services;
+using Microsoft.AspNetCore.Localization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +22,16 @@ builder.Services.AddSession(options =>
 });
 
 var app = builder.Build();
+
+// HTML number inputs submit invariant "25.50"; keep model binding invariant while
+// the UI formats money explicitly with tr-TR in DashboardUi.
+var invariant = CultureInfo.InvariantCulture;
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new RequestCulture(invariant),
+    SupportedCultures = new[] { invariant },
+    SupportedUICultures = new[] { invariant }
+});
 
 // Always show the friendly error page: stack traces and implementation details
 // must not reach the browser, even in the local Development demo.

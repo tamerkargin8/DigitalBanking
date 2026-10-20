@@ -1,0 +1,43 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Customer.Accounts.DetailsModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Hesap Hareketleri";
+}
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+else if (Model.Account is not null)
+{
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <div class="text-muted small">@DashboardUi.Account(Model.Account.AccountNumber)</div>
+            <h3 class="mb-0">@DashboardUi.Money(Model.Account.Balance, Model.Account.Currency)</h3>
+            <div class="text-muted">@Model.Account.Currency hesabı</div>
+        </div>
+        <a class="btn btn-outline-primary" href="/Customer/Transfer?from=@Model.Account.Id">Transfer talebi</a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">İşlem geçmişi</div>
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead class="table-dark"><tr><th>Tarih</th><th>Tür</th><th class="text-end">Tutar</th><th class="text-end">Bakiye</th><th>Açıklama</th></tr></thead>
+                <tbody>
+                @foreach (var t in Model.History?.Transactions ?? new())
+                {
+                    <tr>
+                        <td>@DashboardUi.Date(t.CreatedDate)</td>
+                        <td>@DashboardUi.TransactionType(t.Type)</td>
+                        <td class="text-end">@DashboardUi.Money(t.Amount, Model.Account.Currency)</td>
+                        <td class="text-end">@DashboardUi.Money(t.BalanceAfter, Model.Account.Currency)</td>
+                        <td>@t.Description</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

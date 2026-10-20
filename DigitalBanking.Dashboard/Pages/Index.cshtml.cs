@@ -5,14 +5,13 @@ namespace DigitalBanking.Dashboard.Pages;
 
 public class IndexModel : SecurePageModel
 {
-    public bool AccessDenied { get; set; }
-
-    public IActionResult OnGet(bool denied = false)
+    public IActionResult OnGet()
     {
         var login = RequireLogin();
         if (login is not null) return login;
 
-        AccessDenied = denied;
-        return Page();
+        if (IsAdmin) return RedirectToPage("/Admin/Overview");
+        if (IsDelegatedApprover) return RedirectToPage("/Admin/Approvals/Index");
+        return RedirectToPage("/Customer/Home");
     }
 }

@@ -1,0 +1,56 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Customers.IndexModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Müşteriler";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Müşteriler</h3>
+    <a class="btn btn-outline-primary" href="/Admin/Requests/New">Yeni finansal talep</a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Flash))
+{
+    <div class="alert alert-info">@Model.Flash</div>
+}
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark"><tr><th>Müşteri</th><th>Maskeli kimlik</th><th>Kayıt</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var c in Model.Items)
+                    {
+                        <tr>
+                            <td>@c.FirstName @c.LastName</td>
+                            <td>@DigitalBanking.Application.Common.Masking.IdentityNumber(c.IdentityNumber)</td>
+                            <td>@DashboardUi.Date(c.CreatedDate)</td>
+                            <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/Admin/Accounts?customerId=@c.Id">Hesaplar</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">Müşteri oluştur (sentetik)</div>
+            <div class="card-body">
+                <form method="post" asp-page-handler="Create">
+                    <div class="mb-2"><label class="form-label">Ad</label><input class="form-control" asp-for="FirstName" /></div>
+                    <div class="mb-2"><label class="form-label">Soyad</label><input class="form-control" asp-for="LastName" /></div>
+                    <div class="mb-2"><label class="form-label">Kimlik no (sentetik)</label><input class="form-control" asp-for="IdentityNumber" /></div>
+                    <button class="btn btn-primary" type="submit">Oluştur</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

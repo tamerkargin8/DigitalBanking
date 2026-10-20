@@ -1,0 +1,17 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Customer.Payments.ReceiptModel
+@{
+    ViewData["Title"] = "Demo Dekont";
+}
+<div class="no-print mb-3 d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="/Customer/Payments">Ödemelerim</a>
+    <button class="btn btn-primary" onclick="window.print()">Yazdır / PDF olarak kaydet</button>
+</div>
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+@if (Model.Receipt is not null)
+{
+    <partial name="_ReceiptBody" model="Model.Receipt" />
+}

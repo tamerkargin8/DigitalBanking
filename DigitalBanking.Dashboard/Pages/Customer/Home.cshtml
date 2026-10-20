@@ -1,0 +1,81 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Customer.HomeModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Hesap Özeti";
+}
+
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+@if (Model.Profile is not null)
+{
+    <div class="hero-panel mb-4">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <div class="muted small">Hoş geldiniz</div>
+                <h3 class="mb-1">@Model.Profile.DisplayName</h3>
+                <div class="muted">Müşteri no: @Model.Profile.CustomerId.ToString("N")[..8] · @Model.Profile.Role</div>
+            </div>
+            <div class="d-flex gap-2">
+                <a class="btn btn-light" href="/Customer/Transfer">Transfer talebi</a>
+                <a class="btn btn-outline-light" href="/Customer/Requests">Yatırma / Çekme talebi</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-end mb-2">
+        <h4 class="mb-0">Bakiyeler</h4>
+        <span class="text-muted small">Para birimleri ayrı gösterilir; kur çevrimi/toplama yok.</span>
+    </div>
+    <div class="balance-grid mb-4">
+        @foreach (var group in Model.AccountsByCurrency)
+        {
+            <div class="balance-card">
+                <div class="ccy">@group.Key</div>
+                <div class="amount">@DashboardUi.Money(group.Sum(x => x.Balance), group.Key)</div>
+                <div class="acct">@group.Count() hesap · toplam</div>
+            </div>
+        }
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between"><span>Son talepler</span><a href="/Customer/Payments">Tümü</a></div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead class="table-dark"><tr><th>Referans</th><th>Tür</th><th class="text-end">Tutar</th><th>Durum</th></tr></thead>
+                        <tbody>
+                        @foreach (var p in Model.Payments.Take(6))
+                        {
+                            <tr>
+                                <td><a href="/Customer/Payments/Details?id=@p.Id">@p.Reference</a></td>
+                                <td>@DashboardUi.Status(p.RequestType)</td>
+                                <td class="text-end">@DashboardUi.Money(p.Amount, p.Currency)</td>
+                                <td><span class="@DashboardUi.StatusBadgeClass(p.Status)">@DashboardUi.Status(p.Status)</span></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header">Hesaplarım</div>
+                <div class="list-group list-group-flush">
+                    @foreach (var a in Model.Accounts)
+                    {
+                        <a class="list-group-item list-group-item-action d-flex justify-content-between" href="/Customer/Accounts/Details?id=@a.Id">
+                            <span>@DashboardUi.Account(a.AccountNumber)<br /><small class="text-muted">@a.Currency</small></span>
+                            <strong>@DashboardUi.Money(a.Balance, a.Currency)</strong>
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}

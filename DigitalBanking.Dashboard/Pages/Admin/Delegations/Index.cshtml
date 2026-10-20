@@ -1,0 +1,102 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Delegations.IndexModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Yetkiler ve Limitler";
+}
+
+<h3 class="mb-1">Yetkiler ve Limitler</h3>
+<p class="text-muted">Owner; kişi, operasyon, para birimi ve işlem başına üst limit atar. 100.000,00 TRY dahil onaylanabilir; 100.000,01 Owner kuyruğunda kalır.</p>
+
+@if (!string.IsNullOrEmpty(Model.Flash))
+{
+    <div class="alert alert-info">@Model.Flash</div>
+}
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+<div class="card mb-4">
+    <div class="card-header">Yeni yetki devri</div>
+    <div class="card-body">
+        <form method="post" asp-page-handler="Create" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Yetkili</label>
+                <select class="form-select" asp-for="UserId">
+                    <option value="">Seçin</option>
+                    @foreach (var u in Model.Approvers)
+                    {
+                        <option value="@u.Id">@u.FirstName @u.LastName (@u.Username)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Operasyon</label>
+                <select class="form-select" asp-for="Operation">
+                    @foreach (var o in new[] { "Transfer", "Deposit", "Withdrawal", "AccountOpening", "ReconciliationException" })
+                    {
+                        <option value="@o">@DashboardUi.Status(o)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Para birimi</label>
+                <select class="form-select" asp-for="Currency">
+                    @foreach (var c in new[] { "TRY", "USD", "EUR", "GBP" })
+                    {
+                        <option value="@c">@c</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">İşlem üst limiti</label>
+                <input class="form-control" asp-for="MaxAmount" type="number" step="0.01" min="0" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Günlük limit (ops.)</label>
+                <input class="form-control" asp-for="DailyLimit" type="number" step="0.01" min="0" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Son geçerlilik (ops.)</label>
+                <input class="form-control" asp-for="ExpiresAt" type="datetime-local" />
+            </div>
+            <div class="col-md-3 align-self-end">
+                <button class="btn btn-primary" type="submit">Yetki ver</button>
+            </div>
+        </form>
+        <div class="form-text mt-2">ReconciliationException için para birimi/limit kullanılmaz; yapay parasal limit uygulanmaz.</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Mevcut yetkiler</div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark"><tr><th>Yetkili</th><th>Operasyon</th><th>Para birimi</th><th class="text-end">İşlem limiti</th><th class="text-end">Günlük</th><th>Durum</th><th>Geçerlilik</th><th>Aksiyon</th></tr></thead>
+            <tbody>
+            @foreach (var d in Model.Items)
+            {
+                <tr>
+                    <td>@d.Username</td>
+                    <td>@DashboardUi.Status(d.Operation)</td>
+                    <td>@(d.Currency ?? "—")</td>
+                    <td class="text-end">@(d.MaxAmount is null ? "Limit yok (istisna)" : DashboardUi.Money(d.MaxAmount.Value, d.Currency ?? ""))</td>
+                    <td class="text-end">@(d.DailyLimit is null ? "Tanımsız" : DashboardUi.Money(d.DailyLimit.Value, d.Currency ?? ""))</td>
+                    <td><span class="@(d.IsActive ? "badge status-ok" : "badge status-bad")">@(d.IsActive ? "Aktif" : "Kapalı")</span></td>
+                    <td>@(d.ExpiresAt?.ToString("dd.MM.yyyy HH:mm") ?? "Süresiz")</td>
+                    <td class="d-flex gap-1">
+                        @if (d.IsActive)
+                        {
+                            <form method="post" asp-page-handler="Revoke" class="inline-form">
+                                <input type="hidden" name="id" value="@d.Id" />
+                                <button class="btn btn-sm btn-outline-danger" type="submit">Kapat</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

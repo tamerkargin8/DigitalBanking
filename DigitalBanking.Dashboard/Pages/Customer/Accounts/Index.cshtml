@@ -1,0 +1,27 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Customer.Accounts.IndexModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Hesaplarım";
+}
+
+<h3 class="mb-3">Hesaplarım</h3>
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+<div class="row g-4">
+    @foreach (var a in Model.Accounts)
+    {
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">@a.Currency hesabı</div>
+                    <h4>@DashboardUi.Money(a.Balance, a.Currency)</h4>
+                    <div class="text-muted">@DashboardUi.Account(a.AccountNumber)</div>
+                    <a class="btn btn-outline-primary btn-sm mt-3" href="/Customer/Accounts/Details?id=@a.Id">Hareketleri gör</a>
+                </div>
+            </div>
+        </div>
+    }
+</div>

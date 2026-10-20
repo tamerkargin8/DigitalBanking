@@ -1,0 +1,63 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Demo.IndexModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Senaryo Merkezi";
+}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h3 class="mb-1">Hazır Demo Senaryoları</h3>
+        <div class="text-muted small">Development-only; production'da endpoint sunucu tarafında kapalıdır. Seed idempotent, reset yalnız IsDemo verisini kaldırır.</div>
+    </div>
+    <div class="d-flex gap-2">
+        <form method="post" asp-page-handler="Seed"><button class="btn btn-primary" type="submit">Senaryoları seed et</button></form>
+        <form method="post" asp-page-handler="Reset" onsubmit="return confirm('Yalnız IsDemo senaryo verisi kaldırılacak. Devam?');"><button class="btn btn-outline-danger" type="submit">Demo reset</button></form>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Flash))
+{
+    <div class="alert alert-info">@Model.Flash</div>
+}
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+<div class="row g-4">
+    @foreach (var s in Model.Scenarios)
+    {
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <h5>@s.Title</h5>
+                        <span class="badge bg-secondary">@s.Key</span>
+                    </div>
+                    <div class="text-muted small mb-2">@s.Persona</div>
+                    <p>@s.Description</p>
+                    <div class="small"><strong>Başlangıç:</strong> @s.StartState</div>
+                    <ol class="small mt-2">
+                        @foreach (var step in s.Steps)
+                        {
+                            <li>@step</li>
+                        }
+                    </ol>
+                    <div class="summary-box small"><strong>Beklenen:</strong> @s.ExpectedResult</div>
+                    <div class="mt-2 d-flex flex-wrap gap-2">
+                        @if (s.RelatedPaymentId is not null)
+                        {
+                            <a class="btn btn-sm btn-outline-primary" href="/Admin/Approvals/Details?id=@s.RelatedPaymentId">Talep @s.RelatedPaymentId</a>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(s.SampleDownloadUrl))
+                        {
+                            <a class="btn btn-sm btn-outline-primary" href="/Admin/Demo/Sample?kind=@(s.Key == "reconciliation-mismatch" ? "mismatch" : "matched")">Örnek CSV</a>
+                        }
+                    </div>
+                    <div class="text-muted small mt-2">Kanıt: @string.Join(", ", s.Evidence)</div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

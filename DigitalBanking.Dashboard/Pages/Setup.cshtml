@@ -1,0 +1,52 @@
+@page
+@model DigitalBanking.Dashboard.Pages.SetupModel
+@{
+    ViewData["Title"] = "Owner Kurulumu";
+}
+
+<div class="card shadow-sm" style="max-width: 620px; width: 100%;">
+    <div class="card-body p-4">
+        <h3 class="mb-2">İlk Owner kurulumu</h3>
+        <p class="text-muted">
+            Bu ekran yalnız Owner yokken, localhost üzerinden açılır. Kendi kullanıcı adı ve
+            şifrenizi belirleyin; gerçek kimlik bilgisi bu sohbete/README'ye yazılmaz.
+            Kurulum tamamlanınca endpoint kapanır.
+        </p>
+
+        @if (!string.IsNullOrEmpty(Model.Error))
+        {
+            <div class="alert alert-danger">@Model.Error</div>
+        }
+
+        <form method="post">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Kullanıcı adı</label>
+                    <input class="form-control" asp-for="Username" autocomplete="username" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">E-posta</label>
+                    <input class="form-control" asp-for="Email" type="email" autocomplete="email" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Ad</label>
+                    <input class="form-control" asp-for="FirstName" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Soyad</label>
+                    <input class="form-control" asp-for="LastName" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Şifre</label>
+                    <input class="form-control" asp-for="Password" type="password" autocomplete="new-password" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Şifre doğrulama</label>
+                    <input class="form-control" asp-for="ConfirmPassword" type="password" autocomplete="new-password" />
+                </div>
+            </div>
+            <div class="form-text mt-2">En az 8 karakter, bir harf ve bir rakam.</div>
+            <button class="btn btn-primary mt-3" type="submit">Owner oluştur</button>
+        </form>
+    </div>
+</div>

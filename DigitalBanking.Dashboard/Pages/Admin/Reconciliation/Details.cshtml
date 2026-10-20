@@ -1,0 +1,104 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Reconciliation.DetailsModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Mutabakat Detayı";
+    var b = Model.Detail?.Batch;
+}
+
+@if (!string.IsNullOrEmpty(Model.Flash))
+{
+    <div class="alert alert-info">@Model.Flash</div>
+}
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+@if (b is null)
+{
+    <a class="btn btn-outline-secondary" href="/Admin/Reconciliation">Mutabakata dön</a>
+}
+else
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <h3 class="mb-1">@b.FileName</h3>
+            <div class="text-muted small">@b.ScopeKey · @b.RowCount satır · <span class="@DashboardUi.StatusBadgeClass(b.Status)">@DashboardUi.Status(b.Status)</span></div>
+        </div>
+        <div class="d-flex gap-2">
+            @if (b.Status == "Previewed")
+            {
+                <form method="post" asp-page-handler="Import"><input type="hidden" name="id" value="@b.Id" /><button class="btn btn-success" type="submit">İçe aktar</button></form>
+            }
+            <a class="btn btn-outline-primary" href="/Admin/Reconciliation/Export?id=@b.Id">CSV dışa aktar</a>
+            <a class="btn btn-outline-secondary" href="/Admin/Reconciliation">Geri</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(b.ValidationSummary))
+    {
+        <div class="alert alert-danger">@b.ValidationSummary</div>
+    }
+
+    <div class="stat-grid mb-4">
+        <div class="stat-card"><div class="label">Eşleşen</div><div class="value">@b.MatchedCount</div></div>
+        <div class="stat-card"><div class="label">Yalnız dış</div><div class="value">@b.OnlyExternalCount</div></div>
+        <div class="stat-card"><div class="label">Yalnız sistem</div><div class="value">@b.OnlySystemCount</div></div>
+        <div class="stat-card"><div class="label">Tutar uyuşmaz</div><div class="value">@b.AmountMismatchCount</div></div>
+        <div class="stat-card"><div class="label">Para birimi uyuşmaz</div><div class="value">@b.CurrencyMismatchCount</div></div>
+        <div class="stat-card"><div class="label">Mükerrer</div><div class="value">@b.DuplicateReferenceCount</div></div>
+        <div class="stat-card"><div class="label">Bekleyen onay (hariç)</div><div class="value">@b.PendingApprovalCount</div></div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Satır sonuçları</div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-dark"><tr><th>#</th><th>Dış ref</th><th>İç ref</th><th class="text-end">Tutar</th><th>Yön</th><th>Durum</th><th>Sistem</th><th>Hata</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var r in Model.Detail!.Rows)
+                {
+                    <tr class="@(!r.IsValid ? "table-warning" : "")">
+                        <td>@r.LineNumber</td>
+                        <td>@r.ExternalReference</td>
+                        <td class="small">@r.InternalReference</td>
+                        <td class="text-end">@DashboardUi.Money(r.Amount, r.Currency)</td>
+                        <td>@DashboardUi.Status(r.Direction)</td>
+                        <td><span class="@DashboardUi.StatusBadgeClass(r.MatchStatus)">@DashboardUi.Status(r.MatchStatus)</span></td>
+                        <td class="small">@(r.SystemAmount is null ? "—" : DashboardUi.Money(r.SystemAmount.Value, r.SystemCurrency ?? "")) @(r.DifferenceAmount is null ? "" : $" (fark {r.DifferenceAmount:N2})")</td>
+                        <td class="small text-danger">@r.ValidationError</td>
+                        <td>
+                            @if (r.IsValid && r.MatchStatus != "Matched")
+                            {
+                                <form method="post" asp-page-handler="Exception" class="d-flex gap-1">
+                                    <input type="hidden" name="id" value="@b.Id" />
+                                    <input type="hidden" name="rowId" value="@r.Id" />
+                                    <input class="form-control form-control-sm" name="description" placeholder="İstisna açıklaması" required minlength="5" style="min-width:160px;" />
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">İstisna</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (Model.Detail.Exceptions.Count > 0)
+    {
+        <div class="card">
+            <div class="card-header">Bu batch'in istisnaları</div>
+            <div class="card-body">
+                @foreach (var e in Model.Detail.Exceptions)
+                {
+                    <div class="d-flex justify-content-between border-bottom py-2">
+                        <div><strong>@e.ExternalReference</strong> · @e.Description<br /><small class="text-muted">@e.Status · @DashboardUi.Date(e.UpdatedAt)</small></div>
+                        <a class="btn btn-sm btn-outline-primary" href="/Admin/Reconciliation/Exceptions?id=@e.Id">Aç</a>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}

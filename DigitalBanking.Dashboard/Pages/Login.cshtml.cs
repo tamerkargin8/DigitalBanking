@@ -18,12 +18,18 @@ public class LoginModel : PageModel
     public string? Error { get; set; }
     public string? Info { get; set; }
 
-    public IActionResult OnGet(bool expired = false, bool loggedOut = false)
+    public async Task<IActionResult> OnGetAsync(bool expired = false, bool loggedOut = false, bool setup = false)
     {
         if (!string.IsNullOrEmpty(HttpContext.Session.GetString(SessionKeys.Token)))
             return RedirectToPage("/Index");
 
-        if (expired)
+        var status = await _auth.GetSetupStatusAsync();
+        if (status is { NeedsOwner: true, SetupEnabled: true })
+            return RedirectToPage("/Setup");
+
+        if (setup)
+            Info = "Owner oluşturuldu. Lütfen giriş yapın.";
+        else if (expired)
             Info = "Oturum süresi doldu. Lütfen yeniden giriş yapın.";
         else if (loggedOut)
             Info = "Çıkış yapıldı.";
@@ -49,8 +55,14 @@ public class LoginModel : PageModel
         // Clear any previous session state before storing the new identity.
         HttpContext.Session.Clear();
         HttpContext.Session.SetString(SessionKeys.Token, outcome.Token);
+        if (outcome.UserId != Guid.Empty)
+            HttpContext.Session.SetString(SessionKeys.UserId, outcome.UserId.ToString());
         HttpContext.Session.SetString(SessionKeys.Username, outcome.Username ?? Username.Trim());
         HttpContext.Session.SetString(SessionKeys.Role, outcome.Role ?? "");
+        if (outcome.CustomerId is { } customerId)
+            HttpContext.Session.SetString(SessionKeys.CustomerId, customerId.ToString());
+        if (!string.IsNullOrWhiteSpace(outcome.DisplayName))
+            HttpContext.Session.SetString(SessionKeys.DisplayName, outcome.DisplayName);
 
         return RedirectToPage("/Index");
     }

@@ -1,0 +1,102 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Reconciliation.ExceptionsModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Mutabakat İstisnaları";
+}
+
+<div class="d-flex justify-content-between align-items-end mb-3">
+    <div><h3 class="mb-1">Mutabakat İstisnaları</h3><div class="text-muted small">Kapatma operasyonel çözüm kaydıdır; bakiye/muhasebe düzeltmesi yapmaz.</div></div>
+    <form method="get" class="d-flex gap-2">
+        <select class="form-select" name="status" style="width:180px;">
+            <option value="">Tüm durumlar</option>
+            @foreach (var s in new[] { "Open", "InReview", "ResolutionProposed", "Closed", "Rejected" })
+            {
+                <option value="@s" selected="@(Model.Status == s)">@DashboardUi.Status(s)</option>
+            }
+        </select>
+        <button class="btn btn-outline-primary" type="submit">Filtrele</button>
+    </form>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Flash))
+{
+    <div class="alert alert-info">@Model.Flash</div>
+}
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header">İstisnalar</div>
+            <div class="list-group list-group-flush">
+                @if (Model.Items.Count == 0)
+                {
+                    <div class="empty-state">İstisna yok.</div>
+                }
+                @foreach (var e in Model.Items)
+                {
+                    <a class="list-group-item list-group-item-action @(Model.Selected?.Id == e.Id ? "active" : "")" href="?id=@e.Id">
+                        <div class="d-flex justify-content-between"><strong>@e.ExternalReference</strong><span class="@(Model.Selected?.Id == e.Id ? "" : DashboardUi.StatusBadgeClass(e.Status))">@DashboardUi.Status(e.Status)</span></div>
+                        <small>@e.BatchFileName · @DashboardUi.Date(e.UpdatedAt)</small>
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        @if (Model.Selected is { } x)
+        {
+            <div class="card">
+                <div class="card-header d-flex justify-content-between"><span>@x.ExternalReference</span><span class="@DashboardUi.StatusBadgeClass(x.Status)">@DashboardUi.Status(x.Status)</span></div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">Batch</dt><dd class="col-sm-8">@x.BatchFileName</dd>
+                        <dt class="col-sm-4">Açıklama</dt><dd class="col-sm-8">@x.Description</dd>
+                        <dt class="col-sm-4">Çözüm notu</dt><dd class="col-sm-8">@(x.ResolutionNote ?? "—")</dd>
+                        <dt class="col-sm-4">Öneren</dt><dd class="col-sm-8">@(x.ProposedByUsername ?? "—")</dd>
+                        <dt class="col-sm-4">İnceleyen</dt><dd class="col-sm-8">@(x.ReviewedByUsername ?? "—")</dd>
+                        <dt class="col-sm-4">Red gerekçesi</dt><dd class="col-sm-8">@(x.RejectionReason ?? "—")</dd>
+                    </dl>
+
+                    @if (x.Status == "Open")
+                    {
+                        <form method="post" asp-page-handler="Review"><input type="hidden" name="id" value="@x.Id" /><button class="btn btn-primary" type="submit">İncelemeye al</button></form>
+                    }
+                    else if (x.Status == "InReview")
+                    {
+                        <form method="post" asp-page-handler="Propose">
+                            <input type="hidden" name="id" value="@x.Id" />
+                            <label class="form-label">Çözüm gerekçesi</label>
+                            <textarea class="form-control" asp-for="ResolutionNote" rows="2" maxlength="1000"></textarea>
+                            <button class="btn btn-primary mt-2" type="submit">Çözüm öner</button>
+                        </form>
+                    }
+                    else if (x.Status == "ResolutionProposed")
+                    {
+                        <div class="alert alert-warning">Çözümü öneren kişi kendi çözümünü onaylayamaz. Farklı bir yetkili gerekir.</div>
+                        <form method="post" asp-page-handler="Approve" class="mb-2"><input type="hidden" name="id" value="@x.Id" /><button class="btn btn-success" type="submit">Onayla / Kapat</button></form>
+                        <form method="post" asp-page-handler="Reject">
+                            <input type="hidden" name="id" value="@x.Id" />
+                            <label class="form-label">Red gerekçesi</label>
+                            <input class="form-control" asp-for="RejectReason" maxlength="500" />
+                            <button class="btn btn-outline-danger mt-2" type="submit">Reddet</button>
+                        </form>
+                    }
+                    else if (x.Status is "Closed" or "Rejected")
+                    {
+                        <form method="post" asp-page-handler="Reopen"><input type="hidden" name="id" value="@x.Id" /><button class="btn btn-outline-primary" type="submit">Yeniden aç</button></form>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card"><div class="empty-state">Soldan bir istisna seçin.</div></div>
+        }
+    </div>
+</div>

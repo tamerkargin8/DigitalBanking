@@ -1,0 +1,126 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Approvals.DetailsModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Talep Detayı";
+    var p = Model.Payment;
+}
+
+@if (!string.IsNullOrEmpty(Model.Flash))
+{
+    <div class="alert alert-info">@Model.Flash</div>
+}
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+@if (p is null)
+{
+    <a class="btn btn-outline-secondary" href="/Admin/Approvals">Kuyruğa dön</a>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <div class="text-muted small">@p.Reference</div>
+            <h3 class="mb-1">@DashboardUi.Status(p.RequestType) talebi</h3>
+            <span class="@DashboardUi.StatusBadgeClass(p.Status)">@DashboardUi.Status(p.Status)</span>
+            <span class="@DashboardUi.RiskBadgeClass(p.RiskLevel)">@DashboardUi.Status(p.RiskLevel)</span>
+        </div>
+        <a class="btn btn-outline-secondary" href="/Admin/Approvals">Kuyruğa dön</a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header">Talep bilgileri</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Tür</dt><dd class="col-sm-8">@DashboardUi.Status(p.RequestType)</dd>
+                        <dt class="col-sm-4">Tutar</dt><dd class="col-sm-8">@DashboardUi.Money(p.Amount, p.Currency)</dd>
+                        <dt class="col-sm-4">Risk</dt><dd class="col-sm-8">@DashboardUi.Status(p.RiskLevel)</dd>
+                        <dt class="col-sm-4">Durum</dt><dd class="col-sm-8">@DashboardUi.Status(p.Status)</dd>
+                        <dt class="col-sm-4">Talep eden</dt><dd class="col-sm-8">@(p.RequestedByUserId == Model.CurrentUserId ? "Siz (self-approval engelli)" : p.RequestedByUserId.ToString())</dd>
+                        <dt class="col-sm-4">Oluşturulma</dt><dd class="col-sm-8">@DashboardUi.Date(p.CreatedAt)</dd>
+                        @if (p.ReviewedAt is not null)
+                        {
+                            <dt class="col-sm-4">İncelenme</dt><dd class="col-sm-8">@DashboardUi.Date(p.ReviewedAt.Value)</dd>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(p.RejectionReason))
+                        {
+                            <dt class="col-sm-4">Red gerekçesi</dt><dd class="col-sm-8">@p.RejectionReason</dd>
+                        }
+                        @if (p.RequestType == "AccountOpening")
+                        {
+                            <dt class="col-sm-4">Açılış bakiyesi</dt><dd class="col-sm-8">@DashboardUi.Money(p.RequestedInitialBalance ?? 0m, p.Currency)</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+
+            @if (p.Status == "Pending")
+            {
+                @if (p.RequestedByUserId == Model.CurrentUserId)
+                {
+                    <div class="alert alert-warning mt-3">Kendi oluşturduğunuz talebi onaylayamaz/reddedemezsiniz. Başka bir Owner veya DelegatedApprover gerekir.</div>
+                }
+                else
+                {
+                    <div class="card mt-3">
+                        <div class="card-header">Karar</div>
+                        <div class="card-body">
+                            <form method="post" asp-page-handler="Approve" class="mb-3">
+                                <input type="hidden" name="id" value="@p.Id" />
+                                <button class="btn btn-success" type="submit">Onayla</button>
+                                <span class="text-muted small ms-2">Onay anında bakiye/yetki yeniden kontrol edilir.</span>
+                            </form>
+                            <form method="post" asp-page-handler="Reject">
+                                <input type="hidden" name="id" value="@p.Id" />
+                                <label class="form-label">Red gerekçesi</label>
+                                <textarea class="form-control" asp-for="RejectionReason" rows="2" maxlength="500"></textarea>
+                                <button class="btn btn-outline-danger mt-2" type="submit">Reddet</button>
+                            </form>
+                        </div>
+                    </div>
+                }
+                @if (Model.CurrentRole == "Owner")
+                {
+                    <form method="post" asp-page-handler="Cancel" class="mt-2">
+                        <input type="hidden" name="id" value="@p.Id" />
+                        <button class="btn btn-sm btn-outline-secondary" type="submit">Talebi iptal et</button>
+                    </form>
+                }
+            }
+            else if (p.Status is "Approved" or "AutoApproved")
+            {
+                <a class="btn btn-outline-primary mt-3" href="/Admin/Approvals/Receipt?id=@p.Id">Demo dekontunu aç</a>
+            }
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header">Zaman çizelgesi (gerçek olaylar)</div>
+                <div class="card-body">
+                    @if (Model.Timeline is null || Model.Timeline.Events.Count == 0)
+                    {
+                        <div class="text-muted">Olay kaydı bulunamadı.</div>
+                    }
+                    else
+                    {
+                        <ul class="timeline">
+                            @foreach (var e in Model.Timeline.Events)
+                            {
+                                <li>
+                                    <div class="what">@DashboardUi.TimelineType(e.Type)</div>
+                                    <div class="when">@e.OccurredAtLocal.ToString("dd.MM.yyyy HH:mm") · @Model.Timeline.TimeZoneId</div>
+                                    <div class="small text-muted">@e.Description @(e.ActorUsername is null ? "" : $"· {e.ActorUsername} ({e.ActorRole})")</div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
