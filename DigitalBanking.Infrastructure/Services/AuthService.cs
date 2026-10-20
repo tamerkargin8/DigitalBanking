@@ -60,6 +60,12 @@ public class AuthService : IAuthService
             throw new BusinessRuleException("Invalid username or password.");
         }
 
+        if (_passwordHasher.NeedsRehash(user.PasswordHash))
+        {
+            user.PasswordHash = _passwordHasher.Hash(request.Password);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
         var token = _jwtTokenService.GenerateToken(user);
 
         await _auditService.LogAsync(

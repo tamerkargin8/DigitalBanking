@@ -9,16 +9,21 @@ public static class DatabaseSeeder
 {
     public static async Task SeedAsync(
         BankDbContext context,
-        PasswordHasher passwordHasher)
+        PasswordHasher passwordHasher,
+        string demoPassword)
     {
-        await context.Database.MigrateAsync();
+        if (context.Database.IsSqlite())
+            await context.Database.EnsureCreatedAsync();
+        else
+            await context.Database.MigrateAsync();
 
-        await SeedUsersAsync(context, passwordHasher);
+        await SeedUsersAsync(context, passwordHasher, demoPassword);
     }
 
     private static async Task SeedUsersAsync(
         BankDbContext context,
-        PasswordHasher passwordHasher)
+        PasswordHasher passwordHasher,
+        string demoPassword)
     {
         var adminExists = await context.Users
             .AnyAsync(x => x.Username == "admin");
@@ -29,7 +34,7 @@ public static class DatabaseSeeder
             {
                 Id = Guid.NewGuid(),
                 Username = "admin",
-                PasswordHash = passwordHasher.Hash("1234"),
+                PasswordHash = passwordHasher.Hash(demoPassword),
                 Role = UserRole.Admin,
                 CreatedDate = DateTime.UtcNow
             });
@@ -44,7 +49,7 @@ public static class DatabaseSeeder
             {
                 Id = Guid.NewGuid(),
                 Username = "tamer",
-                PasswordHash = passwordHasher.Hash("1234"),
+                PasswordHash = passwordHasher.Hash(demoPassword),
                 Role = UserRole.User,
                 CreatedDate = DateTime.UtcNow
             });

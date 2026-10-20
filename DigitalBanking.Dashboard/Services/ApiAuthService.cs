@@ -19,18 +19,23 @@ public class ApiAuthService
         if (string.IsNullOrWhiteSpace(baseUrl))
             throw new Exception("Api:BaseUrl missing in Dashboard appsettings.json");
 
-        var url = $"{baseUrl}/api/auth/login?username={Uri.EscapeDataString(username)}&password={Uri.EscapeDataString(password)}";
-
-        var resp = await _http.PostAsync(url, content: null);
+        var url = $"{baseUrl}/api/auth/login";
+        using var resp = await _http.PostAsJsonAsync(url, new { username, password });
 
         if (!resp.IsSuccessStatusCode)
         {
-            var body = await resp.Content.ReadAsStringAsync();
-            throw new Exception($"Login failed: {(int)resp.StatusCode} {resp.ReasonPhrase} | Body: {body}");
+            if (resp.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Unauthorized)
+                return null;
+            throw new HttpRequestException("Authentication service is unavailable.");
         }
 
-        var json = await resp.Content.ReadFromJsonAsync<LoginResponse>();
-        return json?.Token;
+        var json = await resp.Content.ReadFromJsonAsync<LoginEnvelope>();
+        return json?.Data?.Token;
+    }
+
+    private class LoginEnvelope
+    {
+        public LoginResponse? Data { get; set; }
     }
 
     private class LoginResponse

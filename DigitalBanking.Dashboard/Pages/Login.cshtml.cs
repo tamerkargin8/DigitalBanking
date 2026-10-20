@@ -29,7 +29,16 @@ public class LoginModel : PageModel
 
     public async Task<IActionResult> OnPostAsync()
     {
-        var token = await _auth.LoginAsync(Username, Password);
+        string? token;
+        try
+        {
+            token = await _auth.LoginAsync(Username, Password);
+        }
+        catch (HttpRequestException)
+        {
+            Error = "Giriş servisine ulaşılamıyor. Lütfen tekrar deneyin.";
+            return Page();
+        }
 
         if (string.IsNullOrEmpty(token))
         {

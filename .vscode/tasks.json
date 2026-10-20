@@ -1,0 +1,9 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {"label": "DigitalBanking: Build", "type": "process", "command": "bash", "args": ["scripts/dotnet.sh", "build", "DigitalBanking.slnx"], "group": {"kind": "build", "isDefault": true}, "problemMatcher": "$msCompile"},
+    {"label": "DigitalBanking: Run local", "type": "process", "command": "python3", "args": ["scripts/run_local.py"], "dependsOn": "DigitalBanking: Build", "problemMatcher": [], "presentation": {"reveal": "always", "panel": "dedicated"}},
+    {"label": "DigitalBanking: Smoke test", "type": "process", "command": "python3", "args": ["scripts/smoke_test.py"], "problemMatcher": []}
+    ,{"label": "DigitalBanking: Unit tests", "type": "process", "command": "bash", "args": ["scripts/dotnet.sh", "test", "DigitalBanking.slnx"], "group": "test", "problemMatcher": "$msCompile"}
+  ]
+}

@@ -43,10 +43,10 @@ public class TopAccountsModel : PageModel
             var http = _api.Create(token);
 
             // Swagger'da gördüğün endpoint:
-            var url = $"/api/Transactions/top-accounts?from={From}&to={To}&limit={Limit}";
+            var url = $"/api/Transactions/top-accounts?from={Uri.EscapeDataString(From)}&to={Uri.EscapeDataString(To)}&take={Math.Clamp(Limit, 1, 50)}";
 
-            var data = await http.GetFromJsonAsync<List<TopAccountItem>>(url);
-            Items = data ?? new List<TopAccountItem>();
+            var data = await http.GetFromJsonAsync<TopAccountsEnvelope>(url);
+            Items = data?.Data ?? new List<TopAccountItem>();
 
             // Eğer API NetFlow dönmüyorsa client-side hesapla
             foreach (var x in Items)
@@ -61,6 +61,11 @@ public class TopAccountsModel : PageModel
         }
 
         return Page();
+    }
+
+    public class TopAccountsEnvelope
+    {
+        public List<TopAccountItem>? Data { get; set; }
     }
 
     public class TopAccountItem

@@ -44,6 +44,10 @@ public class BankDbContext : DbContext
             .Property(a => a.RowVersion)
             .IsRowVersion();
 
+        if (Database.IsSqlite())
+            modelBuilder.Entity<Account>().Property(a => a.RowVersion)
+                .IsConcurrencyToken().ValueGeneratedNever();
+
         modelBuilder.Entity<Account>(entity =>
         {
             entity.Property(x => x.Balance)
@@ -86,5 +90,25 @@ public class BankDbContext : DbContext
                 .IsRequired();
         });
 
+    }
+
+    private void RefreshLocalConcurrencyTokens()
+    {
+        if (!Database.IsSqlite()) return;
+        foreach (var entry in ChangeTracker.Entries<Account>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified))
+            entry.Entity.RowVersion = Guid.NewGuid().ToByteArray();
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        RefreshLocalConcurrencyTokens();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        RefreshLocalConcurrencyTokens();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 }

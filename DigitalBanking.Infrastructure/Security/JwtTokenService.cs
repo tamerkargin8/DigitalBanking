@@ -18,9 +18,9 @@ public class JwtTokenService
 
     public string GenerateToken(User user)
     {
-        var jwtKey = _config["Jwt:Key"];
+        var jwtKey = _config["Jwt:SecretKey"];
         if (string.IsNullOrWhiteSpace(jwtKey))
-            throw new Exception("Jwt:Key missing in appsettings.json");
+            throw new InvalidOperationException("Jwt:SecretKey is not configured.");
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

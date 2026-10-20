@@ -36,6 +36,8 @@ try
 
     var jwtSettings = builder.Configuration.GetSection("Jwt");
     var secretKey = jwtSettings["SecretKey"];
+    if (string.IsNullOrWhiteSpace(secretKey) || Encoding.UTF8.GetByteCount(secretKey) < 32)
+        throw new InvalidOperationException("Configure Jwt:SecretKey with at least 32 bytes using environment variables or user secrets.");
 
     builder.Services.AddAuthentication(options =>
     {
@@ -60,8 +62,16 @@ try
 
     builder.Services.AddAuthorization();
 
+    var useSqlite = string.Equals(builder.Configuration["Database:Provider"], "Sqlite", StringComparison.OrdinalIgnoreCase);
+    if (useSqlite && !builder.Environment.IsDevelopment())
+        throw new InvalidOperationException("SQLite is supported only for local Development.");
+
     builder.Services.AddDbContext<BankDbContext>(options =>
-        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    {
+        var connection = builder.Configuration.GetConnectionString("DefaultConnection");
+        if (useSqlite) options.UseSqlite(connection);
+        else options.UseSqlServer(connection);
+    });
 
     builder.Services.AddInfrastructureServices();
 
@@ -125,19 +135,24 @@ try
         app.UseSwaggerUI();
     }
 
-    app.UseHttpsRedirection();
+    if (!useSqlite) app.UseHttpsRedirection();
 
     app.UseAuthentication();
     app.UseAuthorization();
 
     app.MapControllers();
+    if (app.Environment.IsDevelopment())
+        app.MapGet("/health", () => Results.Ok(new { status = "ok", database = useSqlite ? "Sqlite" : "SqlServer" }));
 
-    using (var scope = app.Services.CreateScope())
+    if (app.Environment.IsDevelopment())
     {
+        using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BankDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<PasswordHasher>();
 
-        await DatabaseSeeder.SeedAsync(db, hasher);
+        var demoPassword = builder.Configuration["Development:DemoPassword"]
+            ?? throw new InvalidOperationException("Configure Development:DemoPassword for local demo accounts.");
+        await DatabaseSeeder.SeedAsync(db, hasher, demoPassword);
     }
 
     app.Run();

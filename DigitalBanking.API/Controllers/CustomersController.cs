@@ -24,7 +24,6 @@ public class CustomersController : ControllerBase
 
     // GET: api/customers
     [HttpGet]
-    [HttpGet]
     public async Task<ActionResult<List<CustomerResponse>>> GetAll()
     {
         var customers = await _db.Customers

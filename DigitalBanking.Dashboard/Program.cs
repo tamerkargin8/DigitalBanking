@@ -11,6 +11,7 @@ builder.Services.AddScoped<ApiAuthService>();
 builder.Services.AddScoped<ApiClient>();
 
 // Session (JWT token saklamak için)
+builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromHours(2);
@@ -27,7 +28,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
