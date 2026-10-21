@@ -348,12 +348,16 @@ request("/api/me/accounts", token_override=customer_token)
 
 opening = request("/api/me/requests", {
     "requestType": "AccountOpening",
+    "accountType": "Checking",
+    "accountName": "Smoke Vadesiz Hesabı",
     "currency": "TRY",
     "amount": 0,
     "description": "Synthetic smoke account opening",
 }, expected=201, token_override=customer_token)["data"]
 check(opening["status"] == "Pending" and opening["requestType"] == "AccountOpening",
       "account opening was not left pending")
+check(opening["requestedAccountName"] == "Smoke Vadesiz Hesabı" and opening["requestedAccountType"] == "Checking",
+      "account opening metadata was not persisted")
 check(opening["createdAccountId"] is None, "account was created before approval")
 approve(opening["id"], token)
 opening_detail = request(f"/api/paymentapprovals/{opening['id']}")["data"]
@@ -362,9 +366,18 @@ check(opening_detail["status"] == "Approved" and opening_detail["createdAccountI
 new_account_id = opening_detail["createdAccountId"]
 
 accounts = request("/api/me/accounts", token_override=customer_token)["data"]
-check(any(a["id"] == new_account_id for a in accounts), "new account is not visible to its owner")
+new_account = next((a for a in accounts if a["id"] == new_account_id), None)
+check(new_account is not None and new_account["accountName"] == "Smoke Vadesiz Hesabı"
+      and new_account["accountType"] == "Checking",
+      "new account metadata is not visible to its owner")
 check(account_balance(new_account_id, customer_token) == Decimal("0.00"),
       "new account is not empty before deposit")
+
+renamed = request(f"/api/me/accounts/{new_account_id}/name", {"accountName": "  Smoke Birikim  "},
+                  method="PUT", token_override=customer_token)["data"]
+check(renamed["accountName"] == "Smoke Birikim", "account rename did not trim/persist")
+request(f"/api/me/accounts/{new_account_id}/name", {"accountName": "<script>x</script>"},
+        method="PUT", expected=400, token_override=customer_token)
 
 deposit = request("/api/me/requests", {
     "requestType": "Deposit",
@@ -392,6 +405,8 @@ check(account_balance(new_account_id, customer_token) == Decimal("299900.00"),
 
 # --- Ownership and IDOR ----------------------------------------------------
 seeded_a = login("customer.a", credentials["password"])
+request(f"/api/me/accounts/{new_account_id}/name", {"accountName": "IDOR"},
+        method="PUT", expected=404, token_override=seeded_a)
 customer_a_accounts = request("/api/me/accounts", token_override=seeded_a)["data"]
 seeded_a_try = next(a["id"] for a in customer_a_accounts if a["currency"] == "TRY")
 request(f"/api/me/accounts/{seeded_a_try}", expected=404, token_override=customer_token)
@@ -704,8 +719,9 @@ denied_approver = dashboard_page(approver_browser, "/Admin/Users/Index", expecte
 check(denied_approver != "", "delegated approver saw an empty page")
 
 customer_browser = dashboard_login(customer_name, customer_password, "/Customer/Home")
-for path in ["/Customer/Home", "/Customer/Accounts/Index", "/Customer/Transfer",
-             "/Customer/Requests", "/Customer/Payments/Index"]:
+dashboard_page(customer_browser, "/Index", expected_path="/Customer/Home")
+for path in ["/Customer/Home", "/Customer/Accounts/Index", "/Customer/Accounts?type=Checking",
+             "/Customer/Transfer", "/Customer/Requests", "/Customer/Payments/Index"]:
     dashboard_page(customer_browser, path)
 dashboard_page(customer_browser, "/Admin/Approvals/Index", expected_path="/Customer/Home")
 dashboard_page(owner_browser, "/Customer/Home", expected_path="/Admin/Overview")

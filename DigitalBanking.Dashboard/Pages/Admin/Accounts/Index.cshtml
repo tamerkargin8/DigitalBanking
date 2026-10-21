@@ -18,18 +18,26 @@
 <div class="card">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
-            <thead class="table-dark"><tr><th>Hesap</th><th>Para birimi</th><th class="text-end">Bakiye</th><th>Müşteri</th><th>Tarih</th><th></th></tr></thead>
+            <thead class="table-dark"><tr><th>Hesap</th><th>Tür</th><th>Para birimi</th><th class="text-end">Bakiye</th><th>Müşteri</th><th>Tarih</th><th></th></tr></thead>
             <tbody>
+            @if (Model.Items.Count == 0)
+            {
+                <tr><td colspan="7"><div class="empty-state">Hesap yok.</div></td></tr>
+            }
+            else
+            {
             @foreach (var a in Model.Items)
             {
                 <tr>
-                    <td style="font-family:monospace;">@DashboardUi.Account(a.AccountNumber)</td>
+                    <td><strong>@a.AccountName</strong><br /><small class="text-muted" style="font-family:monospace;">@DashboardUi.Account(a.AccountNumber)</small></td>
+                    <td>@DashboardUi.Status(a.AccountType)</td>
                     <td>@a.Currency</td>
                     <td class="text-end">@DashboardUi.Money(a.Balance, a.Currency)</td>
                     <td class="small">@a.CustomerId.ToString("N")[..8]</td>
                     <td>@DashboardUi.Date(a.CreatedDate)</td>
                     <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/Admin/Accounts/Details?id=@a.Id">Aç</a></td>
                 </tr>
+            }
             }
             </tbody>
         </table>

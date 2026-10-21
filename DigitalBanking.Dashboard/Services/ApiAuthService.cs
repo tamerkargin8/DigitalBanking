@@ -64,6 +64,9 @@ public class ApiAuthService
             if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
                 return LoginOutcome.Fail("Kullanıcı adı veya şifre hatalı.");
 
+            if (response.StatusCode == HttpStatusCode.Forbidden)
+                return LoginOutcome.Fail("Hesabınız henüz etkin değil veya devre dışı. Owner aktivasyonu gerekir.");
+
             if (!response.IsSuccessStatusCode)
                 return LoginOutcome.Fail("Giriş servisi şu anda yanıt vermiyor. Lütfen tekrar deneyin.");
 
@@ -184,7 +187,7 @@ public class ApiAuthService
         {
             using var document = JsonDocument.Parse(content);
             return document.RootElement.TryGetProperty("message", out var message)
-                ? message.GetString()
+                ? DashboardUi.SafeError(message.GetString())
                 : null;
         }
         catch (JsonException)

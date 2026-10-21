@@ -16,10 +16,10 @@ public static class ReportDateRange
             to = to.Date.AddDays(1).AddTicks(-1);
 
         if (to < from)
-            throw new BusinessRuleException("'to' date must be greater than or equal to 'from' date.");
+            throw new BusinessRuleException("Bitiş tarihi başlangıç tarihinden önce olamaz.");
 
         if (to - from > MaximumRange)
-            throw new BusinessRuleException("Date range cannot exceed 366 days.");
+            throw new BusinessRuleException("Tarih aralığı 366 günü aşamaz.");
 
         return (from, to);
     }

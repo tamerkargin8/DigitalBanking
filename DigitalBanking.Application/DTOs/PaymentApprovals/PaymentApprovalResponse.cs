@@ -11,6 +11,8 @@ public class PaymentApprovalResponse
     public Guid ToAccountId { get; set; }
     public Guid? RequestedCustomerId { get; set; }
     public decimal? RequestedInitialBalance { get; set; }
+    public string? RequestedAccountName { get; set; }
+    public string? RequestedAccountType { get; set; }
     public Guid? CreatedAccountId { get; set; }
 
     public decimal Amount { get; set; }

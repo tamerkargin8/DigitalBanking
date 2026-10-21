@@ -92,6 +92,8 @@ public class PaymentApprovalService : IPaymentApprovalService
             {
                 RequestType = request.RequestType,
                 AccountId = request.AccountId,
+                AccountName = request.AccountName,
+                AccountType = request.AccountType,
                 Currency = request.Currency,
                 Amount = request.Amount,
                 Description = request.Description
@@ -132,11 +134,15 @@ public class PaymentApprovalService : IPaymentApprovalService
         Account? account = null;
         Account? toAccount = null;
         string currency;
+        AccountType? requestedAccountType = null;
+        string? requestedAccountName = null;
 
         if (requestType == ApprovalRequestType.AccountOpening)
         {
             Money.EnsureNonNegative(request.Amount, "Açılış bakiyesi");
             currency = CurrencyCodes.Normalize(request.Currency);
+            requestedAccountType = AccountMetadata.ParseType(request.AccountType);
+            requestedAccountName = AccountMetadata.NormalizeName(request.AccountName, requestedAccountType.Value);
             if (customerIdForOpening is null
                 || !await _context.Customers.AnyAsync(x => x.Id == customerIdForOpening.Value, cancellationToken))
                 throw new NotFoundException("Customer", customerIdForOpening?.ToString() ?? string.Empty);
@@ -187,6 +193,8 @@ public class PaymentApprovalService : IPaymentApprovalService
                 : toAccount?.Id ?? account!.Id,
             RequestedCustomerId = customerIdForOpening,
             RequestedInitialBalance = requestType == ApprovalRequestType.AccountOpening ? request.Amount : null,
+            RequestedAccountName = requestedAccountName,
+            RequestedAccountType = requestedAccountType,
             Amount = request.Amount,
             Currency = currency,
             Description = description,
@@ -209,9 +217,9 @@ public class PaymentApprovalService : IPaymentApprovalService
             await _context.SaveChangesAsync(cancellationToken);
 
             AddTimeline(approval, PaymentTimelineEventType.Created, now, dbActor, false,
-                $"{RequestTypeLabel(requestType)} request created.");
+                $"{RequestTypeLabel(requestType)} talebi oluşturuldu.");
             AddTimeline(approval, PaymentTimelineEventType.Pending, now.AddTicks(1), dbActor, true,
-                "Awaiting Owner or delegated approver.");
+                "Owner veya yetkili onayı bekleniyor.");
 
             _auditService.Add("APPROVAL_REQUEST_CREATED", "PaymentApproval", approval.Id.ToString(), dbActor.Username, true,
                 $"Type: {requestType}, Amount: {approval.Amount}, Currency: {approval.Currency}, " +
@@ -396,6 +404,8 @@ public class PaymentApprovalService : IPaymentApprovalService
                         Id = Guid.NewGuid(),
                         AccountNumber = await GenerateUniqueAccountNumberAsync(cancellationToken),
                         CustomerId = customer.Id,
+                        AccountName = approval.RequestedAccountName ?? AccountMetadata.DefaultName(approval.RequestedAccountType ?? AccountType.Checking),
+                        AccountType = approval.RequestedAccountType ?? AccountType.Checking,
                         Currency = approval.Currency,
                         Balance = approval.RequestedInitialBalance ?? approval.Amount,
                         IsDemo = approval.IsDemo,
@@ -431,8 +441,8 @@ public class PaymentApprovalService : IPaymentApprovalService
             approval.RelatedTransactionId = relatedTransactionId;
             if (createdAccountId is not null) approval.CreatedAccountId = createdAccountId;
 
-            AddTimeline(approval, PaymentTimelineEventType.Approved, now, dbReviewer, false, "Approved by reviewer.");
-            AddTimeline(approval, PaymentTimelineEventType.Completed, now.AddTicks(1), dbReviewer, true, "Financial request applied.");
+            AddTimeline(approval, PaymentTimelineEventType.Approved, now, dbReviewer, false, "Yetkili tarafından onaylandı.");
+            AddTimeline(approval, PaymentTimelineEventType.Completed, now.AddTicks(1), dbReviewer, true, "Finansal talep uygulandı.");
             _auditService.Add("APPROVAL_REQUEST_APPROVED", "PaymentApproval", approval.Id.ToString(), dbReviewer.Username, true,
                 $"Type: {approval.RequestType}, Amount: {approval.Amount}, Currency: {approval.Currency}, " +
                 $"Reviewer: {dbReviewer.UserId}, Delegation: {permission.DelegationId?.ToString() ?? "owner"}");
@@ -479,7 +489,7 @@ public class PaymentApprovalService : IPaymentApprovalService
         approval.ReviewedByUserId = dbReviewer.UserId;
         approval.ReviewedAt = now;
         approval.RejectionReason = reason;
-        AddTimeline(approval, PaymentTimelineEventType.Rejected, now, dbReviewer, false, "Rejected by reviewer.");
+        AddTimeline(approval, PaymentTimelineEventType.Rejected, now, dbReviewer, false, "Yetkili tarafından reddedildi.");
         _auditService.Add("APPROVAL_REQUEST_REJECTED", "PaymentApproval", approval.Id.ToString(), dbReviewer.Username, true,
             $"Reason: {reason}");
         try
@@ -507,7 +517,7 @@ public class PaymentApprovalService : IPaymentApprovalService
         var now = DateTime.UtcNow;
         approval.Status = PaymentApprovalStatus.Cancelled;
         approval.ReviewedAt = now;
-        AddTimeline(approval, PaymentTimelineEventType.Cancelled, now, dbActor, false, "Request cancelled.");
+        AddTimeline(approval, PaymentTimelineEventType.Cancelled, now, dbActor, false, "Talep iptal edildi.");
         _auditService.Add("APPROVAL_REQUEST_CANCELLED", "PaymentApproval", approval.Id.ToString(), dbActor.Username, true,
             "Pending request cancelled; no balance changed.");
         try
@@ -616,9 +626,9 @@ public class PaymentApprovalService : IPaymentApprovalService
     private static string RequestTypeLabel(ApprovalRequestType type) => type switch
     {
         ApprovalRequestType.Transfer => "Transfer",
-        ApprovalRequestType.Deposit => "Deposit",
-        ApprovalRequestType.Withdrawal => "Withdrawal",
-        ApprovalRequestType.AccountOpening => "Account opening",
+        ApprovalRequestType.Deposit => "Yatırma",
+        ApprovalRequestType.Withdrawal => "Çekme",
+        ApprovalRequestType.AccountOpening => "Hesap açılışı",
         _ => type.ToString()
     };
 

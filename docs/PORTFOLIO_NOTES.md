@@ -13,7 +13,7 @@ made.
 > goes to the Owner), owner self-approval blocking, live DB-backed revocation,
 > reserve-aware balances, idempotent posting, customer ownership/IDOR protection,
 > real payment timelines and receipts, and day-end reconciliation with a
-> maker-checker exception workflow. It includes 147 xUnit tests, 272 end-to-end
+> maker-checker exception workflow. It includes 150 xUnit tests, 280 end-to-end
 > smoke checks, SQL Server migrations documented but not applied, and a clear
 > "demo, not production" boundary.
 
@@ -42,7 +42,7 @@ made.
    Open→InReview→ResolutionProposed→Closed/Rejected exception workflow that never
    adjusts balances.
 
-4. **Produced verifiable engineering evidence.** 147 xUnit tests + 272 end-to-end
+4. **Produced verifiable engineering evidence.** 150 xUnit tests + 280 end-to-end
    smoke checks passing locally, 0 build warnings/errors, NuGet audit clean,
    documented SQL Server migrations and an honest limitations/UAT report. Kept
    SQLite as a disposable Development playground rather than claiming SQL Server
@@ -61,7 +61,7 @@ made.
   tekrar, `RowVersion` çift onay koruması; CSV önizleme/import, SHA-256 mükerrer
   kontrolü, eşleşme sınıfları, formül-safe export ve bakiye düzeltmeyen istisna
   akışı.
-- **Kanıt:** 147 xUnit, 272 smoke, 0 uyarı/0 hata; SQL Server migration'ları
+- **Kanıt:** 150 xUnit, 280 smoke, 0 uyarı/0 hata; SQL Server migration'ları
   belgelendi ancak uygulanmadı. SQLite sonucu SQL Server kanıtı değildir.
 
 ## What not to claim

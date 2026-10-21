@@ -55,7 +55,7 @@ internal static class LedgerOperations
         Money.EnsurePositive(amount);
 
         if (account.Balance < amount)
-            throw new BusinessRuleException("Insufficient balance.");
+            throw new BusinessRuleException("Yetersiz bakiye.");
 
         account.Balance -= amount;
         var transaction = new Transaction
@@ -87,13 +87,13 @@ internal static class LedgerOperations
         Money.EnsurePositive(amount);
 
         if (fromAccount.Id == toAccount.Id)
-            throw new BusinessRuleException("Source and destination accounts cannot be the same.");
+            throw new BusinessRuleException("Kaynak ve hedef hesap aynı olamaz.");
 
         if (!string.Equals(fromAccount.Currency, toAccount.Currency, StringComparison.OrdinalIgnoreCase))
-            throw new BusinessRuleException("Source and destination accounts must use the same currency.");
+            throw new BusinessRuleException("Kaynak ve hedef hesap aynı para biriminde olmalıdır.");
 
         if (fromAccount.Balance < amount)
-            throw new BusinessRuleException("Insufficient balance in source account.");
+            throw new BusinessRuleException("Kaynak hesapta yetersiz bakiye.");
 
         fromAccount.Balance -= amount;
         toAccount.Balance += amount;

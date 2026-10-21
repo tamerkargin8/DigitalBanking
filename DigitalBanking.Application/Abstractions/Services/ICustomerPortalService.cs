@@ -16,6 +16,7 @@ public interface ICustomerPortalService
     Task<CustomerProfileDto> GetProfileAsync(ActorContext actor, CancellationToken cancellationToken = default);
     Task<List<AccountDto>> GetAccountsAsync(ActorContext actor, CancellationToken cancellationToken = default);
     Task<AccountDetailDto> GetAccountAsync(Guid accountId, ActorContext actor, CancellationToken cancellationToken = default);
+    Task<AccountDetailDto> RenameAccountAsync(Guid accountId, string accountName, ActorContext actor, CancellationToken cancellationToken = default);
     Task<TransactionHistoryDto> GetTransactionsAsync(Guid accountId, int page, int pageSize, ActorContext actor, CancellationToken cancellationToken = default);
     Task<List<BeneficiaryDto>> GetBeneficiariesAsync(ActorContext actor, CancellationToken cancellationToken = default);
     Task<List<PaymentApprovalResponse>> GetPaymentsAsync(ActorContext actor, CancellationToken cancellationToken = default);

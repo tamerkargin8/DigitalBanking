@@ -1,0 +1,39 @@
+Synthetic new-member + local lifecycle evidence — 2026-10-21
+Branch: dsh/dsh-mvh4pdzy-u7y7j4
+Environment: own worktree, loopback 5180/5181, disposable SQLite Development DB
+No real user, password, UAT DB or UAT .local was read or modified.
+
+1) New member flow (final source)
+- public register -> PendingActivation
+- Owner activation through API/service
+- dashboard login -> /Customer/Home (via /Index)
+- /Index -> /Customer/Home
+- no-account customer page contains "Henüz hesabınız yok"
+- first account request: AccountOpening / Checking / "Final Vadesiz" / TRY -> HTTP 201 Pending
+- separate browser cookie jar login also lands on /Customer/Home
+- same-browser Owner login -> logout -> new-member login was exercised; no session carry-over observed.
+
+2) UAT symptom observed by GPT (provided user report)
+- UAT server.log: last login had 400 Invalid username or password, followed by
+  "Application shutting down" for both apps at 02:05:24.
+- This is consistent with the apps being down, not with an activation/JWT decision:
+  after GPT restarted 5480/5481, Login returned 200.
+- We did not read or change the real UAT account/password.
+
+3) Root cause found in this worktree's launcher
+- scripts/run_local.py installs SIGTERM/SIGINT handlers and calls terminate() on
+  both child applications; finally it stops both. A harness/terminal that sends
+  SIGTERM when its shell/job ends therefore shuts the demo down (observed
+  "Application shutting down"), even though the web apps had been healthy.
+- The launcher is intentionally foreground and not a service supervisor.
+
+4) Safe local fix
+- Added scripts/start_local_detached.py: starts the same runner with
+  start_new_session=True, redirects stdin/stdout/stderr to .local logs, writes a
+  PID file, waits for /health, and returns. It is a local synthetic utility and
+  does not target UAT.
+- Tested in this worktree: process remained alive after the invoking command
+  returned; a separate check returned API {"status":"ok"}, dashboard 200, and
+  pgrep still showed the runner/children. The service was left running.
+- UAT must not be stopped by this test; GPT/user should restart the UAT service
+  with an equivalent detached/supervised process, preserving UAT .local.

@@ -148,7 +148,7 @@ public class TransactionService : ITransactionService
                 $"Direct transfers of {_directTransferLimit:N2} or more must use the payment approval (maker-checker) flow.");
 
         if (request.FromAccountId == request.ToAccountId)
-            throw new BusinessRuleException("Source and destination accounts cannot be the same.");
+            throw new BusinessRuleException("Kaynak ve hedef hesap aynı olamaz.");
 
         await using var dbTransaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         try

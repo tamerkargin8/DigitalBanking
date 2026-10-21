@@ -57,7 +57,7 @@ public class AccountServiceTests
         var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
             service.OpenAccountAsync(new CreateAccountRequest { CustomerId = customer.Id }, Customer));
 
-        Assert.Contains("Admin", exception.Message);
+        Assert.Contains("Owner", exception.Message);
         Assert.Equal(0, await context.Accounts.CountAsync());
     }
 

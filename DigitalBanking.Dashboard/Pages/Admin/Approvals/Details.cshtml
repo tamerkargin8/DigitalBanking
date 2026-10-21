@@ -41,7 +41,7 @@ else
                         <dt class="col-sm-4">Tutar</dt><dd class="col-sm-8">@DashboardUi.Money(p.Amount, p.Currency)</dd>
                         <dt class="col-sm-4">Risk</dt><dd class="col-sm-8">@DashboardUi.Status(p.RiskLevel)</dd>
                         <dt class="col-sm-4">Durum</dt><dd class="col-sm-8">@DashboardUi.Status(p.Status)</dd>
-                        <dt class="col-sm-4">Talep eden</dt><dd class="col-sm-8">@(p.RequestedByUserId == Model.CurrentUserId ? "Siz (self-approval engelli)" : p.RequestedByUserId.ToString())</dd>
+                        <dt class="col-sm-4">Talep eden</dt><dd class="col-sm-8">@(p.RequestedByUserId == Model.CurrentUserId ? "Siz (self-approval engelli)" : p.RequestedByUserId.ToString("N")[..8])</dd>
                         <dt class="col-sm-4">Oluşturulma</dt><dd class="col-sm-8">@DashboardUi.Date(p.CreatedAt)</dd>
                         @if (p.ReviewedAt is not null)
                         {
@@ -53,6 +53,7 @@ else
                         }
                         @if (p.RequestType == "AccountOpening")
                         {
+                            <dt class="col-sm-4">Hesap adı / türü</dt><dd class="col-sm-8">@(p.RequestedAccountName ?? "—") · @DashboardUi.Status(p.RequestedAccountType)</dd>
                             <dt class="col-sm-4">Açılış bakiyesi</dt><dd class="col-sm-8">@DashboardUi.Money(p.RequestedInitialBalance ?? 0m, p.Currency)</dd>
                         }
                     </dl>
@@ -77,7 +78,7 @@ else
                             </form>
                             <form method="post" asp-page-handler="Reject">
                                 <input type="hidden" name="id" value="@p.Id" />
-                                <label class="form-label">Red gerekçesi</label>
+                                <label class="form-label" for="RejectionReason">Red gerekçesi</label>
                                 <textarea class="form-control" asp-for="RejectionReason" rows="2" maxlength="500"></textarea>
                                 <button class="btn btn-outline-danger mt-2" type="submit">Reddet</button>
                             </form>
@@ -114,7 +115,7 @@ else
                                 <li>
                                     <div class="what">@DashboardUi.TimelineType(e.Type)</div>
                                     <div class="when">@e.OccurredAtLocal.ToString("dd.MM.yyyy HH:mm") · @Model.Timeline.TimeZoneId</div>
-                                    <div class="small text-muted">@e.Description @(e.ActorUsername is null ? "" : $"· {e.ActorUsername} ({e.ActorRole})")</div>
+                                    <div class="small text-muted">@DashboardUi.TimelineDescription(e.Description) @(e.ActorUsername is null ? "" : $"· {e.ActorUsername} ({DashboardUi.Status(e.ActorRole)})")</div>
                                 </li>
                             }
                         </ul>

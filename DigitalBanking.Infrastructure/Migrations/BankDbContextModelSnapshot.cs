@@ -28,9 +28,20 @@ namespace DigitalBanking.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasDefaultValue("Vadesiz Hesap");
+
                     b.Property<string>("AccountNumber")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("AccountType")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.Property<decimal>("Balance")
                         .HasPrecision(18, 2)
@@ -310,6 +321,13 @@ namespace DigitalBanking.Infrastructure.Migrations
 
                     b.Property<decimal?>("RequestedInitialBalance")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RequestedAccountName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("RequestedAccountType")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("ReviewedAt")
                         .HasColumnType("datetime2");

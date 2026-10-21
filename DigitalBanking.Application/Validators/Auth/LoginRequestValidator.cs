@@ -9,10 +9,10 @@ public class LoginRequestValidator : AbstractValidator<LoginRequest>
     {
         RuleFor(x => x.Username)
             .NotEmpty()
-            .WithMessage("Username is required.");
+            .WithMessage("Kullanıcı adı zorunludur.");
 
         RuleFor(x => x.Password)
             .NotEmpty()
-            .WithMessage("Password is required.");
+            .WithMessage("Şifre zorunludur.");
     }
 }

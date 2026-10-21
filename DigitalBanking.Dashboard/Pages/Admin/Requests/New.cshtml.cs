@@ -25,6 +25,8 @@ public class NewModel : SecurePageModel
     [BindProperty] public Guid? CustomerId { get; set; }
     [BindProperty] public Guid? AccountId { get; set; }
     [BindProperty] public Guid? ToAccountId { get; set; }
+    [BindProperty] public string AccountName { get; set; } = "";
+    [BindProperty] public string AccountType { get; set; } = "Checking";
     [BindProperty] public string Currency { get; set; } = "TRY";
     [BindProperty] public decimal Amount { get; set; }
     [BindProperty] public string? Description { get; set; }
@@ -50,6 +52,8 @@ public class NewModel : SecurePageModel
             customerId = RequestType == "AccountOpening" ? CustomerId : null,
             accountId = AccountId,
             toAccountId = RequestType == "Transfer" ? ToAccountId : null,
+            accountName = RequestType == "AccountOpening" ? AccountName : null,
+            accountType = RequestType == "AccountOpening" ? AccountType : null,
             currency = RequestType == "AccountOpening" ? Currency : null,
             amount = Amount,
             description = Description

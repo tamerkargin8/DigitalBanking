@@ -83,6 +83,8 @@
 
 | ID | Adım | Beklenen | Sonuç |
 |---|---|---|---|
+| C0 | Yeni aktive olmuş, hesabı olmayan müşteri ana sayfa | “Henüz hesabınız yok” ve hesap açılışı CTA’sı; Transfer sayfası hesap açılışına yönlendirir | ☐ |
+| C0b | İlk hesap açılışı talebi | Tür/ad/para birimi girilir; talep Pending; Owner onayı sonrası hesap listelenir | ☐ |
 | C1 | Müşteri A ana sayfa | TRY/USD/EUR kartları **ayrı**; kurla toplanmamış; yükleniyor/boş durum | ☐ |
 | C2 | A'nın hesap detayı ve hareketleri | Yalnız A hesapları; tarih/tür/tutar/son bakiye; sayfalama | ☐ |
 | C3 | URL'de B'nin hesap id'sini dene | `404`; B'nin bakiyesi/hareketi yok | ☐ |
@@ -95,6 +97,10 @@
 | C10 | Müşteri kendi talebini iptal etsin | `Cancelled`; rezervasyon serbest; bakiye değişmez | ☐ |
 | C11 | Müşteri deposit/withdraw/account opening talebi | Hepsi Pending; oluşturmada bakiye değişmez; onay sonrası uygulanır | ☐ |
 | C12 | Doğrudan `/api/accounts/transfer` vb. denemesi | `400` / yetki; onay akışı atlanamaz | ☐ |
+| C13 | Hesaplarım sekmeleri: Tümü/Vadesiz/Vadeli/Yatırım | Her sekmede sayaç, boş durum ve görünür **Hesap Aç**; hesap kartında ad/tür/para birimi/bakiye/maskeli no | ☐ |
+| C14 | Vadeli ve Yatırım hesabı aç; ad ver; Owner onayla | Hesap türü/adı kalıcı; kart ve detayda görünür; faiz/alım-satım hesabı yapılmaz | ☐ |
+| C15 | Hesap adını müşteri olarak düzenle | Ad güncellenir; boşluk kırpılır; 100 karakter/HTML reddi; başka müşteri IDOR → 404 | ☐ |
+| C16 | Hesap detayından Para Yatır ve Para Çek | Tutar/açıklama özeti; talep Pending; bakiye onayda değişir; yetersiz bakiye 400; red/iptal bakiyeyi değiştirmez | ☐ |
 
 ---
 
@@ -127,7 +133,7 @@
 | E6 | Customer menüsü | Hesap/transfer/talepler; admin yok | ☐ |
 | E7 | Çıkış ve korumalı URL | Login'e dönüş; oturum temiz | ☐ |
 | E8 | API'yi durdurup işlem yap | Güvenli "API'ye ulaşılamıyor"; stack trace/token yok | ☐ |
-| E9 | Mobil genişlik + klavye + %200 zoom | Tek kolon, görünür focus, okunaklı; tüm aksiyonlar Tab ile | ☐ |
+| E9 | Mobil genişlik + klavye + %200 zoom | Tek kolon; tablolar kart içinde yatay kayar; görünür focus; tüm aksiyonlar Tab ile | ☐ |
 | E10 | Ekran görüntüsü alınacaksa | Gerçek ekran, sentetik veri, şifre/token yok | ☐ |
 
 ---

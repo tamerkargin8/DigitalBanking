@@ -15,6 +15,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--service", choices=["api", "dashboard", "both"], default="both")
 parser.add_argument("--api-port", type=int, default=5080)
 parser.add_argument("--dashboard-port", type=int, default=5081)
+parser.add_argument("--database", default=None,
+                    help="Optional SQLite file (default: .local/digitalbanking.db). Useful for an isolated disposable smoke DB.")
 args = parser.parse_args()
 local = ROOT / ".local"
 local.mkdir(mode=0o700, exist_ok=True)
@@ -30,7 +32,7 @@ else:
 settings = json.loads(credentials.read_text())
 env = os.environ.copy()
 env.update({"ASPNETCORE_ENVIRONMENT": "Development", "Database__Provider": "Sqlite",
-            "ConnectionStrings__DefaultConnection": f"Data Source={local / 'digitalbanking.db'}",
+            "ConnectionStrings__DefaultConnection": f"Data Source={Path(args.database) if args.database else local / 'digitalbanking.db'}",
             "Jwt__SecretKey": settings["jwt_secret"],
             "Development__DemoPassword": settings["password"],
             "Api__BaseUrl": f"http://127.0.0.1:{args.api_port}"})

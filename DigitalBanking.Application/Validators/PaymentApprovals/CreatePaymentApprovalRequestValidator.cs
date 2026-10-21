@@ -10,24 +10,24 @@ public class CreatePaymentApprovalRequestValidator
     {
         RuleFor(x => x.FromAccountId)
             .NotEmpty()
-            .WithMessage("Sender account id is required.");
+            .WithMessage("Gönderen hesap zorunludur.");
 
         RuleFor(x => x.ToAccountId)
             .NotEmpty()
-            .WithMessage("Receiver account id is required.");
+            .WithMessage("Alıcı hesap zorunludur.");
 
         RuleFor(x => x.ToAccountId)
             .NotEqual(x => x.FromAccountId)
-            .WithMessage("Sender and receiver accounts cannot be the same.");
+            .WithMessage("Gönderen ve alıcı hesap aynı olamaz.");
 
         RuleFor(x => x.Amount)
             .GreaterThan(0)
-            .WithMessage("Amount must be greater than zero.")
+            .WithMessage("Tutar sıfırdan büyük olmalıdır.")
             .Must(amount => decimal.Round(amount, 2) == amount)
-            .WithMessage("Amount cannot have more than 2 decimal places.");
+            .WithMessage("Tutar en fazla 2 ondalık basamak içerebilir.");
 
         RuleFor(x => x.Description)
             .MaximumLength(250)
-            .WithMessage("Description cannot exceed 250 characters.");
+            .WithMessage("Açıklama 250 karakteri aşamaz.");
     }
 }

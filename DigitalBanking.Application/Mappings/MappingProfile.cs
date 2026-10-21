@@ -16,7 +16,8 @@ public class MappingProfile : Profile
         CreateMap<Customer, CustomerResponse>();
         CreateMap<CreateCustomerRequest, Customer>();
 
-        CreateMap<Account, AccountDto>();
+        CreateMap<Account, AccountDto>()
+            .ForMember(dest => dest.AccountType, opt => opt.MapFrom(src => src.AccountType.ToString()));
 
         CreateMap<Transaction, TransactionDto>();
 
@@ -26,6 +27,8 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Reference, opt => opt.MapFrom(src => Masking.PaymentReference(src.Id, src.CorrelationId)))
             .ForMember(dest => dest.RequestType, opt => opt.MapFrom(src => src.RequestType.ToString()))
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
-            .ForMember(dest => dest.RiskLevel, opt => opt.MapFrom(src => src.RiskLevel.ToString()));
+            .ForMember(dest => dest.RiskLevel, opt => opt.MapFrom(src => src.RiskLevel.ToString()))
+            .ForMember(dest => dest.RequestedAccountType, opt => opt.MapFrom(src =>
+                src.RequestedAccountType.HasValue ? src.RequestedAccountType.Value.ToString() : null));
     }
 }

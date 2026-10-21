@@ -14,11 +14,14 @@ else if (Model.Account is not null)
     <div class="d-flex justify-content-between align-items-start mb-3">
         <div>
             <div class="text-muted small">@DashboardUi.Account(Model.Account.AccountNumber)</div>
-            <h3 class="mb-1">@DashboardUi.Money(Model.Account.Balance, Model.Account.Currency)</h3>
-            <div class="text-muted">@Model.Account.CustomerName · @Model.Account.Currency</div>
+            <h3 class="mb-1">@Model.Account.AccountName</h3>
+            <div class="text-muted">@DashboardUi.Status(Model.Account.AccountType) · @Model.Account.CustomerName · @Model.Account.Currency</div>
+            <div class="h4 mt-2">@DashboardUi.Money(Model.Account.Balance, Model.Account.Currency)</div>
         </div>
-        <a class="btn btn-outline-primary" href="/Admin/Requests/New?type=Deposit&accountId=@Model.Account.Id">Yatırma talebi</a>
-        <a class="btn btn-outline-primary" href="/Admin/Requests/New?type=Withdrawal&accountId=@Model.Account.Id">Çekme talebi</a>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-primary" href="/Admin/Requests/New?type=Deposit&accountId=@Model.Account.Id">Yatırma talebi</a>
+            <a class="btn btn-outline-primary" href="/Admin/Requests/New?type=Withdrawal&accountId=@Model.Account.Id">Çekme talebi</a>
+        </div>
     </div>
 
     <div class="card">
@@ -27,7 +30,13 @@ else if (Model.Account is not null)
             <table class="table mb-0">
                 <thead class="table-dark"><tr><th>Tarih</th><th>Tür</th><th class="text-end">Tutar</th><th class="text-end">Bakiye</th><th>Açıklama</th></tr></thead>
                 <tbody>
-                @foreach (var t in Model.History?.Transactions ?? new())
+                @if (Model.History is null || Model.History.Transactions.Count == 0)
+                {
+                    <tr><td colspan="5"><div class="empty-state">Hareket yok.</div></td></tr>
+                }
+                else
+                {
+                @foreach (var t in Model.History.Transactions)
                 {
                     <tr>
                         <td>@DashboardUi.Date(t.CreatedDate)</td>
@@ -36,6 +45,7 @@ else if (Model.Account is not null)
                         <td class="text-end">@DashboardUi.Money(t.BalanceAfter, Model.Account.Currency)</td>
                         <td>@t.Description</td>
                     </tr>
+                }
                 }
                 </tbody>
             </table>

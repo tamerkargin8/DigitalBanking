@@ -22,6 +22,12 @@
         <table class="table table-hover mb-0">
             <thead class="table-dark"><tr><th>Referans</th><th>Tür</th><th class="text-end">Tutar</th><th>Risk</th><th>Durum</th><th>Tarih</th><th></th></tr></thead>
             <tbody>
+            @if (Model.Items.Count == 0)
+            {
+                <tr><td colspan="7"><div class="empty-state">Henüz ödeme veya talep yok. Transfer ya da hesap açılışı talebi oluşturarak başlayın.</div></td></tr>
+            }
+            else
+            {
             @foreach (var p in Model.Items)
             {
                 <tr>
@@ -33,6 +39,7 @@
                     <td>@DashboardUi.Date(p.CreatedAt)</td>
                     <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/Customer/Payments/Details?id=@p.Id">Aç</a></td>
                 </tr>
+            }
             }
             </tbody>
         </table>

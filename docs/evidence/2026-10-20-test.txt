@@ -1,12 +1,12 @@
-DigitalBanking test evidence — final source 2026-10-20/21
+DigitalBanking test evidence — final account/UI source 2026-10-20/21
 Branch: dsh/dsh-mvh4pdzy-u7y7j4
-Commit: 7340a1c + uncommitted final source changes
+Commit: 35f247e + uncommitted account/UI changes
 Environment: macOS ARM64, .NET SDK 10.0.402, EF Core 10.0.3
 Database: SQLite in-memory / disposable Development; NOT SQL Server
 Command: DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh test DigitalBanking.slnx -p:UseSharedCompilation=false -m:1 -nr:false --no-build
-New coverage: concurrent Owner setup, Setup page completed GET/POST, Turkish 429, approval-time ownership revalidation, approve/reject race.
+Coverage: setup concurrency/429, new-member activation/login, owner/delegated/customer, account types/name/rename/XSS/IDOR, first account, deposit/withdraw, ownership, idempotency, rollback.
 
 Test run for /Users/tamerkargin/Documents/Codex/2026-10-20/gpt-imdi-x20/outputs/DigitalBanking-DeepSeek/.dsh-worktrees/dsh-mvh4pdzy-u7y7j4/DigitalBanking.Tests/bin/Debug/net10.0/DigitalBanking.Tests.dll (.NETCoreApp,Version=v10.0)
 A total of 1 test files matched the specified pattern.
 
-Passed!  - Failed:     0, Passed:   147, Skipped:     0, Total:   147, Duration: 2 s - DigitalBanking.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   150, Skipped:     0, Total:   150, Duration: 2 s - DigitalBanking.Tests.dll (net10.0)

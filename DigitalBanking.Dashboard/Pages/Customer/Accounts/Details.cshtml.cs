@@ -17,9 +17,11 @@ public class DetailsModel : SecurePageModel
     public AccountDetailDto? Account { get; set; }
     public TransactionHistoryDto? History { get; set; }
     public string? Error { get; set; }
+    public string? Flash { get; set; }
 
-    public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(Guid id, string? flash = null, CancellationToken cancellationToken = default)
     {
+        Flash = flash;
         var customer = RequireCustomer();
         if (customer is not null) return customer;
 
@@ -31,5 +33,18 @@ public class DetailsModel : SecurePageModel
         var history = await _api.GetAsync<TransactionHistoryDto>(Token!, $"/api/me/accounts/{id}/transactions?pageSize=20", cancellationToken);
         if (history.Success) History = history.Data;
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostRenameAsync(Guid id, string accountName, CancellationToken cancellationToken)
+    {
+        var customer = RequireCustomer();
+        if (customer is not null) return customer;
+        if (string.IsNullOrWhiteSpace(accountName))
+            return RedirectToPage(new { id, flash = "Hesap adı boş olamaz." });
+
+        var result = await _api.PutAsync<AccountDetailDto>(
+            Token!, $"/api/me/accounts/{id}/name", new { accountName }, NewIdempotencyKey(), cancellationToken);
+        if (result.Unauthorized) return SessionExpired();
+        return RedirectToPage(new { id, flash = result.Success ? "Hesap adı güncellendi." : result.Error });
     }
 }

@@ -22,12 +22,15 @@ sınırları kaydeder. Eski auto-approval/iki-rol anlatıları tarihseldir.
 | 13 | Son Owner/rol yükseltme koruması yoktu | Owner disable/demote/atama engeli; setup tek seferlik; legacy roller geçersiz | Çözüldü |
 | 14 | Doğrudan transfer/deposit onay akışını atlayabiliyordu | Doğrudan uçlar `400`; tüm hareketler approval request | Çözüldü |
 | 15 | Dashboard eski API/rollere göreydi | Setup/Login/Register; Owner, delegated ve customer sayfaları; guard'lar; Türkçe UI; invariant decimal binding | Çözüldü |
-| 16 | Smoke eski auto-approval modelini test ediyordu | 272 kontrollük yeni akış: Owner setup, üyelik, limit sınırı, revocation, stale JWT, mutabakat, demo, dashboard | Çözüldü |
+| 16 | Smoke eski auto-approval modelini test ediyordu | 280 kontrollük yeni akış: Owner setup, üyelik, limit sınırı, revocation, stale JWT, mutabakat, demo, dashboard | Çözüldü |
 | 17 | Eşzamanlı iki `/api/setup/owner` iki Owner oluşturabiliyordu | DB filtered unique index (`Role=3`), transaction, duplicate-key'i `409`'a eşleme; iki gerçek context ile regression testi | Çözüldü |
 | 18 | Setup sayfası Owner oluştuktan sonra açık kalıyor; setup 429 İngilizce login mesajı veriyordu | GET/POST setup durumunu yeniden kontrol ediyor, stale POST login bildirimine gidiyor; setup ayrı rate-limit partition'ı, Türkçe 429 + `Retry-After` | Çözüldü |
 | 19 | Onay anında müşteri–hesap sahipliği yeniden doğrulanmıyordu | Onay öncesi `Customer.UserId` ve kaynak hesabın `CustomerId` kontrolü; uyuşmazlıkta `400`, para hareketi yok | Çözüldü |
 | 20 | Talep oluşturma iki ayrı `SaveChanges` ile audit/timeline’dan kopabiliyordu; reject/cancel yarışı 500 üretebiliyordu | Oluşturma tek transaction; reject/cancel `DbUpdateConcurrencyException` → `409` | Çözüldü |
 | 21 | Demo seed/reset eski Owner JWT’siyle çağrılabiliyordu | Service, aktörün güncel DB rolünü/durumunu doğruluyor | Çözüldü |
+| 22 | Yeni üye login “sistem atıyor” görünüyordu; UAT logunda uygulamalar kapanmıştı | Yeni üye akışı sentetik olarak yeniden üretildi; hata auth değil, foreground launcher’ın SIGTERM’de çocukları kapatması. `start_local_detached.py` eklendi; UAT’e dokunulmadı | Kök neden + güvenli launcher |
+| 23 | Hesap türü/adı yoktu; Hesaplarım tek düz listeydi | `AccountType`, `AccountName`, DTO/API/DB/onay response ve dashboard; Vadesiz/Vadeli/Yatırım sekmeleri, kart/detay | Çözüldü |
+| 24 | İlk hesap açılışı mevcut hesap seçimine bağlı görünüyordu; ad düzenleme yoktu | Hesapsız müşteri CTA + AccountOpening formu; ad/tür; sahip-only rename (XSS/IDOR), deposit/withdraw talepleri | Çözüldü |
 
 ## Bilinçli sınırlar
 
@@ -44,7 +47,7 @@ sınırları kaydeder. Eski auto-approval/iki-rol anlatıları tarihseldir.
   audit retention/immutability, sızma/yük/erişilebilirlik denetimi, uyumluluk
   sertifikası yok.
 - **Manuel UAT yapılmadı.** Checklist kullanıcı içindir.
-- **Screenshot:** gerçek dashboard'dan 7 ekran alındı; sahte görsel üretilmedi.
+- **Screenshot:** gerçek dashboard'dan 13 ekran alındı; sahte görsel üretilmedi.
   Yine de manuel UAT ve güncel UI kontrolü gerekir.
 - **VS Code GUI doğrulanmadı.** launchd/PATH adımı kullanıcıda.
 - **Tarayıcı görsel otomasyonu yok.** Smoke HTTP ve dashboard guard düzeyinde;

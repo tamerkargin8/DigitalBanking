@@ -140,7 +140,20 @@ public class DashboardLoginContractTests
             new { accountId = Guid.NewGuid(), amount = 10m }, idempotencyKey: "key-1");
 
         Assert.False(result.Success);
-        Assert.Equal("Insufficient balance.", result.Error);
+        Assert.Equal("Yetersiz bakiye.", result.Error);
+    }
+
+    [Fact]
+    public async Task PendingActivationLoginShowsActivationMessageInsteadOfServiceError()
+    {
+        using var client = new HttpClient(new StubHandler(_ =>
+            Task.FromResult(Json(HttpStatusCode.Forbidden,
+                "{\"success\":false,\"message\":\"Hesabınız henüz etkin değil. Owner aktivasyonu gerekir.\"}"))));
+        var outcome = await new ApiAuthService(client, Configuration()).LoginAsync("pending-user", "SyntheticPass1");
+
+        Assert.False(outcome.Success);
+        Assert.Contains("aktivasyon", outcome.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("yanıt vermiyor", outcome.Error);
     }
 
     [Fact]

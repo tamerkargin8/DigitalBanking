@@ -11,15 +11,15 @@
 | Kontrol | Sonuç |
 |---|---|
 | Solution build | **0 uyarı, 0 hata** |
-| xUnit | **147 geçti, 0 başarısız, 0 atlandı** |
-| End-to-end smoke | **272 kontrol geçti** |
+| xUnit | **150 geçti, 0 başarısız, 0 atlandı** |
+| End-to-end smoke | **280 kontrol geçti** |
 | NuGet vulnerable package audit | 6 projede bilinen açık yok (mevcut kaynaklar) |
 | `git diff --check` | temiz |
 
 Önceki teslim 95 xUnit + 71 smoke idi. Auto-approval kaldırıldığı, roller
 Owner/DelegatedApprover/Customer olarak değiştiği ve tüm finansal talepler
 onaya bağlandığı için **eski auto-approval beklentileri bilinçli olarak
-kaldırıldı**; test sayısı 95 → 147'ye, smoke 71 → 272'ye genişletildi. Kaldırılan
+kaldırıldı**; test sayısı 95 → 150'ye, smoke 71 → 280'e genişletildi. Kaldırılan
 tek davranış düşük risk otomatik onayıdır; yerine "low risk dahil Pending"
 testi geldi. Diğer güvenlik/para/idempotency kapsamı korunmuştur.
 
@@ -46,15 +46,15 @@ Kanıt: [`evidence/2026-10-20-build.txt`](evidence/2026-10-20-build.txt),
 [`evidence/2026-10-20-test.txt`](evidence/2026-10-20-test.txt),
 [`evidence/2026-10-20-smoke.txt`](evidence/2026-10-20-smoke.txt).
 
-## Test envanteri (147)
+## Test envanteri (150)
 
 | Dosya | Test | Kapsam |
 |---|---:|---|
 | `AccountServiceTests` | 6 | Para birimi/açılış bakiyesi, ledger+audit, Owner zorunluluğu, geçersiz para birimi, negatif bakiye, sıfır bakiye |
 | `AuthAndClaimsTests` | 7 | Guid/rol/issuer/audience claim, throttle+audit, sayaç reset, legacy rehash, ActorContext, fail-closed, eksik issuer |
 | `CsvStatementParserTests` | 17 | Geçerli/BOM/CRLF, katı başlık, UTF-8, boyut/satır, geçersiz GUID/tutar/para birimi/tarih/boş alan, unclosed quote |
-| `CustomerPortalTests` | 10 | Sahiplik, IDOR 404, maskeli beneficiary, transfer Pending, başka hesaptan transfer reddi, timeline/dekont, red, deposit/account opening Pending, profil yok/aktif değil |
-| `DashboardLoginContractTests` | 11 | JSON login, güvenli 400/401/429/erişilemez API, zarf/raw dizi, decimal, 401/403/500, Idempotency-Key |
+| `CustomerPortalTests` | 12 | Sahiplik, IDOR 404, maskeli beneficiary, transfer Pending, başka hesaptan transfer reddi, timeline/dekont, red, deposit/account opening Pending, **ilk hesap türü/adı**, **ad değişimi/XSS/IDOR**, para yatır/çek, profil yok/aktif değil |
+| `DashboardLoginContractTests` | 12 | JSON login, güvenli 400/401/429/erişilemez API, **PendingActivation 403 mesajı**, zarf/raw dizi, decimal, 401/403/500, Idempotency-Key |
 | `IdempotencyTests` | 6 | Replay, farklı payload 409, in-progress 409, header yok, unique index, hata sonrası rezervasyon |
 | `IdentityAndDelegationTests` | 7 | Tek Owner setup, **iki gerçek context ile eşzamanlı Owner yarışı**, kayıt validasyonu, Pending activation, Owner koruması, limit/para birimi/expiry/revocation, delegated rol yasağı |
 | `LocalConcurrencyTests` | 1 | Stale `RowVersion` reddi |
@@ -66,9 +66,9 @@ Kanıt: [`evidence/2026-10-20-build.txt`](evidence/2026-10-20-build.txt),
 | `ReportFilterTests` | 8 | Varsayılan 30 gün, geçerli filtre, limit clamp, hatalı tarih/aralık/limit |
 | `TransactionServiceTests` | 13 | Decimal deposit/withdraw, rol reddi, transfer tipleri, doğrudan limit, aynı/eksik/yetersiz/kur/ölçek, rollback, statement/rapor, sayfalama |
 
-Toplam **147**.
+Toplam **150**.
 
-## Smoke kapsamı (272 kontrol)
+## Smoke kapsamı (280 kontrol)
 
 Tek komut, gerçek API + dashboard, sentetik veri:
 
@@ -85,8 +85,10 @@ Tek komut, gerçek API + dashboard, sentetik veri:
 5. Delegasyon oluşturma; **100.000,00 TRY dahil**, **99.999,99 onay**,
    **100.000,01 approver 400 + kuyrukta yok**; diğer para birimi 400; günlük
    50.000 limit; rezervasyonlu overcommit 400; iptal rezervasyonu serbest bırakır.
-6. Customer account opening → Pending → Owner onayı → hesap; 300.000 deposit ve
-   100 withdrawal → Pending → onay → bakiye; oluşturmada para hareketi yok.
+6. Yeni üye kayıt → PendingActivation → Owner aktivasyonu → dashboard login →
+   `/Index` → `/Customer/Home`; hesapsız müşteride ilk hesap CTA’sı. Hesap açılışı
+   tür/ad/para birimi ile Pending → Owner onayı → hesap; 300.000 deposit ve 100
+   withdrawal → Pending → onay → bakiye; oluşturmada para hareketi yok.
 7. IDOR: Customer B/A hesabı ve ödeme 404; A başka müşterinin ödemesini göremez.
 8. Low-risk 1 TRY → Pending; explicit no-auto-approval kontrolü.
 9. **Owner kendi talebini onaylayamaz/reddedemez**; iptal eder. Customer red
@@ -120,5 +122,5 @@ Tek komut, gerçek API + dashboard, sentetik veri:
 
 ## Sonuç
 
-Bu ortamda build, 147 xUnit testi ve 272 smoke kontrolü başarılıdır. Bu sonuçlar
+Bu ortamda build, 150 xUnit testi ve 280 smoke kontrolü başarılıdır. Bu sonuçlar
 SQL Server, production veya manuel kabul kanıtı değildir.

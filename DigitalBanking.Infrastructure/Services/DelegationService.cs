@@ -43,6 +43,7 @@ public sealed class DelegationService : IDelegationService
         await EnsureOwnerAsync(owner, cancellationToken);
         var (operation, currency, maxAmount, dailyLimit) = Validate(
             request.Operation, request.Currency, request.MaxAmount, request.DailyLimit);
+        EnsureFutureExpiry(request.ExpiresAt);
 
         var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == request.UserId, cancellationToken)
                    ?? throw new NotFoundException("User", request.UserId.ToString());
@@ -94,6 +95,8 @@ public sealed class DelegationService : IDelegationService
 
         var (validatedOperation, currency, validatedMax, validatedDaily) =
             Validate(operation.ToString(), currencyText, maxAmount, dailyLimit);
+        if (request.ExpiresAt is not null)
+            EnsureFutureExpiry(request.ExpiresAt);
 
         entity.Operation = validatedOperation;
         entity.Currency = currency;
@@ -160,6 +163,12 @@ public sealed class DelegationService : IDelegationService
         }
 
         return (operation, currency, maxAmount, dailyLimit);
+    }
+
+    private static void EnsureFutureExpiry(DateTime? expiresAt)
+    {
+        if (expiresAt is { } value && value <= DateTime.UtcNow)
+            throw new BusinessRuleException("Son geçerlilik gelecekte bir tarih/saat olmalıdır.");
     }
 
     private async Task EnsureOwnerAsync(ActorContext actor, CancellationToken cancellationToken)

@@ -13,8 +13,8 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
 
 - Worktree: `.../.dsh-worktrees/dsh-mvh4pdzy-u7y7j4`
 - Dal: `dsh/dsh-mvh4pdzy-u7y7j4`
-- Backend commit: `11684b2`
-- Dashboard commit: `d2e90e3`
+- Son QA/entegrasyon commit: `35f247e` (integration/local-development fast-forward)
+- Backend: `11684b2`; dashboard: `d2e90e3`; ilk smoke: `7340a1c`
 - Önceki ownership/timeline/reconciliation: `cac7f00`
 - Ana kopya / `integration/local-development`: **dokunulmadı**
 - Demo: API `http://127.0.0.1:5180`, dashboard `http://127.0.0.1:5181`
@@ -44,25 +44,42 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
    müşteriler/hesaplar/talep/audit/mutabakat/demo/rapor; Delegated kuyruk;
    Customer hesaplar/transfer/talepler/dekont.
 10. **Doğrudan hareket uçları:** 400 ile onay akışına yönlendirme.
+11. **Hesap ürünleri / ilk hesap:** Vadesiz/Vadeli/Yatırım türleri, ad/tür
+    kalıcılığı, Hesaplarım sekmeleri, hesapsız müşteriden açılış talebi,
+    yalnız sahibin ad düzenlemesi, hesap detayından para yatır/çek talepleri;
+    SQL Server additive migration ve SQLite idempotent upgrade script'i.
+12. **Dashboard UX/QA (bu dilim):** rol etiketleri Türkçe; Delegasyon limitinin
+    dahil olduğu, operasyon/para birimi/süre ve “Süresi doldu” durumu görünür;
+    geçmiş expiry sunucuda reddedilir; yerel datetime → UTC; müşteri ilk hesap
+    boş durumu ve hesap açılışı CTA’sı; talep formu hesapsız müşteride
+    `AccountOpening` varsayılanı; dar ekranda tablolar kart içinde kayar;
+    form label/focus düzeltmeleri; PendingActivation giriş mesajı; İngilizce
+    servis mesajları için güvenli Türkçe eşleme.
 
 ## Son doğrulanan sonuçlar
 
 - Build: **0 uyarı, 0 hata**.
-- xUnit: **147 geçti, 0 kaldı, 0 atlandı**.
-- Smoke: **272 kontrol geçti** (temiz Development DB, eşzamanlı Owner setup ve stale Setup POST dahil).
+- xUnit: **150 geçti, 0 kaldı, 0 atlandı**.
+- Smoke: **280 kontrol geçti** (temiz Development DB; eşzamanlı Owner setup, stale Setup POST, yeni üye aktivasyon/login, hesap metadata/ad/IDOR ve ilk hesap akışı dahil).
 - NuGet audit: bilinen açık yok.
 - `git diff --check`: temiz.
 - Kanıt: [`evidence/`](evidence/), [`TEST_REPORT.md`](TEST_REPORT.md).
 
 ## Açık sınırlar / sıradaki işler
 
-- **SQL Server:** üç yeni migration yalnız üretildi; apply/decimal/concurrency
+- **SQL Server:** dört yeni migration yalnız üretildi; apply/decimal/concurrency
   doğrulanmadı. Legacy `Admin=1`/`User=2` rol eşlemesi operatör işidir.
+  Hesap adı/türü additive migration'ı ve SQLite upgrade script'i UAT'e
+  uygulanmadı.
   `20261021011500_EnforceSingleOwner` mevcut >1 Owner verisinde **silme yapmadan**
   durur; operatör kararı gerekir.
 - **Manuel UAT:** [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) doldurulmadı.
-- **Ekran görüntüsü:** gerçek dashboard'dan 7 ekran alındı (`docs/screenshots/`);
-  UI değişince yenilenmeli.
+- **Ekran görüntüsü:** gerçek dashboard'dan masaüstü + dar ekran (13 görsel)
+  alındı (`docs/screenshots/`); UI değişince yenilenmeli.
+- **Yeni üye/sunucu yaşam döngüsü:** yeni üye kayıt→aktivasyon→login akışı
+  sentetik olarak doğrulandı. Foreground `run_local.py` SIGTERM’de çocukları
+  kapatıyor; oturumdan bağımsız çalışma için `scripts/start_local_detached.py`
+  eklendi. UAT servisi bu araçla durdurulmadı.
 - **FX/gün sonu takvimi:** yok; rapor UTC, dekont Europe/Istanbul.
 - **Dağıtık throttle/secret manager/observability/audit retention:** yok.
 - **VS Code GUI SDK:** kullanıcı launchd adımını çalıştırmalı.
@@ -93,3 +110,25 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
 - [`INTEGRATION_HANDOFF.md`](INTEGRATION_HANDOFF.md)
 - [`adr/0001-payment-and-role-policy.md`](adr/0001-payment-and-role-policy.md)
 - [`../README.md`](../README.md)
+
+## 2026-10-21 — Yeni kullanıcı kapsamı (öncelik)
+
+Önceki işler korunuyor; aşağıdaki kapsam sıradaki teslimdir:
+
+- **Yeni üye akışı:** public register → Owner activation → dashboard login →
+  `/Index` → `/Customer/Home` → ilk hesap talebi; yeni üyenin `Customer.UserId`
+  bağlantısı, session cookie ve JWT role/status yönlendirmesi.
+- **Hesap türleri:** `Vadesiz`, `Vadeli`, `Yatırım`; `Hesaplarım` içinde
+  `Tümü / Vadesiz / Vadeli / Yatırım` sekmeleri, her sekmede boş durum ve
+  görünür **Hesap Aç**.
+- **Hesap meta verisi:** kullanıcı tarafından hesap adı + tür; ad yalnız sahibi
+  tarafından sonradan düzenlenebilir (boşluk/uzunluk/XSS/IDOR kuralları).
+- **İlk hesap:** mevcut hesap seçimine bağlı olmadan açılış talebi; Owner veya
+  yetkili onayı sonrası hesabın listede kalıcı görünmesi.
+- **Para yatır/çek:** her hesap detayından talep; tutar/açıklama/özet; bekleyen/
+  onaylanan/reddedilen takip; bakiye yalnız onayda değişir; self-approval,
+  idempotency ve rollback korunur.
+- **Vadeli/Yatırım:** yalnız hesap türü/yönetim demosu; faiz, tahakkuk, alım-satım
+  veya kur getirisi simüle edilmez. Kısa demo açıklaması gösterilir.
+- **Migration:** SQL Server için additive migration; mevcut SQLite verisini
+  koruyan idempotent yükseltme script'i. UAT DB'sine uygulanmaz.

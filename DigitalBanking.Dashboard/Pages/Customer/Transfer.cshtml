@@ -13,6 +13,23 @@
     <div class="alert alert-danger">@Model.Error</div>
 }
 
+@if (Model.Accounts.Count == 0)
+{
+    <div class="card"><div class="empty-state">
+        <h5>Transfer için hesap yok</h5>
+        <p class="mb-3">Önce hesap açılışı talebi oluşturun; Owner onayından sonra transfer yapabilirsiniz.</p>
+        <a class="btn btn-primary" href="/Customer/Requests?type=AccountOpening">Hesap açılışı talebi</a>
+    </div></div>
+}
+else if (Model.Beneficiaries.Count == 0)
+{
+    <div class="card"><div class="empty-state">
+        <h5>Alıcı bulunamadı</h5>
+        <p class="mb-0">Demo ortamında kayıtlı alıcı yok. Alıcı listesi sentetik demo verisiyle oluşturulur; gerçek transfer yapılmaz.</p>
+    </div></div>
+}
+else
+{
 <div class="card form-card">
     <div class="card-body">
         @if (Model.ShowSummary)
@@ -51,7 +68,7 @@
         {
             <form method="post" class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label">Kaynak hesap</label>
+                    <label class="form-label" for="FromAccountId">Kaynak hesap</label>
                     <select class="form-select" asp-for="FromAccountId">
                         <option value="">Seçin</option>
                         @foreach (var a in Model.Accounts)
@@ -61,7 +78,7 @@
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Alıcı</label>
+                    <label class="form-label" for="ToAccountId">Alıcı</label>
                     <select class="form-select" asp-for="ToAccountId">
                         <option value="">Seçin</option>
                         @foreach (var b in Model.Beneficiaries)
@@ -71,11 +88,11 @@
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Tutar</label>
+                    <label class="form-label" for="Amount">Tutar</label>
                     <input class="form-control" asp-for="Amount" type="number" step="0.01" min="0.01" />
                 </div>
                 <div class="col-md-8">
-                    <label class="form-label">Açıklama</label>
+                    <label class="form-label" for="Description">Açıklama</label>
                     <input class="form-control" asp-for="Description" maxlength="250" />
                 </div>
                 <input type="hidden" asp-for="IdempotencyKey" />
@@ -87,3 +104,4 @@
         }
     </div>
 </div>
+}

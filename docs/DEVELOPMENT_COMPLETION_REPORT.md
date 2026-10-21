@@ -128,8 +128,8 @@ döner ve onay talebi yolunu gösterir. Onay akışı atlanamaz.
 | Kontrol | Sonuç |
 |---|---|
 | Build | **0 uyarı, 0 hata** |
-| xUnit | **147 geçti, 0 başarısız, 0 atlandı** |
-| Smoke | **272 kontrol geçti** |
+| xUnit | **150 geçti, 0 başarısız, 0 atlandı** |
+| Smoke | **280 kontrol geçti** |
 | NuGet audit | bilinen açık yok (mevcut kaynaklar) |
 | `git diff --check` | temiz |
 
@@ -149,6 +149,10 @@ Kanıt: [`evidence/`](evidence/).
   alır. Mevcut DB'de >1 Owner varsa migration **veri silmeden** açık hata verir;
   operatör önce hangi hesabın Owner kalacağına karar verir. Başlangıçta da
   Serilog warning üretilir.
+- `20261021023000_AddAccountMetadata`: `AccountName` / `AccountType` ve
+  `PaymentApprovals.RequestedAccountName` / `RequestedAccountType`; additive,
+  eski hesaplar Vadesiz varsayılır. SQLite için ayrı idempotent upgrade script'i
+  (UAT'e uygulanmadı) mevcuttur.
 - Eski `Admin=1` / `User=2` rolleri **bilinçli olarak geçersizdir**; otomatik
   Owner/Customer dönüşümü yapılmaz. Operatör eşlemesi gerekir.
 - SQL Server migration'ları **uygulanmadı/doğrulanmadı**. SQLite Development

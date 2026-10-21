@@ -41,9 +41,15 @@ Ana kopya 5080/5081 kullanır; bu worktree 5180/5181 kullanmalıdır. Aynı anda
   `owner_username`/`owner_password` veya `SMOKE_OWNER_USERNAME`/
   `SMOKE_OWNER_PASSWORD` ortam değişkenlerinden okur. Temiz DB'de Owner'ı kendisi
   oluşturabilir; bu değerleri commit etmeyin.
-- Şema değiştiğinde eski `.local/digitalbanking.db*` dosyasını arşivleyip silin;
-  sonraki açılış yeni şemayı ve sentetik demo kişileri oluşturur, Owner'ı seed
-  etmez.
+- Şema değiştiğinde yeni bir `.local/digitalbanking.db*` kullanmak en temiz
+  yoldur; mevcut sentetik DB'yi korumak için hesap metadata yükseltmesini dry-run
+  ve `--apply` ile çalıştırın:
+  ```sh
+  python3 scripts/upgrade_sqlite_account_metadata.py .local/digitalbanking.db
+  python3 scripts/upgrade_sqlite_account_metadata.py .local/digitalbanking.db --apply
+  ```
+  Script additive çalışır, yedek bırakır ve UAT yollarını reddeder. UAT DB'sine
+  uygulanmaz.
 
 ## Roller (mevcut)
 
@@ -108,3 +114,25 @@ terminalde yukarıdaki sade komutlar yeterlidir.
 - [`VERIFICATION.md`](VERIFICATION.md)
 - [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md)
 - [`DASHBOARD_PRODUCT_BRIEF.md`](DASHBOARD_PRODUCT_BRIEF.md)
+
+## Sunucu yaşam döngüsü (önemli)
+
+`scripts/run_local.py` foreground bir geliştirici aracıdır. SIGTERM/SIGINT
+aldığında API ve dashboard çocuk süreçlerini bilinçli olarak kapatır. IDE,
+harness veya terminal oturumu kapanırken bu sinyal gelebilir; bu nedenle iki
+uygulama “Application shutting down” yazıp durabilir. Bu bir login/şifre hatası
+değildir.
+
+Kendi sentetik worktree'nizde oturumdan bağımsız çalıştırmak için:
+
+```sh
+python3 scripts/start_local_detached.py --api-port 5180 --dashboard-port 5181
+```
+
+Bu yardımcı `start_new_session=True` ile yeni bir süreç oturumu açar, PID ve log
+dosyasını `.local/` altına yazar ve hemen döner. Terminal kapansa da süreç
+yaşamaya devam eder. Log/PID yolları komut çıktısında gösterilir. UAT kopyası
+veya başka bir worktree için kullanılmaz; UAT servisini durdurmak için
+kullanılmamalıdır. Durdurmak gerekirse yalnız kendi `.local` PID dosyanızdaki
+süreci `kill <pid>` ile sonlandırın; bu, runner'ın kendi çocuklarını kapatmasını
+sağlar.

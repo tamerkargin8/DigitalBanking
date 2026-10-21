@@ -209,7 +209,10 @@ public sealed class ApiClient
             if (document.RootElement.ValueKind == JsonValueKind.Object
                 && document.RootElement.TryGetProperty("message", out var message)
                 && message.ValueKind == JsonValueKind.String)
-                return message.GetString();
+            {
+                var text = message.GetString();
+                return string.IsNullOrWhiteSpace(text) ? null : DashboardUi.SafeError(text);
+            }
         }
         catch (JsonException)
         {

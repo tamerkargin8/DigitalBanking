@@ -1,4 +1,5 @@
 using DigitalBanking.Domain.Entities;
+using DigitalBanking.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigitalBanking.Infrastructure.Persistence;
@@ -53,6 +54,8 @@ public class BankDbContext : DbContext
 
         modelBuilder.Entity<Account>(entity =>
         {
+            entity.Property(x => x.AccountName).HasMaxLength(100).IsRequired().HasDefaultValue("Vadesiz Hesap");
+            entity.Property(x => x.AccountType).HasDefaultValue(AccountType.Checking);
             entity.Property(x => x.Balance).HasPrecision(18, 2);
             entity.Property(x => x.Currency)
                 .HasMaxLength(3)
@@ -88,6 +91,7 @@ public class BankDbContext : DbContext
                 .IsRequired();
 
             entity.Property(x => x.Description).HasMaxLength(250);
+            entity.Property(x => x.RequestedAccountName).HasMaxLength(100);
             entity.Property(x => x.ApprovalReason).HasMaxLength(500);
             entity.Property(x => x.RejectionReason).HasMaxLength(500);
             entity.Property(x => x.Status).IsRequired();

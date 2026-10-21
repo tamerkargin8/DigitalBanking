@@ -1,20 +1,28 @@
 # Screenshots
 
-Real captures from the local demo on **2026-10-20**, at 1440×1000 CSS pixels
-(2880×2000 source, downscaled to 1440 px width), using headless Chrome against
-the disposable SQLite Development database.
+Real captures from the local synthetic demo on **2026-10-20/21**, using headless
+Chrome against the disposable SQLite Development database. Desktop captures were
+1440×1000 CSS pixels (2× source, downscaled); mobile captures are 390×844 CSS
+pixels at 2×.
 
 | File | Screen | Persona |
 |---|---|---|
 | `owner-overview.png` | Owner operations overview | Owner |
 | `owner-approval-queue.png` | All-request approval queue | Owner |
-| `owner-delegations.png` | Yetkiler & Limitler (per operation/currency limits) | Owner |
+| `owner-delegations.png` | Yetkiler & Limitler (inclusive limit, duration, status) | Owner |
+| `owner-delegations-mobile.png` | Delegation table on a narrow viewport | Owner |
 | `owner-reconciliation.png` | Reconciliation batches | Owner |
 | `customer-home.png` | Balances per currency + recent activity | `customer.a` |
+| `customer-accounts.png` | Tümü/Vadesiz/Vadeli/Yatırım tabs and account cards | `customer.a` |
+| `customer-accounts-time-deposit.png` | Time-deposit account tab/card | activated synthetic member |
+| `customer-account-details.png` | Account detail, rename, deposit/withdraw actions | activated synthetic member |
+| `customer-home-mobile.png` | Customer home on a narrow viewport | `customer.a` |
+| `customer-first-account.png` | Earlier no-account first-account CTA (empty-state evidence) | activated synthetic member |
 | `customer-transfer.png` | Transfer wizard | `customer.a` |
 | `customer-receipt.png` | Completed, masked, DEMO-marked receipt | `customer.a` |
 
 No passwords, tokens, `.local` contents, real customer data or live banking
-systems are shown. The screenshots are not mockups and were not edited to add
-data. They should be refreshed after UI changes; no automated visual-regression
-test exists.
+systems are shown. These are not mockups and were not edited to add data. The
+narrow captures are real viewport emulations, not resized desktop screenshots.
+No automated visual-regression assertion or human visual review is claimed; DOM
+overflow, label association, role navigation and focus checks were run separately.

@@ -21,9 +21,10 @@
     <link href="~/css/site.css" rel="stylesheet" />
 </head>
 <body>
+<a class="skip-link" href="#main-content">İçeriğe atla</a>
 @if (!loggedIn)
 {
-    <main class="auth-shell">
+    <main class="auth-shell" id="main-content">
         @RenderBody()
     </main>
 }
@@ -42,14 +43,14 @@ else
             <nav class="app-nav">
                 @if (isAdmin)
                 {
-                    <div class="nav-section">Admin</div>
+                    <div class="nav-section">Yönetim</div>
                     <a class="nav-link @(page.Contains("/Admin/Overview") ? "active" : "")" href="/Admin/Overview">Genel Bakış</a>
                     <a class="nav-link @(page.Contains("/Admin/Customers") ? "active" : "")" href="/Admin/Customers">Müşteriler</a>
                     <a class="nav-link @(page.Contains("/Admin/Accounts") ? "active" : "")" href="/Admin/Accounts">Hesaplar</a>
                     <a class="nav-link @(page.Contains("/Admin/Approvals") ? "active" : "")" href="/Admin/Approvals">Onay Kuyruğu</a>
                     <a class="nav-link @(page.Contains("/Admin/Reconciliation") ? "active" : "")" href="/Admin/Reconciliation">Mutabakat</a>
                     <a class="nav-link @(page.Contains("/Reports/TopAccounts") ? "active" : "")" href="/Reports/TopAccounts">Raporlar</a>
-                    <a class="nav-link @(page.Contains("/Admin/Audit") ? "active" : "")" href="/Admin/Audit">Audit</a>
+                    <a class="nav-link @(page.Contains("/Admin/Audit") ? "active" : "")" href="/Admin/Audit">Denetim</a>
                     <a class="nav-link @(page.Contains("/Admin/Users") ? "active" : "")" href="/Admin/Users">Üyeler</a>
                     <a class="nav-link @(page.Contains("/Admin/Delegations") ? "active" : "")" href="/Admin/Delegations">Yetkiler & Limitler</a>
                     @if (Environment.IsDevelopment())
@@ -70,6 +71,7 @@ else
                     <a class="nav-link @(page.Contains("/Customer/Home") ? "active" : "")" href="/Customer/Home">Hesap Özeti</a>
                     <a class="nav-link @(page.Contains("/Customer/Accounts") ? "active" : "")" href="/Customer/Accounts">Hesaplarım</a>
                     <a class="nav-link @(page.Contains("/Customer/Transfer") ? "active" : "")" href="/Customer/Transfer">Transfer</a>
+                    <a class="nav-link @(page.Contains("/Customer/Requests") ? "active" : "")" href="/Customer/Requests">Finansal Talepler</a>
                     <a class="nav-link @(page.Contains("/Customer/Payments") ? "active" : "")" href="/Customer/Payments">Ödemelerim</a>
                 }
             </nav>
@@ -79,7 +81,7 @@ else
                     <span class="avatar">@((displayName.Length > 0 ? displayName[0] : '?').ToString().ToUpperInvariant())</span>
                     <span>
                         <strong>@displayName</strong>
-                        <small>@role</small>
+                        <small>@DashboardUi.Status(role)</small>
                     </span>
                 </div>
                 <a class="btn btn-sm btn-outline-light w-100" href="/Logout">Çıkış</a>
@@ -98,7 +100,7 @@ else
                 </div>
             </header>
 
-            <main class="app-content">
+            <main class="app-content" id="main-content">
                 @RenderBody()
             </main>
         </div>

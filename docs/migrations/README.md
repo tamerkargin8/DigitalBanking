@@ -32,6 +32,11 @@ does **not** apply these migrations.
    - **Mevcut veride >1 Owner varsa migration bilinçli olarak durur** ve açık bir
      SQL hatası verir. Hiçbir satır silinmez/demote edilmez; operatör önce hangi
      hesabın Owner kalacağına karar vermelidir.
+5. `20261021023000_AddAccountMetadata`
+   - `Accounts.AccountName` (`nvarchar(100)`, default `Vadesiz Hesap`) ve
+     `AccountType` (`int`, default `1=Checking`).
+   - `PaymentApprovals.RequestedAccountName` / `RequestedAccountType` (nullable).
+   - Additive; eski hesaplar **Vadesiz** kabul edilir, hiçbir satır silinmez.
 
 Eski migration dosyaları değiştirilmedi.
 

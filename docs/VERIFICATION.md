@@ -15,8 +15,8 @@ Tarih: **20 Ekim 2026** (Europe/Istanbul). Ortam: macOS ARM64, .NET SDK **10.0.4
 | Kontrol | Sonuç |
 |---|---|
 | Solution build | başarılı, **0 uyarı, 0 hata** |
-| xUnit | **147 başarılı, 0 başarısız, 0 atlanan** |
-| Yerel smoke (temiz Development DB; eşzamanlı Owner setup, stale Setup POST, setup 429 dahil) | **272 kontrol başarılı** |
+| xUnit | **150 başarılı, 0 başarısız, 0 atlanan** |
+| Yerel smoke (temiz Development DB; eşzamanlı Owner setup, stale Setup POST, setup 429 dahil) | **280 kontrol başarılı** |
 | NuGet audit (6 proje + transitif) | bilinen açık yok (mevcut kaynaklar) |
 | `git diff --check` | temiz |
 | VS Code SDK önkoşul script'i | yerel SDK/global.json/.vscode kontrolleri geçti; GUI launchd adımı kullanıcıda |
@@ -49,7 +49,7 @@ Ayrıntı: [`DEVELOPMENT_COMPLETION_REPORT.md`](DEVELOPMENT_COMPLETION_REPORT.md
   operatör Owner/Customer/DelegatedApprover eşlemesi yapmadan login çalışmaz.
 - **Manuel UAT yapılmadı.** [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) kullanıcı
   tarafından doldurulacak.
-- **Screenshot:** 7 gerçek dashboard ekranı alındı (`docs/screenshots/`);
+- **Screenshot:** 10 gerçek dashboard ekranı alındı (`docs/screenshots/`);
   sahte görsel yok. Manuel UAT yine yapılmadı.
 - **VS Code GUI** kullanıcı launchd adımını çalıştırıp yeniden başlatmalı.
 - **Production sertleştirmesi yok.** Secret manager, WAF, dağıtık throttle,

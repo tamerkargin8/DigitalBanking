@@ -15,6 +15,82 @@ public static class DashboardUi
 
     public static string DateOnly(DateTime value) => value.ToString("dd.MM.yyyy", Tr);
 
+    private static readonly TimeZoneInfo Istanbul =
+        TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul");
+
+    /// <summary>UTC instants from the API are rendered in the same zone as receipts.</summary>
+    public static string LocalDate(DateTime? utc)
+    {
+        if (utc is null) return "Süresiz";
+        var value = DateTime.SpecifyKind(utc.Value, DateTimeKind.Utc);
+        return TimeZoneInfo.ConvertTimeFromUtc(value, Istanbul).ToString("dd.MM.yyyy HH:mm", Tr);
+    }
+
+    /// <summary>Converts an HTML datetime-local value (user's local zone) to UTC.</summary>
+    public static DateTime? LocalInputToUtc(DateTime? local)
+    {
+        if (local is null) return null;
+        var unspecified = DateTime.SpecifyKind(local.Value, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(unspecified, Istanbul);
+    }
+
+    /// <summary>Maps the few English API/business messages that can still reach a page.</summary>
+    public static string SafeError(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return "İşlem tamamlanamadı. Lütfen tekrar deneyin.";
+        var value = message.Trim();
+        var mapped = value switch
+        {
+            "Insufficient balance." => "Yetersiz bakiye.",
+            "Insufficient balance in source account." => "Kaynak hesapta yetersiz bakiye.",
+            "Source and destination accounts cannot be the same." => "Kaynak ve hedef hesap aynı olamaz.",
+            "Source and destination accounts must use the same currency." => "Kaynak ve hedef hesap aynı para biriminde olmalıdır.",
+            "Sender and receiver accounts cannot be the same." => "Gönderen ve alıcı hesap aynı olamaz.",
+            "Sender account id is required." => "Gönderen hesap zorunludur.",
+            "Receiver account id is required." => "Alıcı hesap zorunludur.",
+            "Username is required." => "Kullanıcı adı zorunludur.",
+            "Password is required." => "Şifre zorunludur.",
+            "Description cannot exceed 250 characters." => "Açıklama 250 karakteri aşamaz.",
+            "'to' date must be greater than or equal to 'from' date." => "Bitiş tarihi başlangıçtan önce olamaz.",
+            "Date range cannot exceed 366 days." => "Tarih aralığı 366 günü aşamaz.",
+            _ => value
+        };
+        if (mapped == value)
+        {
+            if (value.StartsWith("Amount must be greater", StringComparison.OrdinalIgnoreCase))
+                mapped = "Tutar sıfırdan büyük olmalıdır.";
+            else if (value.StartsWith("Amount cannot have", StringComparison.OrdinalIgnoreCase))
+                mapped = "Tutar en fazla 2 ondalık basamak içerebilir.";
+            else if (value.StartsWith("Amount cannot be negative", StringComparison.OrdinalIgnoreCase))
+                mapped = "Tutar negatif olamaz.";
+            else if (value.StartsWith("Amount exceeds", StringComparison.OrdinalIgnoreCase))
+                mapped = "Tutar desteklenen üst sınırı aşıyor.";
+            else if (value.Contains("must be greater than zero", StringComparison.OrdinalIgnoreCase))
+                mapped = "Tutar sıfırdan büyük olmalıdır.";
+            else if (value.Contains("cannot be negative", StringComparison.OrdinalIgnoreCase))
+                mapped = "Tutar negatif olamaz.";
+            else if (value.Contains("cannot have more than 2 decimal places", StringComparison.OrdinalIgnoreCase))
+                mapped = "Tutar en fazla 2 ondalık basamak içerebilir.";
+        }
+        return mapped;
+    }
+
+    public static string TimelineDescription(string? value) => value switch
+    {
+        "Payment request recorded." => "Talep kaydedildi.",
+        "Ledger movement completed." => "Finansal hareket tamamlandı.",
+        "Approved by reviewer." => "Yetkili tarafından onaylandı.",
+        "Rejected by reviewer." => "Yetkili tarafından reddedildi.",
+        "Financial request applied." => "Finansal talep uygulandı.",
+        "Request cancelled." => "Talep iptal edildi.",
+        "Awaiting Owner or delegated approver." => "Owner veya yetkili onayı bekleniyor.",
+        "Transfer request created." => "Transfer talebi oluşturuldu.",
+        "Deposit request created." => "Yatırma talebi oluşturuldu.",
+        "Withdrawal request created." => "Çekme talebi oluşturuldu.",
+        "Account opening request created." => "Hesap açılışı talebi oluşturuldu.",
+        _ => value ?? "—"
+    };
+
     public static string Account(string? accountNumber) => Masking.AccountNumber(accountNumber);
 
     public static string ShortId(Guid id) => id.ToString("N")[..8];
@@ -52,6 +128,10 @@ public static class DashboardUi
         "Deposit" => "Yatırma",
         "Withdrawal" => "Çekme",
         "AccountOpening" => "Hesap açılışı",
+        "ReconciliationException" => "Mutabakat istisnası",
+        "Checking" => "Vadesiz",
+        "TimeDeposit" => "Vadeli",
+        "Investment" => "Yatırım",
         "PendingActivation" => "Aktivasyon bekliyor",
         "Active" => "Aktif",
         "Disabled" => "Devre dışı",

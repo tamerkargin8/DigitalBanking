@@ -322,6 +322,15 @@ public class IdentityAndDelegationTests
 
         Assert.True((await f.Authorization.CheckAsync(member.UserId, ApprovalOperation.Transfer, "TRY", 100_000m)).Allowed);
         Assert.False((await f.Authorization.CheckAsync(member.UserId, ApprovalOperation.Transfer, "TRY", 100_000.01m)).Allowed);
+
+        await Assert.ThrowsAsync<BusinessRuleException>(() => delegationService.CreateAsync(new CreateDelegationRequest
+        {
+            UserId = member.UserId,
+            Operation = "Transfer",
+            Currency = "USD",
+            MaxAmount = 1_000m,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(-1)
+        }, ownerActor));
         Assert.False((await f.Authorization.CheckAsync(member.UserId, ApprovalOperation.Transfer, "USD", 1m)).Allowed);
         Assert.False((await f.Authorization.CheckAsync(member.UserId, ApprovalOperation.Deposit, "TRY", 1m)).Allowed);
 

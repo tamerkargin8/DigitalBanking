@@ -81,7 +81,7 @@
                                 <li>
                                     <div class="what">@DashboardUi.TimelineType(e.Type)</div>
                                     <div class="when">@e.OccurredAtLocal.ToString("dd.MM.yyyy HH:mm") · @Model.Timeline.TimeZoneId</div>
-                                    <div class="small text-muted">@e.Description</div>
+                                    <div class="small text-muted">@DashboardUi.TimelineDescription(e.Description)</div>
                                 </li>
                             }
                         </ul>

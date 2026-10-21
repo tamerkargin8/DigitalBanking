@@ -69,6 +69,8 @@ public sealed class CustomerPortalService : ICustomerPortalService
         {
             Id = x.Id,
             AccountNumber = x.AccountNumber,
+            AccountName = x.AccountName,
+            AccountType = x.AccountType.ToString(),
             Balance = x.Balance,
             Currency = x.Currency,
             CustomerId = x.CustomerId,
@@ -79,6 +81,28 @@ public sealed class CustomerPortalService : ICustomerPortalService
     public async Task<AccountDetailDto> GetAccountAsync(Guid accountId, ActorContext actor, CancellationToken cancellationToken = default)
     {
         await RequireOwnedAccountAsync(actor, accountId, cancellationToken);
+        return await _accountService.GetAccountDetailAsync(accountId, 20, cancellationToken);
+    }
+
+    public async Task<AccountDetailDto> RenameAccountAsync(
+        Guid accountId,
+        string accountName,
+        ActorContext actor,
+        CancellationToken cancellationToken = default)
+    {
+        await RequireOwnedAccountAsync(actor, accountId, cancellationToken);
+        var account = await _context.Accounts
+            .FirstOrDefaultAsync(x => x.Id == accountId, cancellationToken)
+            ?? throw new NotFoundException("Account", accountId);
+        account.AccountName = AccountMetadata.RequireName(accountName);
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException("Hesap başka bir işlem tarafından güncellendi.");
+        }
         return await _accountService.GetAccountDetailAsync(accountId, 20, cancellationToken);
     }
 

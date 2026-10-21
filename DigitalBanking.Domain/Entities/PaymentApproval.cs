@@ -19,6 +19,8 @@ public class PaymentApproval
     public ApprovalRequestType RequestType { get; set; } = ApprovalRequestType.Transfer;
     public Guid? RequestedCustomerId { get; set; }
     public decimal? RequestedInitialBalance { get; set; }
+    public string? RequestedAccountName { get; set; }
+    public AccountType? RequestedAccountType { get; set; }
     public Guid? CreatedAccountId { get; set; }
 
     public decimal Amount { get; set; }

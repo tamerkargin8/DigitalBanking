@@ -8,7 +8,7 @@ Bu klasör DigitalBanking için ayrılmış bağımsız Git worktree'sidir. Ana 
 - Owner / DelegatedApprover / Customer modeli, tüm finansal taleplerde onay,
   kişi/operasyon/para birimi limitleri, mutabakat/istisna, timeline/dekont ve
   demo merkezi uygulandı.
-- Build: 0 uyarı/0 hata; xUnit: **147** geçti; smoke: **272** kontrol geçti.
+- Build: 0 uyarı/0 hata; xUnit: **150** geçti; smoke: **280** kontrol geçti.
 - Üç rollü dashboard uygulandı; UAT ve gerçek ekran görüntüleri açık.
 - Teslim raporları: `docs/DEVELOPMENT_COMPLETION_REPORT.md`,
   `docs/TEST_REPORT.md`, `docs/VERIFICATION.md`.

@@ -1,151 +1,125 @@
-# Integration handoff — source snapshot, manifest and safe merge plan
+# Integration handoff — account/UI slice
 
 - Tarih: **2026-10-20/21**
 - Kaynak worktree: `.dsh-worktrees/dsh-mvh4pdzy-u7y7j4`
 - Kaynak branch: `dsh/dsh-mvh4pdzy-u7y7j4`
-- Son commit: **`7340a1c`** (`Rewrite end-to-end smoke for Owner approval model`)
-- Bu belgedeki QA/final düzeltmeleri **henüz commit edilmedi**; dosyalar korunuyor.
-- Son doğrulanmış kaynak: **147 xUnit / 272 smoke**, 0 build warning/error.
-- UAT kopyası: `outputs/DigitalBanking-UAT` (5480/5481) — **bu handoff kapsamı dışında; dokunulmadı.**
-- Parent / ana entegrasyon: yazma yapılmadı; yalnız salt okunur teşhis.
+- **Son commit ve integration/local-development: `35f247e`** (Owner invariant + approval hardening + QA evidence)
+- Bu belgedeki **dashboard/UI düzeltmeleri henüz commit edilmedi**; dosyalar korunuyor.
+- Son doğrulanmış kaynak: **150 xUnit / 280 smoke**, 0 build warning/error.
+- UAT: `outputs/DigitalBanking-UAT` (5480/5481) ayrı ve **dokunulmadı**; UAT `.local` kopyalanmadı.
+- Parent kirli kopya, 5280/5281 ve GPT QA ortamı: **dokunulmadı**.
+- SQL Server: migration/model üretildi, **uygulanmadı/doğrulanmadı**.
 
-## 1. Commit manifest
-
-### Commit edilmiş kaynak
+## 1. Commit edilmiş temel
 
 | Commit | İçerik |
 |---|---|
-| `cac7f00` | Customer ownership, timeline, receipts, reconciliation backend |
-| `11684b2` | Owner / DelegatedApprover / Customer approval-request model |
-| `d2e90e3` | Owner, delegated approver and customer dashboard |
-| `7340a1c` | 272-check end-to-end smoke test |
+| `cac7f00` | Ownership, timeline, receipts, reconciliation backend |
+| `11684b2` | Owner / DelegatedApprover / Customer approval model |
+| `d2e90e3` | Üç rollü dashboard |
+| `7340a1c` | 272-check smoke (historical) |
+| `35f247e` | Single-owner invariant, setup/rate-limit, approval ownership/atomicity, QA evidence; integration fast-forward |
 
-### Commit bekleyen QA/final düzeltmeleri
+## 2. Commit bekleyen dashboard/UI dilimi
 
-Kod:
-- `DigitalBanking.API/Controllers/SetupController.cs`
-- `DigitalBanking.API/Program.cs`
-- `DigitalBanking.Dashboard/Pages/Setup.cshtml.cs`
-- `DigitalBanking.Infrastructure/Persistence/BankDbContext.cs`
-- `DigitalBanking.Infrastructure/Persistence/DatabaseSeeder.cs`
-- `DigitalBanking.Infrastructure/Services/UserIdentityService.cs`
+Kod/test:
+- `DigitalBanking.Dashboard/Services/DashboardUi.cs`
+- `DigitalBanking.Dashboard/Services/ApiClient.cs`
+- `DigitalBanking.Dashboard/Services/ApiAuthService.cs`
+- `DigitalBanking.Dashboard/Pages/Shared/_Layout.cshtml`
+- `DigitalBanking.Dashboard/Pages/Login.cshtml`
+- `DigitalBanking.Dashboard/Pages/Register.cshtml` / `Setup.cshtml` labels
+- `DigitalBanking.Dashboard/Pages/Admin/Delegations/Index.cshtml(.cs)`
+- `DigitalBanking.Dashboard/Pages/Admin/Users/Index.cshtml`
+- `DigitalBanking.Dashboard/Pages/Admin/Approvals/Index.cshtml`, `Details.cshtml`
+- `DigitalBanking.Dashboard/Pages/Admin/Requests/New.cshtml`
+- `DigitalBanking.Dashboard/Pages/Admin/Reconciliation/Exceptions.cshtml`
+- `DigitalBanking.Dashboard/Pages/Customer/Home.cshtml`
+- `DigitalBanking.Dashboard/Pages/Customer/Accounts/Index.cshtml(.cs)`
+- `DigitalBanking.Dashboard/Pages/Customer/Accounts/Details.cshtml(.cs)`
+- `DigitalBanking.Dashboard/Pages/Customer/Requests.cshtml(.cs)`
+- `DigitalBanking.Dashboard/Pages/Customer/Transfer.cshtml`
+- `DigitalBanking.Dashboard/Pages/Customer/Payments/Index.cshtml`, `Details.cshtml`
+- `DigitalBanking.Dashboard/wwwroot/css/site.css`
+- `DigitalBanking.Domain/Enums/AccountType.cs`
+- `DigitalBanking.Domain/Entities/Account.cs`
+- `DigitalBanking.Domain/Entities/PaymentApproval.cs`
+- `DigitalBanking.Application/DTOs/Account/*` (name/type/rename)
+- `DigitalBanking.Application/DTOs/ApprovalRequests/*`
+- `DigitalBanking.Application/DTOs/PaymentApprovals/PaymentApprovalResponse.cs`
+- `DigitalBanking.Application/Mappings/MappingProfile.cs`
+- `DigitalBanking.Application/Common/AccountMetadata.cs`
+- `DigitalBanking.Infrastructure/Services/AccountService.cs`
+- `DigitalBanking.Infrastructure/Services/CustomerPortalService.cs`
+- `DigitalBanking.Infrastructure/Services/DelegationService.cs`
 - `DigitalBanking.Infrastructure/Services/PaymentApprovalService.cs`
-- `DigitalBanking.Infrastructure/Services/DemoScenarioService.cs`
-- `DigitalBanking.Infrastructure/Migrations/BankDbContextModelSnapshot.cs`
-- `DigitalBanking.Infrastructure/Migrations/20261021011500_EnforceSingleOwner.cs`
-- `DigitalBanking.Infrastructure/Migrations/20261021011500_EnforceSingleOwner.Designer.cs`
-
-Test:
+- `DigitalBanking.Infrastructure/Services/PaymentTimelineService.cs`
+- `DigitalBanking.Infrastructure/Services/AccountService.cs` / `LedgerOperations.cs` / `TransactionService.cs`
+- `DigitalBanking.Application/Common/Money.cs` / `ReportDateRange.cs`
+- `DigitalBanking.Application/Validators/Auth/LoginRequestValidator.cs`
+- `DigitalBanking.Application/Validators/PaymentApprovals/CreatePaymentApprovalRequestValidator.cs`
+- `DigitalBanking.Tests/AccountServiceTests.cs`
+- `DigitalBanking.Tests/DashboardLoginContractTests.cs`
 - `DigitalBanking.Tests/IdentityAndDelegationTests.cs`
-- `DigitalBanking.Tests/PaymentApprovalServiceTests.cs`
-- `DigitalBanking.Tests/SetupPageTests.cs`
-- `scripts/smoke_test.py`
+- `DigitalBanking.Tests/CustomerPortalTests.cs`
+- `scripts/run_local.py` (isolated `--database` for smoke)
+- `scripts/start_local_detached.py` (safe detached demo)
+- `scripts/upgrade_sqlite_account_metadata.py` (additive SQLite upgrade)
+- `scripts/smoke_test.py` (mevcut 280 kapsamı)
 
-Dokümantasyon ve kanıt:
-- `README.md`, `DEEPSEEK_START_HERE.md`
-- `docs/PROGRESS.md`, `docs/TEST_REPORT.md`, `docs/DEVELOPMENT_COMPLETION_REPORT.md`, `docs/VERIFICATION.md`
-- `docs/UAT_CHECKLIST.md`, `docs/DASHBOARD_PRODUCT_BRIEF.md`, `docs/PORTFOLIO_NOTES.md`
-- `docs/DEEPSEEK_FINDINGS.md`, `docs/LOCAL_DEVELOPMENT.md`
-- `docs/adr/0001-payment-and-role-policy.md`, `docs/migrations/README.md`
-- `docs/RECONCILIATION_FORMAT.md`, `docs/samples/*.csv`
-- `docs/screenshots/*` (7 gerçek ekran + README)
-- `docs/evidence/2026-10-20-*.txt`
-- `docs/INTEGRATION_HANDOFF.md` (bu dosya)
+Doküman/kanıt:
+- `README.md`, `docs/PROGRESS.md`, `docs/TEST_REPORT.md`,
+  `docs/DEVELOPMENT_COMPLETION_REPORT.md`, `docs/VERIFICATION.md`,
+  `docs/UAT_CHECKLIST.md`, `docs/DASHBOARD_PRODUCT_BRIEF.md`,
+  `docs/DEEPSEEK_FINDINGS.md`, `docs/INTEGRATION_HANDOFF.md`
+- `docs/evidence/2026-10-20-{build,test,smoke,nuget-audit}.txt`
+- `docs/screenshots/*` (13 gerçek masaüstü/dar ekran görseli + README)
 
-> `.local/` ve UAT `.local` veritabanı commit kapsamına **girmez**; git-ignored.
+`.local/`, UAT `.local` ve başka worktree/DB commit kapsamına girmez.
 
-## 2. Önerilen yerel commit
+## 3. Önerilen yerel commit
 
-Sandbox `.git/worktrees` index’ine yazmayı engelliyor. Bu oturumda `git add` denendi ve izin yükseltilmedi:
+Sandbox `.git/worktrees` index'ine yazmayı engelliyor. Final hesap/UI değişiklikleri için `git add` denendi ve geniş izin istenmedi:
 
 ```text
 fatal: Unable to create '.../.git/worktrees/dsh-mvh4pdzy-u7y7j4/index.lock':
 Operation not permitted
-add exit=128
+add_exit=128
 ```
 
-Commit atılmadı; dosyalar korunuyor. Temiz bir yetkili kabukta veya GPT’nin dar kapsamlı araç ortamında:
+Commit atılmadı; dosyalar korunuyor. Temiz yetkili kabuk/GPT dar kapsamlı araç:
 
 ```sh
 git add \
-  DigitalBanking.API/Controllers/SetupController.cs \
-  DigitalBanking.API/Program.cs \
-  DigitalBanking.Dashboard/Pages/Setup.cshtml.cs \
-  DigitalBanking.Infrastructure/Persistence/BankDbContext.cs \
-  DigitalBanking.Infrastructure/Persistence/DatabaseSeeder.cs \
-  DigitalBanking.Infrastructure/Services/UserIdentityService.cs \
-  DigitalBanking.Infrastructure/Services/PaymentApprovalService.cs \
-  DigitalBanking.Infrastructure/Services/DemoScenarioService.cs \
-  DigitalBanking.Infrastructure/Migrations/BankDbContextModelSnapshot.cs \
-  DigitalBanking.Infrastructure/Migrations/20261021011500_EnforceSingleOwner.cs \
-  DigitalBanking.Infrastructure/Migrations/20261021011500_EnforceSingleOwner.Designer.cs \
-  DigitalBanking.Tests/IdentityAndDelegationTests.cs \
-  DigitalBanking.Tests/PaymentApprovalServiceTests.cs \
-  DigitalBanking.Tests/SetupPageTests.cs \
-  scripts/smoke_test.py \
-  README.md DEEPSEEK_START_HERE.md docs
-
+  DigitalBanking.API DigitalBanking.Application DigitalBanking.Domain \
+  DigitalBanking.Infrastructure DigitalBanking.Dashboard DigitalBanking.Tests \
+  scripts/run_local.py scripts/smoke_test.py scripts/start_local_detached.py \
+  scripts/upgrade_sqlite_account_metadata.py README.md DEEPSEEK_START_HERE.md docs
 git -c user.name=Codex -c user.email=codex@local.invalid commit -m \
-  "Harden single-owner setup, approval ownership and QA evidence"
+  "Add account products, first-account flow and dashboard UX hardening"
 ```
 
-`docs/` eklemek screenshots/evidence dahil yukarıdaki belgeleri kapsar. `.local`, UAT kopyası ve parent worktree eklenmemelidir.
+Commit öncesi/sonrası doğrula:
+```sh
+DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh build DigitalBanking.slnx \
+  -p:UseSharedCompilation=false -m:1 -nr:false
+DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh test DigitalBanking.slnx \
+  -p:UseSharedCompilation=false -m:1 -nr:false --no-build
+```
+Smoke yalnız ayrı sentetik DB ile:
+```sh
+python3 scripts/run_local.py --api-port 5180 --dashboard-port 5181 \
+  --database "$PWD/.local/qa-smoke-final.db"
+python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181
+```
+Beklenen: **150 test**, **280 smoke**, 0 build warning/error.
 
-## 3. Otomatik merge / dirty parent teşhisi (salt okunur)
+## 4. Entegrasyon notu
 
-Gözlem:
-
-- `git worktree list`:
-  - `integration/local-development` = `f201e0e`, temiz.
-  - `deepseek/dashboard-and-tests` = `565df74` (ayrı worktree), **110 dosya staged ve kirli**.
-  - Kaynak branch = `7340a1c`, bu worktree.
-- `git merge-base HEAD integration/local-development` = **`f201e0e`**.
-- Kaynak branch integration’ın önünde; commit edilmiş 10 commit var.
-- Kirli `deepseek` worktree’sinde `git ls-files -u` **boş** (gerçek unmerged conflict kaydı yok); fakat index’te 110 dosyalık staged ekleme/silme seti var.
-- Bu nedenle “auto-merge conflict” uyarısı büyük olasılıkla **dirty/staged parent index** kaynaklı; içerik çakışması kanıtı yok.
-
-Kurallar:
-- Parent / `deepseek` / integration worktree’ye **reset, clean, checkout, merge, commit** yapılmayacak.
-- Kirli parent “quarantine” kabul edilecek; içeriği incelenmeden kullanılmayacak.
-- Entegrasyon yeni/temiz bir worktree’de yapılmalı.
-
-## 4. Güvenli entegrasyon planı
-
-1. Kaynakta commit’i tamamla; `git status` temiz ve `git log -1` beklenen commit olsun.
-2. Temiz entegrasyon worktree’si oluştur (parent dirty worktree’yi kullanma):
-   ```sh
-   git worktree add /tmp/DigitalBanking-integration integration/local-development
-   ```
-3. Kaynak branch integration’ın descendant’ı olduğu için önce fast-forward dene:
-   ```sh
-   git -C /tmp/DigitalBanking-integration merge --ff-only dsh/dsh-mvh4pdzy-u7y7j4
-   ```
-4. Fast-forward olmazsa commit’leri sırayla cherry-pick et:
-   ```sh
-   git -C /tmp/DigitalBanking-integration cherry-pick \
-     cac7f00 11684b2 d2e90e3 7340a1c <QA-commit>
-   ```
-5. Entegrasyon worktree’sinde doğrula:
-   ```sh
-   DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh build DigitalBanking.slnx \
-     -p:UseSharedCompilation=false -m:1 -nr:false
-   DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh test DigitalBanking.slnx \
-     -p:UseSharedCompilation=false -m:1 -nr:false --no-build
-   # Temiz sentetik DB ile:
-   python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181
-   ```
-6. Beklenen: **147 test**, **272 smoke**, 0 build warning/error.
-7. SQL Server migration’ı **apply etme**; yalnız model/migration incele. `20261021011500_EnforceSingleOwner` mevcut >1 Owner’da veri silmeden durur.
-8. UAT kopyasını bu merge’den sonra ayrı, temiz bir DB ile hazırla; mevcut UAT `.local` verisini kopyalama/çalıştırma.
-9. Push/PR/deploy yok.
-
-## 5. Entegrasyon riskleri
-
-| Risk | Not |
-|---|---|
-| Dirty parent index | Reset/clean yapma; temiz worktree kullan. |
-| SQL Server uygulanmadı | Migration yalnız üretildi; decimal/concurrency kanıtı değil. |
-| Mevcut >1 Owner | Migration durur; operatör kararı gerekir. |
-| UAT `.local` | Kullanıcıya ait; kopyalama/seed/reset yok. |
-| Rate-limit pencereleri | Smoke temiz DB ve taze süreç ister. |
-| Screenshot/QA kanıtı | Kod commit’iyle birlikte commit edilmeli; UAT DB kanıtı değildir. |
+- Integration `local-development` artık `35f247e`; eski dirty parent worktree kullanılmadı.
+- Bu UI dilimi commit edildikten sonra temiz integration worktree'ye fast-forward
+  dene; olmazsa yalnız bu commit'i cherry-pick et. Parent kirli kopyada
+  reset/clean/merge yapma.
+- UAT kopyasını ayrı DB ile hazırla; UAT `.local` ve kullanıcı hesabını kopyalama.
+- SQL Server migration'larını uygulama; >1 Owner verisinde migration veri silmeden durur.
+- Push/PR/deploy yok.

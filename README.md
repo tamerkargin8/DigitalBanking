@@ -1,6 +1,6 @@
 # DigitalBanking — banking controls portfolio demo
 
-> **Status (2026-10-20):** working .NET 10 API + Razor dashboard, **147 xUnit tests** and **272 end-to-end smoke checks** passing locally. SQL Server migrations are generated but **not applied or verified**. This is an educational, synthetic demo — not production banking software.
+> **Status (2026-10-20):** working .NET 10 API + Razor dashboard, **150 xUnit tests** and **280 end-to-end smoke checks** passing locally. SQL Server migrations are generated but **not applied or verified**. This is an educational, synthetic demo — not production banking software.
 
 DigitalBanking is a small retail-banking back office that makes the controls behind money movement visible: a **one-time Owner**, **delegated approval authority**, **maker-checker for every financial request**, **inclusive per-operation limits**, **live revocation**, **idempotent posting**, **customer ownership**, **timeline/receipt**, and **day-end reconciliation with an exception workflow**.
 
@@ -11,7 +11,7 @@ Most banking demos stop at CRUD. This one starts where operations actually get h
 Every customer financial request — transfer, deposit, withdrawal, account opening — is created as **Pending** and moves no money. The Owner or an explicitly delegated approver must approve it. The delegated limit is **inclusive**: a **100,000.00 TRY** request is allowed; **100,000.01 TRY** requires the Owner. The Owner's own request also cannot be self-approved. All authority is re-read from the database on every approval, so a revoked delegation or stale JWT stops working immediately.
 
 - **Stack:** C# / .NET 10, ASP.NET Core Web API + Razor Pages, EF Core 10, SQL Server (default) / SQLite (Development only), xUnit.
-- **Verified locally:** build 0 warnings / 0 errors, **147 xUnit tests**, **272 smoke checks**, NuGet vulnerable-package audit clean.
+- **Verified locally:** build 0 warnings / 0 errors, **150 xUnit tests**, **280 smoke checks**, NuGet vulnerable-package audit clean.
 - **Try it:** `bash scripts/dotnet.sh build DigitalBanking.slnx`, then `python3 scripts/run_local.py --api-port 5180 --dashboard-port 5181`, open <http://127.0.0.1:5181>.
 - **API/Swagger:** <http://127.0.0.1:5180/swagger> · **Health:** <http://127.0.0.1:5180/health>
 
@@ -29,6 +29,9 @@ Public registration accepts only **username, email, first/last name, password + 
 ### Approval and limit rules
 
 - **No auto-approval.** A low-risk request is still `Pending`; risk is shown, not used to bypass approval.
+- **Account products:** Vadesiz, Vadeli and Yatırım accounts are separated by tabs; every account has a customer-editable name, type, currency and masked number. Vadeli/Yatırım are management-only demo products (no interest, accrual, trading or FX return).
+- **First account:** a newly activated customer with no account can request an opening without selecting an existing account. The request carries type/name/currency through approval; the account appears after Owner/delegated approval.
+- **Per-account money requests:** Para Yatır and Para Çek create Pending requests with an amount/description summary; balance changes only on approval. Self-approval, idempotency and rollback rules remain unchanged.
 - **No money moves at creation.** Pending outgoing transfers/withdrawals reserve available balance, but the ledger changes only on approval. The request row, timeline and audit entry are created in one transaction.
 - **Ownership is rechecked at approval.** If the requester is no longer linked to the customer profile, or the source account has moved to another customer while the request was pending, approval is refused without moving money.
 - **Inclusive boundary.** `100,000.00 TRY` is eligible for a delegation with `MaxAmount = 100,000.00`; `100,000.01 TRY` is denied and routed to the Owner.
@@ -50,6 +53,14 @@ Public registration accepts only **username, email, first/last name, password + 
 | `applicant.pending` | PendingActivation | Demonstrates blocked login until Owner activation |
 
 Demo passwords are generated locally into `.local/credentials.json` (mode `0600`, git-ignored) and are never committed or shown by the smoke test. The Owner password is chosen during local setup and is not part of the seed.
+### Signing in locally
+
+1. Start the app and open the dashboard. With no Owner, `/Setup` is the only way to create the first Owner; choose the local password yourself.
+2. Owner signs in and opens **Üyeler** to activate `applicant.pending` or a newly registered member and assign Customer/DelegatedApprover.
+3. `customer.a` / `customer.b` use the synthetic demo password stored locally under `password` in `.local/credentials.json`.
+4. `approver.100k` / `approver.low` use the same local demo password; their authority comes from the Owner's role + delegation rows, not from the password.
+5. `applicant.pending` cannot sign in until activated; the login screen now explains this in Turkish instead of showing a service error.
+6. Never copy the UAT `.local` directory or its database into this worktree, and never paste a password/token into screenshots, chat or commits.
 
 ## First-run flow
 
@@ -125,8 +136,8 @@ Environment: macOS ARM64, .NET SDK **10.0.402**, EF Core **10.0.3**, SQLite Deve
 | Check | Result |
 |---|---|
 | `bash scripts/dotnet.sh build DigitalBanking.slnx` | **0 warnings, 0 errors** |
-| `bash scripts/dotnet.sh test DigitalBanking.slnx` | **147 passed, 0 failed, 0 skipped** |
-| `python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181` | **272 checks passed** |
+| `bash scripts/dotnet.sh test DigitalBanking.slnx` | **150 passed, 0 failed, 0 skipped** |
+| `python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181` | **280 checks passed** |
 | NuGet vulnerable-package audit | no vulnerable packages reported by current sources |
 | `git diff --check` | clean |
 
@@ -152,9 +163,17 @@ python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181
 
 The first run writes `.local/credentials.json` (mode `0600`) with a random demo password and JWT secret. **Never commit, share, screenshot or paste this file.** `.local/` is git-ignored.
 
-### Database reset
+### Database reset / existing SQLite upgrade
 
-SQLite uses `EnsureCreated`, not migrations. After a schema change, archive/delete `.local/digitalbanking.db*`; the next start creates the current schema and reseeds synthetic personas. A fresh DB has **no Owner**; use `/Setup` once.
+SQLite uses `EnsureCreated`, not migrations. A fresh start creates the current schema and reseeds synthetic personas; a fresh DB has **no Owner**, so use `/Setup` once. For an existing synthetic database, stop the app and run the additive, backup-producing upgrade (dry-run first):
+
+```sh
+python3 scripts/upgrade_sqlite_account_metadata.py .local/digitalbanking.db
+python3 scripts/upgrade_sqlite_account_metadata.py .local/digitalbanking.db --apply
+```
+
+The script refuses UAT-looking paths and never drops data. Existing accounts become **Vadesiz**. Do not run it against `outputs/DigitalBanking-UAT` or its `.local`.
+
 
 ### Tests
 
@@ -175,6 +194,10 @@ Implemented Razor Pages (Turkish, navy/neutral palette, local Bootstrap, session
 - **DelegatedApprover:** eligible approval queue, own reviewed history; user/role/delegation pages are denied.
 - **Customer:** home balance cards per currency, own accounts/details, transfer wizard with pre-confirmation, requests, payments/timeline and printable demo receipt.
 - Every screen has empty/error/success states; money is formatted per culture; account numbers are masked in customer/receipt views; no fake logos and no fabricated screenshots.
+- Newly activated customers with no accounts see a first-account CTA; the request form defaults to **Hesap açılışı** and transfer explains that an approved account is required first.
+- `Hesaplarım` has **Tümü / Vadesiz / Vadeli / Yatırım** tabs, per-tab empty states and a visible **Hesap Aç** button, plus Para Yatır/Para Çek shortcuts and an owner-only account-name edit form.
+- Delegated limits show the inclusive boundary, currency, operation and expiry in Turkish; expiry input is local time and is stored/compared in UTC. Tables scroll inside their cards on narrow screens instead of expanding the page.
+- Service/business messages that can reach the UI are mapped to Turkish; a pending-activation login explains Owner activation instead of a generic service error.
 
 ### Screenshots
 
@@ -192,7 +215,15 @@ Captured from the running local demo on **2026-10-20** with headless Chrome, syn
 |---|---|
 | ![Customer home](docs/screenshots/customer-home.png) | ![Customer receipt](docs/screenshots/customer-receipt.png) |
 
-The transfer wizard screenshot is in [`docs/screenshots/customer-transfer.png`](docs/screenshots/customer-transfer.png). Capture was done against a disposable SQLite Development database; the Owner password and `.local` files are not shown. No screenshot was fabricated or edited to add data.
+| First account request | Narrow viewport |
+|---|---|
+| ![First account CTA](docs/screenshots/customer-first-account.png) | ![Mobile customer home](docs/screenshots/customer-home-mobile.png) |
+
+| Account tabs and cards | Account detail |
+|---|---|
+| ![Account tabs](docs/screenshots/customer-accounts.png) | ![Account detail](docs/screenshots/customer-account-details.png) |
+
+More real captures (desktop/narrow delegation and transfer screens) are in [`docs/screenshots/`](docs/screenshots/). Capture was done against a disposable SQLite Development database; the Owner password and `.local` files are not shown. No screenshot was fabricated or edited to add data.
 
 ## Project structure
 
@@ -262,4 +293,4 @@ DigitalBanking, .NET 10 ile geliştirilmiş sentetik bir bankacılık operasyon 
 
 Ekranlar Türkçe, lacivert/nötr tasarımlı; müşteri yalnız kendi hesap ve hareketlerini görür, tamamlanmış işlem için maskeli ve **DEMO** uyarılı yazdırılabilir dekont alır. Gün sonu mutabakatta CSV önizleme/içe aktarma, SHA-256 mükerrer kontrolü, eşleşme/eşleşmeme sınıfları ve istisna iş akışı vardır; istisna kapatmak **bakiye düzeltmez**.
 
-Doğrulama: **0 uyarı/0 hata build**, **147 xUnit testi**, **272 smoke kontrolü**. SQL Server migration'ları üretildi ancak **uygulanmadı/doğrulanmadı**; SQLite sonucu SQL Server kanıtı değildir. Üretim güvenliği, gerçek banka entegrasyonu veya kur çevrimi iddiası yoktur. AI katkısı ve insan yönlendirmesi [`docs/PORTFOLIO_NOTES.md`](docs/PORTFOLIO_NOTES.md) içinde açıklanmıştır.
+Doğrulama: **0 uyarı/0 hata build**, **150 xUnit testi**, **280 smoke kontrolü**. SQL Server migration'ları üretildi ancak **uygulanmadı/doğrulanmadı**; SQLite sonucu SQL Server kanıtı değildir. Üretim güvenliği, gerçek banka entegrasyonu veya kur çevrimi iddiası yoktur. AI katkısı ve insan yönlendirmesi [`docs/PORTFOLIO_NOTES.md`](docs/PORTFOLIO_NOTES.md) içinde açıklanmıştır.

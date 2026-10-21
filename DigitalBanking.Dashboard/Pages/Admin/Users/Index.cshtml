@@ -10,19 +10,19 @@
         <h3 class="mb-1">Üyeler ve yetkiler</h3>
         <div class="text-muted small">Kayıtlar PendingActivation başlar; Owner aktive eder. Owner rolü buradan atanamaz.</div>
     </div>
-    <form method="get" class="d-flex gap-2">
-        <select class="form-select" name="status" style="width:170px;">
+    <form method="get" class="d-flex flex-wrap gap-2">
+        <select class="form-select" name="status" aria-label="Üyelik durumu" style="width:170px;">
             <option value="">Tüm durumlar</option>
             @foreach (var s in new[] { "PendingActivation", "Active", "Disabled" })
             {
                 <option value="@s" selected="@(Model.Status == s)">@DashboardUi.Status(s)</option>
             }
         </select>
-        <select class="form-select" name="role" style="width:170px;">
+        <select class="form-select" name="role" aria-label="Rol" style="width:170px;">
             <option value="">Tüm roller</option>
             @foreach (var r in new[] { "Customer", "DelegatedApprover", "Owner" })
             {
-                <option value="@r" selected="@(Model.Role == r)">@r</option>
+                <option value="@r" selected="@(Model.Role == r)">@DashboardUi.Status(r)</option>
             }
         </select>
         <button class="btn btn-outline-primary" type="submit">Filtrele</button>
@@ -45,12 +45,18 @@
                 <tr><th>Üye</th><th>E-posta</th><th>Rol</th><th>Durum</th><th>Kayıt</th><th>Aksiyon</th></tr>
             </thead>
             <tbody>
+            @if (Model.Items.Count == 0)
+            {
+                <tr><td colspan="6"><div class="empty-state">Bu filtrede üye yok. Bekleyen başvuruları görmek için “Aktivasyon bekliyor” filtresini deneyin.</div></td></tr>
+            }
+            else
+            {
             @foreach (var u in Model.Items)
             {
                 <tr>
                     <td><strong>@u.FirstName @u.LastName</strong><br /><small class="text-muted">@u.Username</small></td>
                     <td>@u.Email</td>
-                    <td><span class="badge bg-secondary">@u.Role</span></td>
+                    <td><span class="badge bg-secondary">@DashboardUi.Status(u.Role)</span></td>
                     <td><span class="@DashboardUi.StatusBadgeClass(u.Status)">@DashboardUi.Status(u.Status)</span></td>
                     <td>@DashboardUi.Date(u.CreatedDate)</td>
                     <td>
@@ -67,9 +73,9 @@
                             {
                                 <form method="post" asp-page-handler="Role" class="d-inline-flex gap-1">
                                     <input type="hidden" name="id" value="@u.Id" />
-                                    <select class="form-select form-select-sm" name="role" style="width:160px;">
-                                        <option value="Customer" selected="@(u.Role == "Customer")">Customer</option>
-                                        <option value="DelegatedApprover" selected="@(u.Role == "DelegatedApprover")">DelegatedApprover</option>
+                                    <select class="form-select form-select-sm" name="role" aria-label="Üye rolü" style="width:160px;">
+                                        <option value="Customer" selected="@(u.Role == "Customer")">@DashboardUi.Status("Customer")</option>
+                                        <option value="DelegatedApprover" selected="@(u.Role == "DelegatedApprover")">@DashboardUi.Status("DelegatedApprover")</option>
                                     </select>
                                     <button class="btn btn-sm btn-outline-primary" type="submit">Rol</button>
                                 </form>
@@ -85,6 +91,7 @@
                         }
                     </td>
                 </tr>
+            }
             }
             </tbody>
         </table>

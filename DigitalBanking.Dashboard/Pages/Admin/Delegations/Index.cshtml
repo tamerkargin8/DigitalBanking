@@ -22,8 +22,8 @@
     <div class="card-body">
         <form method="post" asp-page-handler="Create" class="row g-3">
             <div class="col-md-3">
-                <label class="form-label">Yetkili</label>
-                <select class="form-select" asp-for="UserId">
+                <label class="form-label" for="UserId">Yetkili</label>
+                <select class="form-select" asp-for="UserId" id="UserId">
                     <option value="">Seçin</option>
                     @foreach (var u in Model.Approvers)
                     {
@@ -32,8 +32,8 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Operasyon</label>
-                <select class="form-select" asp-for="Operation">
+                <label class="form-label" for="Operation">Operasyon</label>
+                <select class="form-select" asp-for="Operation" id="Operation">
                     @foreach (var o in new[] { "Transfer", "Deposit", "Withdrawal", "AccountOpening", "ReconciliationException" })
                     {
                         <option value="@o">@DashboardUi.Status(o)</option>
@@ -41,8 +41,8 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <label class="form-label">Para birimi</label>
-                <select class="form-select" asp-for="Currency">
+                <label class="form-label" for="Currency">Para birimi</label>
+                <select class="form-select" asp-for="Currency" id="Currency">
                     @foreach (var c in new[] { "TRY", "USD", "EUR", "GBP" })
                     {
                         <option value="@c">@c</option>
@@ -50,22 +50,26 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <label class="form-label">İşlem üst limiti</label>
-                <input class="form-control" asp-for="MaxAmount" type="number" step="0.01" min="0" />
+                <label class="form-label" for="MaxAmount">İşlem üst limiti (dahil)</label>
+                <input class="form-control" asp-for="MaxAmount" id="MaxAmount" type="number" step="0.01" min="0" inputmode="decimal" />
+                <div class="form-text">Örn. 100.000,00 TRY onaylanır; 100.000,01 Owner’a gider.</div>
             </div>
             <div class="col-md-2">
-                <label class="form-label">Günlük limit (ops.)</label>
-                <input class="form-control" asp-for="DailyLimit" type="number" step="0.01" min="0" />
+                <label class="form-label" for="DailyLimit">Günlük limit (ops.)</label>
+                <input class="form-control" asp-for="DailyLimit" id="DailyLimit" type="number" step="0.01" min="0" inputmode="decimal" />
+                <div class="form-text">Aynı operasyon/para biriminde günlük toplam.</div>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Son geçerlilik (ops.)</label>
-                <input class="form-control" asp-for="ExpiresAt" type="datetime-local" />
+                <label class="form-label" for="ExpiresAt">Son geçerlilik (ops.)</label>
+                <input class="form-control" asp-for="ExpiresAt" id="ExpiresAt" type="datetime-local"
+                       min="@DateTime.Now.AddMinutes(1).ToString("yyyy-MM-ddTHH:mm")" />
+                <div class="form-text">Yerel saat; geçmiş tarih sunucuda reddedilir.</div>
             </div>
             <div class="col-md-3 align-self-end">
                 <button class="btn btn-primary" type="submit">Yetki ver</button>
             </div>
         </form>
-        <div class="form-text mt-2">ReconciliationException için para birimi/limit kullanılmaz; yapay parasal limit uygulanmaz.</div>
+        <div class="form-text mt-2">Mutabakat istisnası için para birimi/limit kullanılmaz; yapay parasal limit uygulanmaz.</div>
     </div>
 </div>
 
@@ -75,28 +79,61 @@
         <table class="table table-hover mb-0">
             <thead class="table-dark"><tr><th>Yetkili</th><th>Operasyon</th><th>Para birimi</th><th class="text-end">İşlem limiti</th><th class="text-end">Günlük</th><th>Durum</th><th>Geçerlilik</th><th>Aksiyon</th></tr></thead>
             <tbody>
-            @foreach (var d in Model.Items)
+            @if (Model.Items.Count == 0)
             {
-                <tr>
-                    <td>@d.Username</td>
-                    <td>@DashboardUi.Status(d.Operation)</td>
-                    <td>@(d.Currency ?? "—")</td>
-                    <td class="text-end">@(d.MaxAmount is null ? "Limit yok (istisna)" : DashboardUi.Money(d.MaxAmount.Value, d.Currency ?? ""))</td>
-                    <td class="text-end">@(d.DailyLimit is null ? "Tanımsız" : DashboardUi.Money(d.DailyLimit.Value, d.Currency ?? ""))</td>
-                    <td><span class="@(d.IsActive ? "badge status-ok" : "badge status-bad")">@(d.IsActive ? "Aktif" : "Kapalı")</span></td>
-                    <td>@(d.ExpiresAt?.ToString("dd.MM.yyyy HH:mm") ?? "Süresiz")</td>
-                    <td class="d-flex gap-1">
-                        @if (d.IsActive)
-                        {
-                            <form method="post" asp-page-handler="Revoke" class="inline-form">
-                                <input type="hidden" name="id" value="@d.Id" />
-                                <button class="btn btn-sm btn-outline-danger" type="submit">Kapat</button>
-                            </form>
-                        }
-                    </td>
-                </tr>
+                <tr><td colspan="8"><div class="empty-state">Henüz yetki devri yok. Yukarıdan kişi/operasyon/para birimi ve limit seçerek başlayın.</div></td></tr>
+            }
+            else
+            {
+                @foreach (var d in Model.Items)
+                {
+                    var expired = d.ExpiresAt is { } expiry && expiry <= DateTime.UtcNow;
+                    <tr>
+                        <td>@d.Username</td>
+                        <td>@DashboardUi.Status(d.Operation)</td>
+                        <td>@(d.Currency ?? "—")</td>
+                        <td class="text-end">@(d.MaxAmount is null ? "Limit yok (istisna)" : DashboardUi.Money(d.MaxAmount.Value, d.Currency ?? ""))</td>
+                        <td class="text-end">@(d.DailyLimit is null ? "Tanımsız" : DashboardUi.Money(d.DailyLimit.Value, d.Currency ?? ""))</td>
+                        <td>
+                            <span class="@(expired ? "badge status-bad" : d.IsActive ? "badge status-ok" : "badge status-bad")">
+                                @(expired ? "Süresi doldu" : d.IsActive ? "Aktif" : "Kapalı")
+                            </span>
+                        </td>
+                        <td>@DashboardUi.LocalDate(d.ExpiresAt)</td>
+                        <td class="d-flex gap-1">
+                            @if (d.IsActive)
+                            {
+                                <form method="post" asp-page-handler="Revoke" class="inline-form">
+                                    <input type="hidden" name="id" value="@d.Id" />
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">Kapat</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
             }
             </tbody>
         </table>
     </div>
 </div>
+
+@section Scripts {
+<script>
+    (() => {
+        const op = document.getElementById('Operation');
+        if (!op) return;
+        const fields = ['Currency', 'MaxAmount', 'DailyLimit']
+            .map(id => document.getElementById(id))
+            .filter(Boolean);
+        const sync = () => {
+            const exception = op.value === 'ReconciliationException';
+            for (const input of fields) {
+                input.disabled = exception;
+                input.closest('.col-md-2')?.classList.toggle('d-none', exception);
+            }
+        };
+        op.addEventListener('change', sync);
+        sync();
+    })();
+</script>
+}

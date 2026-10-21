@@ -56,7 +56,7 @@ public class IndexModel : SecurePageModel
             currency = Operation == "ReconciliationException" ? null : Currency,
             maxAmount = Operation == "ReconciliationException" ? (decimal?)null : MaxAmount,
             dailyLimit = Operation == "ReconciliationException" ? (decimal?)null : DailyLimit,
-            expiresAt = ExpiresAt
+            expiresAt = DashboardUi.LocalInputToUtc(ExpiresAt)
         }, NewIdempotencyKey(), cancellationToken);
         if (result.Unauthorized) return SessionExpired();
         return RedirectToPage(new { flash = result.Success ? "Yetki devri oluşturuldu." : result.Error });

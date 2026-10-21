@@ -17,29 +17,42 @@
             <div>
                 <div class="muted small">Hoş geldiniz</div>
                 <h3 class="mb-1">@Model.Profile.DisplayName</h3>
-                <div class="muted">Müşteri no: @Model.Profile.CustomerId.ToString("N")[..8] · @Model.Profile.Role</div>
+                <div class="muted">Müşteri no: @Model.Profile.CustomerId.ToString("N")[..8] · @DashboardUi.Status(Model.Profile.Role)</div>
             </div>
             <div class="d-flex gap-2">
                 <a class="btn btn-light" href="/Customer/Transfer">Transfer talebi</a>
-                <a class="btn btn-outline-light" href="/Customer/Requests">Yatırma / Çekme talebi</a>
+                <a class="btn btn-outline-light" href="/Customer/Requests">Hesap açılışı / para talebi</a>
             </div>
         </div>
     </div>
 
-    <div class="d-flex justify-content-between align-items-end mb-2">
-        <h4 class="mb-0">Bakiyeler</h4>
-        <span class="text-muted small">Para birimleri ayrı gösterilir; kur çevrimi/toplama yok.</span>
-    </div>
-    <div class="balance-grid mb-4">
-        @foreach (var group in Model.AccountsByCurrency)
-        {
-            <div class="balance-card">
-                <div class="ccy">@group.Key</div>
-                <div class="amount">@DashboardUi.Money(group.Sum(x => x.Balance), group.Key)</div>
-                <div class="acct">@group.Count() hesap · toplam</div>
+    @if (Model.Accounts.Count == 0)
+    {
+        <div class="card mb-4">
+            <div class="empty-state">
+                <h5>Henüz hesabınız yok</h5>
+                <p class="mb-3">İlk hesabınızı açmak için hesap açılışı talebi oluşturun. Owner onaylayana kadar hesap oluşmaz ve bakiye görünmez.</p>
+                <a class="btn btn-primary" href="/Customer/Requests?type=AccountOpening">Hesap açılışı talebi oluştur</a>
             </div>
-        }
-    </div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-end mb-2">
+            <h4 class="mb-0">Bakiyeler</h4>
+            <span class="text-muted small">Para birimleri ayrı gösterilir; kur çevrimi/toplama yok.</span>
+        </div>
+        <div class="balance-grid mb-4">
+            @foreach (var group in Model.AccountsByCurrency)
+            {
+                <div class="balance-card">
+                    <div class="ccy">@group.Key</div>
+                    <div class="amount">@DashboardUi.Money(group.Sum(x => x.Balance), group.Key)</div>
+                    <div class="acct">@group.Count() hesap · toplam</div>
+                </div>
+            }
+        </div>
+    }
 
     <div class="row g-4">
         <div class="col-lg-7">
@@ -49,14 +62,21 @@
                     <table class="table mb-0">
                         <thead class="table-dark"><tr><th>Referans</th><th>Tür</th><th class="text-end">Tutar</th><th>Durum</th></tr></thead>
                         <tbody>
-                        @foreach (var p in Model.Payments.Take(6))
+                        @if (Model.Payments.Count == 0)
                         {
-                            <tr>
-                                <td><a href="/Customer/Payments/Details?id=@p.Id">@p.Reference</a></td>
-                                <td>@DashboardUi.Status(p.RequestType)</td>
-                                <td class="text-end">@DashboardUi.Money(p.Amount, p.Currency)</td>
-                                <td><span class="@DashboardUi.StatusBadgeClass(p.Status)">@DashboardUi.Status(p.Status)</span></td>
-                            </tr>
+                            <tr><td colspan="4"><div class="empty-state">Henüz talebiniz yok. Transfer veya hesap açılışı talebi oluşturabilirsiniz.</div></td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var p in Model.Payments.Take(6))
+                            {
+                                <tr>
+                                    <td><a href="/Customer/Payments/Details?id=@p.Id">@p.Reference</a></td>
+                                    <td>@DashboardUi.Status(p.RequestType)</td>
+                                    <td class="text-end">@DashboardUi.Money(p.Amount, p.Currency)</td>
+                                    <td><span class="@DashboardUi.StatusBadgeClass(p.Status)">@DashboardUi.Status(p.Status)</span></td>
+                                </tr>
+                            }
                         }
                         </tbody>
                     </table>
@@ -67,12 +87,19 @@
             <div class="card">
                 <div class="card-header">Hesaplarım</div>
                 <div class="list-group list-group-flush">
-                    @foreach (var a in Model.Accounts)
+                    @if (Model.Accounts.Count == 0)
                     {
-                        <a class="list-group-item list-group-item-action d-flex justify-content-between" href="/Customer/Accounts/Details?id=@a.Id">
-                            <span>@DashboardUi.Account(a.AccountNumber)<br /><small class="text-muted">@a.Currency</small></span>
-                            <strong>@DashboardUi.Money(a.Balance, a.Currency)</strong>
-                        </a>
+                        <div class="empty-state">Hesap açılışı onaylandığında hesaplarınız burada görünür.</div>
+                    }
+                    else
+                    {
+                        @foreach (var a in Model.Accounts)
+                        {
+                            <a class="list-group-item list-group-item-action d-flex justify-content-between" href="/Customer/Accounts/Details?id=@a.Id">
+                                <span>@a.AccountName<br /><small class="text-muted">@DashboardUi.Status(a.AccountType) · @DashboardUi.Account(a.AccountNumber)</small></span>
+                                <strong>@DashboardUi.Money(a.Balance, a.Currency)</strong>
+                            </a>
+                        }
                     }
                 </div>
             </div>

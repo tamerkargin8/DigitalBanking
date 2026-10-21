@@ -227,6 +227,86 @@ public class CustomerPortalTests
     }
 
     [Fact]
+    public async Task FirstAccountOpeningPersistsTypeNameAndOwnershipThenAllowsRename()
+    {
+        var fixture = await CreateFixtureAsync();
+        await using var _ = fixture.Db;
+        var (userC, actorC) = await TestSupport.AddActorAsync(fixture.Context, "customer-c-test", UserRole.Customer);
+        var customerC = await TestSupport.AddCustomerAsync(fixture.Context, "Cem", "Test", userC.Id);
+
+        Assert.Empty(await fixture.Portal.GetAccountsAsync(actorC));
+        var opening = await fixture.Portal.CreateOperationRequestAsync(new CreateCustomerOperationRequest
+        {
+            RequestType = "AccountOpening",
+            AccountType = "TimeDeposit",
+            AccountName = "  Birikim Hesabım  ",
+            Currency = "TRY",
+            Amount = 0m,
+            Description = "First account"
+        }, actorC);
+
+        Assert.Equal("Pending", opening.Status);
+        Assert.Equal("Birikim Hesabım", opening.RequestedAccountName);
+        Assert.Equal("TimeDeposit", opening.RequestedAccountType);
+        await fixture.Payments.ApprovePaymentAsync(opening.Id, fixture.Owner);
+
+        var created = await fixture.Context.Accounts.SingleAsync(x => x.CustomerId == customerC.Id);
+        Assert.Equal("Birikim Hesabım", created.AccountName);
+        Assert.Equal(AccountType.TimeDeposit, created.AccountType);
+        Assert.Equal(0m, created.Balance);
+        Assert.Contains((await fixture.Portal.GetAccountsAsync(actorC)), x => x.Id == created.Id && x.AccountType == "TimeDeposit");
+
+        var renamed = await fixture.Portal.RenameAccountAsync(created.Id, "  Yeni Hesap Adı  ", actorC);
+        Assert.Equal("Yeni Hesap Adı", renamed.AccountName);
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            fixture.Portal.RenameAccountAsync(created.Id, "IDOR", fixture.ActorA));
+        await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            fixture.Portal.RenameAccountAsync(created.Id, "   ", actorC));
+        await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            fixture.Portal.RenameAccountAsync(created.Id, "<script>alert(1)</script>", actorC));
+        await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            fixture.Portal.RenameAccountAsync(created.Id, new string('A', 101), actorC));
+    }
+
+    [Fact]
+    public async Task DepositAndWithdrawalRequestsMoveMoneyOnlyAtOwnerApproval()
+    {
+        var fixture = await CreateFixtureAsync();
+        await using var _ = fixture.Db;
+
+        var deposit = await fixture.Portal.CreateOperationRequestAsync(new CreateCustomerOperationRequest
+        {
+            RequestType = "Deposit",
+            AccountId = fixture.AccountA,
+            Amount = 500m,
+            Description = "Synthetic deposit"
+        }, fixture.ActorA);
+        Assert.Equal("Pending", deposit.Status);
+        Assert.Equal(250_000m, (await fixture.Context.Accounts.SingleAsync(x => x.Id == fixture.AccountA)).Balance);
+        await fixture.Payments.ApprovePaymentAsync(deposit.Id, fixture.Owner);
+        Assert.Equal(250_500m, (await fixture.Context.Accounts.SingleAsync(x => x.Id == fixture.AccountA)).Balance);
+
+        var withdrawal = await fixture.Portal.CreateOperationRequestAsync(new CreateCustomerOperationRequest
+        {
+            RequestType = "Withdrawal",
+            AccountId = fixture.AccountA,
+            Amount = 500m,
+            Description = "Synthetic withdrawal"
+        }, fixture.ActorA);
+        Assert.Equal("Pending", withdrawal.Status);
+        await fixture.Payments.ApprovePaymentAsync(withdrawal.Id, fixture.Owner);
+        Assert.Equal(250_000m, (await fixture.Context.Accounts.SingleAsync(x => x.Id == fixture.AccountA)).Balance);
+
+        await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            fixture.Portal.CreateOperationRequestAsync(new CreateCustomerOperationRequest
+            {
+                RequestType = "Withdrawal",
+                AccountId = fixture.AccountA,
+                Amount = 999_999m
+            }, fixture.ActorA));
+    }
+
+    [Fact]
     public async Task AdminWithoutCustomerProfileIsForbiddenFromCustomerPortal()
     {
         var fixture = await CreateFixtureAsync();

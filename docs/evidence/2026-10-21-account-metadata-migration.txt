@@ -1,0 +1,28 @@
+Account metadata migration/evidence — 2026-10-21
+Branch: dsh/dsh-mvh4pdzy-u7y7j4
+Scope: own synthetic worktree only; UAT DB and .local untouched.
+
+SQL Server (generated, NOT applied):
+- 20261021023000_AddAccountMetadata
+  - Accounts.AccountName nvarchar(100) NOT NULL default 'Vadesiz Hesap'
+  - Accounts.AccountType int NOT NULL default 1 (Checking)
+  - PaymentApprovals.RequestedAccountName nvarchar(100) NULL
+  - PaymentApprovals.RequestedAccountType int NULL
+  - Additive; existing rows preserved; Down drops only these columns.
+
+SQLite additive upgrade (tested):
+- Dry run on .local/account-upgrade-test.db listed four ALTER TABLE statements.
+- Apply on that copy created a timestamped .bak and preserved 7 account rows;
+  existing rows read AccountName='Vadesiz Hesap', AccountType=1.
+- Applied the same idempotent script to the own synthetic main DB after stopping
+  the app; backup was created. UAT DB was never opened or changed.
+- Fresh SQLite DBs receive the columns through EnsureCreated; the upgrade script
+  refuses paths containing digitalbanking-uat.
+
+Functional evidence:
+- Customer test: first AccountOpening (TimeDeposit / "Birikim Hesabım" / TRY)
+  remained Pending, Owner approval created the account, API returned accountName
+  and accountType; owner rename trimmed whitespace; IDOR returned 404; blank,
+  HTML-like and >100-char names returned 400; deposit/withdraw changed balance
+  only after approval; insufficient withdrawal returned 400.
+- Automated: 150 xUnit tests, 280 smoke checks, build 0 warnings/0 errors.

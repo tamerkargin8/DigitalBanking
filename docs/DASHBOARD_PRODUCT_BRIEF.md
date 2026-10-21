@@ -49,10 +49,27 @@
 | Ekran | İşlev |
 |---|---|
 | Ana Sayfa | Kendi TRY/USD/EUR bakiye kartları (ayrı), son hareketler |
-| Hesaplar | Yalnız kendi hesapları; detay/hareket; IDOR 404 |
+| Hesaplar | Tümü/Vadesiz/Vadeli/Yatırım sekmeleri; ad/tür/para birimi/bakiye/maskeli no; Hesap Aç; detay/hareket; IDOR 404 |
 | Transfer | Kendi hesabı → alıcı → tutar/para birimi → ön özet → talep; `Idempotency-Key` |
+| Hesap Aç / Para Yatır / Para Çek | İlk hesap seçimden bağımsız; tür/ad/para birimi; tutar/açıklama özeti; Pending/onay/red takibi |
 | Talepler | Kendi transfer/deposit/withdrawal/account opening talepleri; durum/gerekçe |
 | Ödemeler / Dekont | Timeline; tamamlanmışta maskeli, Europe/Istanbul, DEMO uyarılı print-to-PDF |
+
+## 2b. Yeni kullanıcı kapsamı — hesap türleri ve ilk hesap
+
+- `Hesaplarım` sekmeleri: **Tümü, Vadesiz, Vadeli, Yatırım**. Her sekmede boş
+  durum ve görünür **Hesap Aç** düğmesi; hesap kartında ad, tür, para birimi,
+  bakiye, maskeli numara.
+- Hesap açma formu: tür, kullanıcı adı, para birimi. Mevcut hesap seçimi
+  gerektirmez; ilk hesap sıfır bakiyeyle açılır ve onay sonrası listelenir.
+- Hesap adı sonradan yalnız sahibi tarafından düzenlenebilir; boşluk, uzunluk,
+  XSS ve IDOR kontrolleri sunucuda uygulanır.
+- Her hesap detayında **Para Yatır** ve **Para Çek** talepleri; tutar/açıklama
+  özeti, Pending/Approved/Rejected takibi. Bakiye yalnız yetkili onayında değişir.
+- Vadeli/Yatırım bir hesap türü ve yönetim demosudur; faiz/tahakkuk/alım-satım/
+  kur getirisi hesaplanmaz, bu sınır ekranda açıkça yazılır.
+- Eski hesaplar varsayılan **Vadesiz** kabul edilir; additive SQL Server
+  migration ve SQLite için veri kaybettirmeyen operatör upgrade script'i.
 
 ## 3. Kritik akışlar
 
@@ -85,7 +102,7 @@
 ## 6. Açık kalanlar
 
 - **Manuel UAT:** [`UAT_CHECKLIST.md`](UAT_CHECKLIST.md) doldurulmadı.
-- **Gerçek ekran görüntüsü:** alındı (`docs/screenshots/`, 7 ekran, sentetik veri).
+- **Gerçek ekran görüntüsü:** alındı (`docs/screenshots/`, 13 ekran, sentetik veri).
   UAT sırasında güncel UI ile yenilenmeli; sahte görsel yok.
 - **SQL Server:** migration apply/gerçek concurrency doğrulanmadı.
 - **Tarayıcı otomasyonu:** smoke HTTP + dashboard guard düzeyinde; görsel/

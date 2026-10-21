@@ -15,20 +15,20 @@
         </div>
     </div>
     <form method="get" class="d-flex flex-wrap gap-2">
-        <select class="form-select" name="status" style="width:150px;">
+        <select class="form-select" name="status" aria-label="Talep durumu" style="width:150px;">
             @foreach (var s in new[] { "Pending", "Approved", "Rejected", "Cancelled" })
             {
                 <option value="@s" selected="@(Model.Status == s)">@DashboardUi.Status(s)</option>
             }
         </select>
-        <select class="form-select" name="requestType" style="width:170px;">
+        <select class="form-select" name="requestType" aria-label="Talep türü" style="width:170px;">
             <option value="">Tüm türler</option>
             @foreach (var t in new[] { "Transfer", "Deposit", "Withdrawal", "AccountOpening" })
             {
                 <option value="@t" selected="@(Model.RequestType == t)">@DashboardUi.Status(t)</option>
             }
         </select>
-        <select class="form-select" name="currency" style="width:110px;">
+        <select class="form-select" name="currency" aria-label="Para birimi" style="width:110px;">
             <option value="">Para birimi</option>
             @foreach (var c in new[] { "TRY", "USD", "EUR", "GBP" })
             {

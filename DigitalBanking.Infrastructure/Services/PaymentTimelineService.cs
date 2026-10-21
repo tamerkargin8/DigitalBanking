@@ -56,16 +56,16 @@ public sealed class PaymentTimelineService : IPaymentTimelineService
 
         if (events.Count == 0)
         {
-            dto.Events.Add(MakeEvent(PaymentTimelineEventType.Created, payment.CreatedAt, null, "System", "Payment request recorded.", true, timeZone));
+            dto.Events.Add(MakeEvent(PaymentTimelineEventType.Created, payment.CreatedAt, null, "Sistem", "Talep kaydedildi.", true, timeZone));
             if (payment.ReviewedAt is { } reviewedAt)
             {
                 dto.Events.Add(payment.Status == PaymentApprovalStatus.Rejected
-                    ? MakeEvent(PaymentTimelineEventType.Rejected, reviewedAt, null, "Admin", "Payment rejected by checker.", false, timeZone)
-                    : MakeEvent(PaymentTimelineEventType.Approved, reviewedAt, null, "Admin", "Payment approved by checker.", false, timeZone));
+                    ? MakeEvent(PaymentTimelineEventType.Rejected, reviewedAt, null, "Yetkili", "Talep yetkili tarafından reddedildi.", false, timeZone)
+                    : MakeEvent(PaymentTimelineEventType.Approved, reviewedAt, null, "Yetkili", "Talep yetkili tarafından onaylandı.", false, timeZone));
             }
 
             if (payment.RelatedTransactionId is not null)
-                dto.Events.Add(MakeEvent(PaymentTimelineEventType.Completed, payment.ReviewedAt ?? payment.CreatedAt, null, "System", "Ledger movement completed.", true, timeZone));
+                dto.Events.Add(MakeEvent(PaymentTimelineEventType.Completed, payment.ReviewedAt ?? payment.CreatedAt, null, "Sistem", "Finansal hareket tamamlandı.", true, timeZone));
         }
         else
         {

@@ -31,7 +31,7 @@ public class AccountService : IAccountService
     public async Task<AccountDto> OpenAccountAsync(CreateAccountRequest request, ActorContext actor, CancellationToken cancellationToken = default)
     {
         if (!actor.IsAdmin)
-            throw new BusinessRuleException("Only an Admin can open accounts.");
+            throw new BusinessRuleException("Hesabı yalnız Owner açabilir.");
 
         var currency = CurrencyCodes.Normalize(request.Currency);
         Money.EnsureNonNegative(request.InitialBalance, "Initial balance");
@@ -159,6 +159,8 @@ public class AccountService : IAccountService
         {
             Id = account.Id,
             AccountNumber = account.AccountNumber,
+            AccountName = account.AccountName,
+            AccountType = account.AccountType.ToString(),
             Balance = account.Balance,
             Currency = account.Currency,
             CustomerId = account.CustomerId,
@@ -201,6 +203,8 @@ public class AccountService : IAccountService
     {
         Id = account.Id,
         AccountNumber = account.AccountNumber,
+        AccountName = account.AccountName,
+        AccountType = account.AccountType.ToString(),
         Balance = account.Balance,
         Currency = account.Currency,
         CustomerId = account.CustomerId,
@@ -217,6 +221,6 @@ public class AccountService : IAccountService
                 return candidate;
         }
 
-        throw new BusinessRuleException("Could not generate a unique account number. Please retry.");
+        throw new BusinessRuleException("Benzersiz hesap numarası üretilemedi. Lütfen tekrar deneyin.");
     }
 }

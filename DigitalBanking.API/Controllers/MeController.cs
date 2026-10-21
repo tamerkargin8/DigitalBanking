@@ -65,6 +65,19 @@ public class MeController : ControllerBase
         return Ok(ApiResponse<AccountDetailDto>.SuccessWith(account));
     }
 
+    [HttpPut("accounts/{id:guid}/name")]
+    [ProducesResponseType(typeof(ApiResponse<AccountDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RenameAccount(
+        Guid id,
+        [FromBody] RenameAccountRequest request,
+        CancellationToken cancellationToken)
+    {
+        var account = await _portal.RenameAccountAsync(id, request.AccountName, User.GetActor(), cancellationToken);
+        return Ok(ApiResponse<AccountDetailDto>.SuccessWith(account, "Hesap adı güncellendi."));
+    }
+
     [HttpGet("accounts/{id:guid}/transactions")]
     [ProducesResponseType(typeof(ApiResponse<TransactionHistoryDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTransactions(
