@@ -23,7 +23,11 @@ total = int(counters.get("total", "0"))
 executed = int(counters.get("executed", "0"))
 passed = int(counters.get("passed", "0"))
 failed = int(counters.get("failed", "0"))
-skipped = int(counters.get("notExecuted", "0"))
+# VSTest can omit notExecuted even when individual results are NotExecuted.
+# Count explicit skipped outcomes rather than inferring total - executed.
+results = root.findall(".//t:Results/t:UnitTestResult", ns)
+skipped_results = sum(r.get("outcome") == "NotExecuted" for r in results)
+skipped = max(int(counters.get("notExecuted", "0")), skipped_results)
 lines = [f"total={total} executed={executed} passed={passed} failed={failed} skipped={skipped}"]
 if args.expect_total is not None and total != args.expect_total:
     lines.append(f"FAIL: expected total {args.expect_total}")
