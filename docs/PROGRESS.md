@@ -1,8 +1,8 @@
 # PROGRESS
 
-Güncelleme: **2026-10-20/21** (Europe/Istanbul).
+Güncelleme: **2026-10-22** (Europe/Istanbul).
 
-## Durum: üç rollü backend + dashboard + mutabakat tamam; UAT/SQL Server açık
+## Durum: Stage 3–5 tamam (SQLite + sunum); SQL Server/UAT/GitHub açık
 
 Kullanıcı bekleme kapısını kaldırdı. Owner/DelegatedApprover/Customer rol modeli,
 tüm finansal taleplerin onay zorunluluğu, kişi/operasyon/para birimi limitleri,
@@ -48,7 +48,27 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
     kalıcılığı, Hesaplarım sekmeleri, hesapsız müşteriden açılış talebi,
     yalnız sahibin ad düzenlemesi, hesap detayından para yatır/çek talepleri;
     SQL Server additive migration ve SQLite idempotent upgrade script'i.
-12. **Dashboard UX/QA (bu dilim):** rol etiketleri Türkçe; Delegasyon limitinin
+12. **Stage 3 — çift kayıtlı muhasebe (bu dilim):** append-only
+    `JournalEntry`/`JournalLine`, tek para birimi, pozitif bacaklar, debit=credit;
+    yatırma/çekme/transfer/hesap açılışı onay işlemiyle aynı DB transaction'ında;
+    `SourceKey` unique ile replay engeli; onay hatasında bakiye/legacy kayıt/
+    onay/timeline/audit tam geri alma; Owner-only gap tabanlı baseline preview/post
+    (tam journal kapsamındaki hesap ve mevcut baseline atlanır; fark yönüne göre
+    debit/credit; para birimi bazında toplamlar); salt okunur mizan/journal API'si
+    ve `/Admin/Accounting` ekranı; additive SQL Server migration + SQLite upgrade
+    script; 18 muhasebe testi + baseline/onay yarış testi.
+13. **Stage 4 — operasyon kontrol merkezi (bu dilim):** UTC yaş → Istanbul
+    gösterim, yapılandırılabilir demo SLA (30 dk, `age >= SLA` gecikmiş),
+    geciken/en eski/atanmamış/bana atanan özetleri, tür/para birimi/durum/yaş/
+    atama filtreleri, sınırlı sayfalama, canlı delegasyona göre kapsamlı
+    görünürlük, güvenli atama (onay yetkisi vermez), çözülmemiş mutabakat
+    farkları ve `/Admin/Operations` ekranı; 8 deterministik saat/atama testi.
+14. **Stage 5 — portföy sunumu (bu dilim):** İngilizce README + Türkçe özet,
+    Mermaid mimari/onay/journal/operasyon akışları, seçilmiş ASVS temalı güvenlik
+    kanıt matrisi, gerçek sentetik ekran görüntüleri, 3 dakikalık demo senaryosu
+    (video çekilmedi), TR/EN CV maddeleri ve 30 sn pitch, final gaps ve Stage 5
+    raporu. Push/release/CV yayını yapılmadı; GPT kontrollü.
+15. **Dashboard UX/QA (önceki dilim):** rol etiketleri Türkçe; Delegasyon limitinin
     dahil olduğu, operasyon/para birimi/süre ve “Süresi doldu” durumu görünür;
     geçmiş expiry sunucuda reddedilir; yerel datetime → UTC; müşteri ilk hesap
     boş durumu ve hesap açılışı CTA’sı; talep formu hesapsız müşteride
@@ -59,8 +79,12 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
 ## Son doğrulanan sonuçlar
 
 - Build: **0 uyarı, 0 hata**.
-- xUnit: **150 geçti, 0 kaldı, 0 atlandı**.
-- Smoke: **280 kontrol geçti** (temiz Development DB; eşzamanlı Owner setup, stale Setup POST, yeni üye aktivasyon/login, hesap metadata/ad/IDOR ve ilk hesap akışı dahil).
+- xUnit: **177 geçti, 0 kaldı, 0 atlandı**; SQL Server integration **8 atlandı (koşulmadı)**.
+- Smoke: **280 kontrol geçti** (temiz Development DB; Stage 3 öncesi kapsam).
+- Yeni tekrarlanabilir E2E: **104/104** (`scripts/stage3_stage4_e2e.py`; Stage 3 **25/25**, Stage 4 **24/24**, finansal 25/25, operasyon 12/12, CSV/demo 9/9, SQLite upgrade 9/9).
+- Önceki ad-hoc Stage 3 E2E: **25/25**, Stage 4 E2E: **24/24** (izole SQLite 5198/5199; tarihsel kanıt).
+- Stage 5: README/mimari/güvenlik matrisi/demo script/CV/final gaps yazıldı; video **çekilmedi**, push **yapılmadı**.
+- SQL Server migration script'i üretildi; **gerçek SQL Server'a uygulanmadı**.
 - NuGet audit: bilinen açık yok.
 - `git diff --check`: temiz.
 - Kanıt: [`evidence/`](evidence/), [`TEST_REPORT.md`](TEST_REPORT.md).
@@ -132,3 +156,71 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
   veya kur getirisi simüle edilmez. Kısa demo açıklaması gösterilir.
 - **Migration:** SQL Server için additive migration; mevcut SQLite verisini
   koruyan idempotent yükseltme script'i. UAT DB'sine uygulanmaz.
+
+## 2026-10-22 — Stage 1: SQL Server verification preparation — PREPARED / BLOCKED
+
+- Roadmap recorded in [`PORTFOLIO_ROADMAP.md`](PORTFOLIO_ROADMAP.md); only Stage 1
+  was worked on.
+- Environment read-only check: macOS ARM64; Docker/Podman/Colima/sqlcmd absent.
+  Microsoft supports SQL Server Linux containers only on x86-64 Linux hosts and
+  does not support Rosetta/QEMU translation; no emulation was presented as valid.
+- Added `DigitalBanking.IntegrationTests` with 8 environment-gated SQL Server
+  tests (migration apply/defaults/index, decimal boundaries, rollback, separate
+  connection concurrency, idempotency, self/live authority, IDOR/rename,
+  reconciliation replay/exception). They compile but are **skipped/not run**
+  without a disposable SQL Server.
+- Added `scripts/run_sqlserver_integration.sh`; it refuses to run without both
+  the connection env and explicit destructive allow flag, and prints `NOT RUN`
+  otherwise. Random `DigitalBanking_IT_<hex>` DB is created/dropped only by the
+  fixture; existing/UAT DBs are never touched.
+- Build 0 warnings/0 errors; main xUnit **150 passed**; smoke **280 passed**;
+  integration **8 skipped, 0 passed** — SQL Server remains unverified.
+- Reports: [`SQLSERVER_VERIFICATION.md`](SQLSERVER_VERIFICATION.md),
+  [`STAGE_01_REPORT.md`](STAGE_01_REPORT.md),
+  [`evidence/2026-10-22-sqlserver-integration.txt`](evidence/2026-10-22-sqlserver-integration.txt).
+- **Stage 1 status: prepared / environment-blocked**; real SQL Server still not
+  verified.
+- **Stage 2 status at Stage 1 snapshot: not started.** The later Stage 2 entry
+  records preparation; GitHub Actions is **NOT RUN**.
+
+## 2026-10-22 — Stage 2: GitHub Actions CI preparation
+
+- Added `.github/workflows/ci.yml` (push/PR): pinned checkout v7.0.1,
+  setup-dotnet v6.0.0, upload-artifact v7.0.2; build, main 150-test gate, explicit
+  8 SQL Server skips, and separate isolated SQLite smoke job.
+- Added `sqlserver-integration.yml` manual-only workflow: supported x86-64
+  `ubuntu-24.04`, pinned `mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04`,
+  health check, EULA manual input, environment/secret prerequisite, random
+  `DigitalBanking_IT_<hex>` DB, TRX 8/8 no-skip gate.
+- Added safe CI scripts: ephemeral credentials, isolated smoke with own-PID
+  cleanup, TRX summaries, SQL skip gate, workflow guardrails.
+- Verified: YAML parse, workflow guardrails PASS, Bash/Python syntax, solution
+  build 0 warnings/0 errors, main **150 passed**, SQL integration **8 skipped —
+  NOT RUN**, prior isolated SQLite smoke **280 passed**. The CI smoke wrapper was
+  not run end-to-end against the existing developer `.local`; its guard refuses
+  to overwrite.
+- **GitHub Actions itself has NOT run**; no push/PR/dispatch/deploy.
+- Reports: [`CI_GUIDE.md`](CI_GUIDE.md), [`STAGE_02_REPORT.md`](STAGE_02_REPORT.md),
+  [`SECURITY_MATRIX.md`](SECURITY_MATRIX.md).
+- Stage 3 was not started at that point; it is completed later in this file.
+
+## 2026-10-22 — Stages 3–5 execution started
+
+- User removed stage stop gates and approved Step 3 → 4 → 5 sequentially.
+- Task/continuation record: [`REMAINING_DEVELOPMENT_TASK.md`](REMAINING_DEVELOPMENT_TASK.md).
+- Stage 1 real SQL Server, Stage 2 GitHub Actions/hosted run and EULA remain
+  pending/environment-blocked; they are not blocking development.
+- Stage 3 completed on synthetic SQLite/local: balanced journal, atomic approval
+  integration, Owner baseline, read-only accounting view, additive migration,
+  177 unit tests and 25/25 live E2E checks; the baseline was later corrected to
+  gap-based, with new regression/race tests. SQL Server application and GitHub
+  Actions remain NOT RUN. Report: [`STAGE_03_REPORT.md`](STAGE_03_REPORT.md).
+- Stage 4 completed on synthetic SQLite/local: operations centre, SLA/age,
+  assignment, reconciliation gaps, 177 unit tests and 24/24 live E2E checks.
+  The same 25/25 + 24/24 surface is now reproducible with
+  `scripts/stage3_stage4_e2e.py` (**104/104**, financial 25/25, CSV/demo 9/9,
+  upgrade 9/9). Report: [`STAGE_04_REPORT.md`](STAGE_04_REPORT.md). SQL Server
+  and GitHub Actions remain NOT RUN.
+- Stage 5 completed as documentation/portfolio deliverable. Final GitHub push,
+  release and CV publication remain **GPT-controlled** and were **not done**.
+  SQL Server, GitHub Actions, UAT and EULA remain unverified/open.

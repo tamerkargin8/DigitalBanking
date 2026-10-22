@@ -1,0 +1,52 @@
+Stage 5 portfolio evidence
+Date: 2026-10-22 (Europe/Istanbul)
+Environment: macOS arm64, .NET SDK 10.0.402, synthetic SQLite only
+
+1) Deliverables present
+  README.md (English + Turkish summary, problem/workflow/architecture/evidence)
+  docs/ARCHITECTURE.md (Mermaid component + approval/journal/operations sequences)
+  docs/SECURITY_MATRIX.md (selected ASVS themes, no certification claim)
+  docs/DEMO_SCRIPT.md (3 minutes; video NOT RECORDED)
+  docs/CV_PROJECT_ENTRY.md (EN/TR bullets, pitches, Q&A; no external CV edited)
+  docs/FINAL_GAPS.md (completed vs verified vs pending)
+  docs/STAGE_05_REPORT.md
+  docs/adr/0001-payment-and-role-policy.md
+  docs/adr/0002-double-entry-journal.md
+
+2) Real synthetic screenshots
+  docs/screenshots/*.png = 17 captures
+  New Stage 3/4 files:
+    owner-accounting.png       2880x2664
+    owner-journal-detail.png   2880x2200
+    owner-operations.png       2880x3130
+    delegated-operations.png   2880x2826
+  Captured with Chrome DevTools, 1440px CSS width, 2x DPR.
+  No passwords, tokens, .local contents, UAT data or real customers are shown.
+  No mockups and no automated visual-regression claim.
+
+3) Underlying verification (re-run, not re-labelled)
+  Build:
+    DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh build DigitalBanking.slnx \
+      -p:UseSharedCompilation=false -m:1 -nr:false
+    Result: 0 warnings, 0 errors.
+  Tests:
+    DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh test DigitalBanking.slnx \
+      -p:UseSharedCompilation=false -m:1 -nr:false --no-restore
+    Result: DigitalBanking.Tests 177 passed, 0 failed; IntegrationTests 8 skipped.
+  Stage 3 E2E: 25/25 (isolated SQLite 5198/5199).
+  Stage 4 E2E: 24/24 (isolated SQLite 5198/5199).
+  Isolated smoke: 280/280, exit 0 (temp DB, ports 5196/5197).
+  SQL Server migration: rendered only; NOT applied.
+  GitHub Actions: NOT RUN.
+  Manual UAT / EULA / video: NOT DONE / NOT ACCEPTED / NOT RECORDED.
+
+4) Documentation claims cross-check
+  README current counts: 177 xUnit, 280 smoke, 104/104 accounting/operations E2E
+  operations E2E. SQL Server apply and hosted CI are explicitly not claimed.
+  FINAL_GAPS lists environment/manual/push/secret gaps and the git-index block.
+  DEMO_SCRIPT labels video as prepared, not recorded.
+  CV entry discloses AI assistance and avoids production/certification claims.
+
+5) Final publish boundary
+  No push, PR, tag, release, deploy or external CV edit was performed.
+  Final push/CV publishing remains GPT-controlled at project end.

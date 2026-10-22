@@ -1,0 +1,307 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Operations.IndexModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Operasyon Merkezi";
+}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h3 class="mb-1">Operasyon Kontrol Merkezi</h3>
+        <div class="text-muted small">Bekleyen taleplerin yaşı ve SLA durumu, atama ve çözülmemiş mutabakat farkları. Saatler Europe/Istanbul gösterilir; hesaplama UTC'dir.</div>
+    </div>
+    <a class="btn btn-outline-secondary" href="/Admin/Approvals">Onay Kuyruğu</a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Flash)) { <div class="alert alert-info">@Model.Flash</div> }
+@if (!string.IsNullOrEmpty(Model.Error)) { <div class="alert alert-danger">@Model.Error</div> }
+
+@if (Model.Summary is not null)
+{
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-muted small">Bekleyen talep</div>
+                <div class="fs-3 fw-semibold">@Model.Summary.PendingCount</div>
+                <div class="small text-muted">SLA: @Model.Summary.PendingSlaMinutes dk</div>
+            </div></div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100 @(Model.Summary.OverdueCount > 0 ? "border-danger" : "")"><div class="card-body">
+                <div class="text-muted small">SLA geciken</div>
+                <div class="fs-3 fw-semibold @(Model.Summary.OverdueCount > 0 ? "text-danger" : "")">@Model.Summary.OverdueCount</div>
+                <div class="small text-muted">En eski: @IndexModel.AgeText(Model.Summary.OldestPendingAgeMinutes)</div>
+            </div></div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-muted small">Atanmamış / bana atanan</div>
+                <div class="fs-3 fw-semibold">@Model.Summary.UnassignedCount <span class="fs-6 text-muted">/ @Model.Summary.AssignedToMeCount</span></div>
+                <div class="small text-muted">@Model.Summary.GeneratedAtIstanbul.ToString("dd.MM.yyyy HH:mm") (İstanbul)</div>
+            </div></div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100"><div class="card-body">
+                <div class="text-muted small">Çözülmemiş mutabakat</div>
+                <div class="fs-3 fw-semibold">@Model.Summary.UnresolvedReconciliationBatchCount</div>
+                <div class="small text-muted">Açık istisna: @Model.Summary.OpenReconciliationExceptionCount</div>
+            </div></div>
+        </div>
+    </div>
+}
+
+<div class="card mb-4">
+    <div class="card-header">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label mb-1">Durum</label>
+                @if (Model.IsOwner)
+                {
+                    <select class="form-select form-select-sm" name="status">
+                        @foreach (var s in new[] { "Pending", "Approved", "Rejected", "Cancelled" })
+                        {
+                            <option value="@s" selected="@(Model.Status == s)">@DashboardUi.Status(s)</option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <input type="hidden" name="status" value="Pending" />
+                    <input class="form-control form-control-sm" value="Bekliyor" disabled />
+                }
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1">Talep türü</label>
+                <select class="form-select form-select-sm" name="requestType">
+                    <option value="">Tümü</option>
+                    @foreach (var t in new[] { "Transfer", "Deposit", "Withdrawal", "AccountOpening" })
+                    {
+                        <option value="@t" selected="@(Model.RequestType == t)">@DashboardUi.Status(t)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1">Para birimi</label>
+                <select class="form-select form-select-sm" name="currency">
+                    <option value="">Tümü</option>
+                    @foreach (var c in new[] { "TRY", "USD", "EUR", "GBP" })
+                    {
+                        <option value="@c" selected="@(Model.Currency == c)">@c</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1">Yaş / SLA</label>
+                <select class="form-select form-select-sm" name="age">
+                    <option value="">Tümü</option>
+                    <option value="overdue" selected="@(Model.Age == "overdue")">Geciken</option>
+                    <option value="within" selected="@(Model.Age == "within")">SLA içinde</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1">Atama</label>
+                <select class="form-select form-select-sm" name="assignment">
+                    <option value="">Tümü</option>
+                    <option value="unassigned" selected="@(Model.Assignment == "unassigned")">Atanmamış</option>
+                    <option value="me" selected="@(Model.Assignment == "me")">Bana atanan</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-sm btn-primary w-100" type="submit">Filtrele</button>
+            </div>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr><th>Talep</th><th class="text-end">Tutar</th><th>Risk</th><th>Yaş / SLA</th><th>Atama</th><th>İşlem</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var row in Model.Approvals.Items)
+            {
+                <tr>
+                    <td>
+                        <strong>#@row.Id · @row.RequestTypeLabel</strong><br />
+                        <small class="text-muted">@(row.Description ?? "—")</small>
+                    </td>
+                    <td class="text-end">@DashboardUi.Money(row.Amount, row.Currency)</td>
+                    <td><span class="@DashboardUi.RiskBadgeClass(row.RiskLevel)">@DashboardUi.Status(row.RiskLevel)</span></td>
+                    <td>
+                        @if (row.IsOverdue)
+                        {
+                            <span class="badge status-bad">Gecikti · @IndexModel.AgeText(row.AgeMinutes)</span>
+                        }
+                        else
+                        {
+                            <span class="badge status-ok">@IndexModel.AgeText(row.AgeMinutes)</span>
+                        }
+                        <br /><small class="text-muted">SLA @row.SlaMinutes dk · @DashboardUi.LocalDate(row.CreatedAt)</small>
+                    </td>
+                    <td>
+                        @if (row.AssignedToUsername is not null)
+                        {
+                            <span class="badge bg-secondary">@row.AssignedToUsername</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">Atanmamış</span>
+                        }
+                        @if (row.CanAssign && row.Assignees.Count > 0)
+                        {
+                            <form method="post" asp-page-handler="Assign" class="d-flex gap-1 mt-1">
+                                <input type="hidden" name="approvalId" value="@row.Id" />
+                                <select class="form-select form-select-sm" name="assignedToUserId" aria-label="Atanacak kullanıcı">
+                                    @foreach (var a in row.Assignees)
+                                    {
+                                        <option value="@a.UserId">@a.Username (@DashboardUi.Status(a.Role))</option>
+                                    }
+                                    @if (row.AssignedToUserId is not null)
+                                    {
+                                        <option value="">Atamayı kaldır</option>
+                                    }
+                                </select>
+                                <button class="btn btn-sm btn-outline-primary" type="submit">Ata</button>
+                            </form>
+                        }
+                    </td>
+                    <td><a class="btn btn-sm btn-outline-primary" href="/Admin/Approvals/Details?id=@row.Id">Aç</a></td>
+                </tr>
+            }
+            @if (Model.Approvals.Items.Count == 0)
+            {
+                <tr><td colspan="6" class="text-muted">Filtreye uyan talep yok.</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <span class="small text-muted">@Model.Approvals.TotalCount talep · sayfa @Model.Approvals.PageNumber / @Math.Max(Model.Approvals.TotalPages, 1)</span>
+        <div class="d-flex gap-2">
+            @if (Model.Approvals.PageNumber > 1)
+            {
+                <a class="btn btn-sm btn-outline-secondary"
+                   asp-page="./Index"
+                   asp-route-pageNumber="@(Model.Approvals.PageNumber - 1)"
+                   asp-route-status="@Model.Status"
+                   asp-route-requestType="@Model.RequestType"
+                   asp-route-currency="@Model.Currency"
+                   asp-route-age="@Model.Age"
+                   asp-route-assignment="@Model.Assignment"
+                   asp-route-reconCurrency="@Model.ReconCurrency"
+                   asp-route-reconFilter="@Model.ReconFilter"
+                   asp-route-reconPage="@Model.ReconPage">Önceki</a>
+            }
+            @if (Model.Approvals.HasNextPage)
+            {
+                <a class="btn btn-sm btn-outline-secondary"
+                   asp-page="./Index"
+                   asp-route-pageNumber="@(Model.Approvals.PageNumber + 1)"
+                   asp-route-status="@Model.Status"
+                   asp-route-requestType="@Model.RequestType"
+                   asp-route-currency="@Model.Currency"
+                   asp-route-age="@Model.Age"
+                   asp-route-assignment="@Model.Assignment"
+                   asp-route-reconCurrency="@Model.ReconCurrency"
+                   asp-route-reconFilter="@Model.ReconFilter"
+                   asp-route-reconPage="@Model.ReconPage">Sonraki</a>
+            }
+        </div>
+    </div>
+</div>
+
+@if (Model.Summary?.CanViewReconciliation == true)
+{
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Çözülmemiş mutabakat farkları</span>
+            <a class="btn btn-sm btn-outline-secondary" href="/Admin/Reconciliation/Exceptions">İstisna listesi</a>
+        </div>
+        <div class="card-body border-bottom">
+            <form method="get" class="row g-2 align-items-end">
+                <input type="hidden" name="pageNumber" value="@Model.PageNumber" />
+                <input type="hidden" name="status" value="@Model.Status" />
+                <div class="col-md-3">
+                    <label class="form-label mb-1">Para birimi</label>
+                    <select class="form-select form-select-sm" name="reconCurrency">
+                        <option value="">Tümü</option>
+                        @foreach (var c in new[] { "TRY", "USD", "EUR", "GBP" })
+                        {
+                            <option value="@c" selected="@(Model.ReconCurrency == c)">@c</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-1">İstisna durumu</label>
+                    <select class="form-select form-select-sm" name="reconFilter">
+                        <option value="open" selected="@(Model.ReconFilter == "open")">Çözülmemiş / istisnasız</option>
+                        <option value="none" selected="@(Model.ReconFilter == "none")">İstisnası olmayan</option>
+                        <option value="all" selected="@(Model.ReconFilter == "all")">Tümü</option>
+                    </select>
+                </div>
+                <div class="col-md-2"><button class="btn btn-sm btn-primary" type="submit">Filtrele</button></div>
+            </form>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark"><tr><th>Dosya</th><th>Para birimi</th><th class="text-end">Fark</th><th>İstisna</th><th>Yaş</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.Reconciliation.Items)
+                {
+                    <tr>
+                        <td>@row.FileName<br /><small class="text-muted">@DashboardUi.LocalDate(row.CreatedAt)</small></td>
+                        <td>@(row.CurrencyScope ?? "—")</td>
+                        <td class="text-end">
+                            @row.DifferenceCount
+                            <br /><small class="text-muted">dış @row.OnlyExternalCount · sistem @row.OnlySystemCount · tutar @row.AmountMismatchCount</small>
+                        </td>
+                        <td>
+                            <span class="@(row.UnresolvedExceptionCount > 0 ? "badge status-warn" : "badge bg-secondary")">
+                                @(row.ExceptionCount == 0 ? "İstisna yok" : $"{row.UnresolvedExceptionCount} açık / {row.ExceptionCount}")
+                            </span>
+                        </td>
+                        <td>@IndexModel.AgeText(row.AgeMinutes)</td>
+                        <td><a class="btn btn-sm btn-outline-primary" href="/Admin/Reconciliation/Details?id=@row.BatchId">Aç</a></td>
+                    </tr>
+                }
+                @if (Model.Reconciliation.Items.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-muted">Çözülmemiş mutabakat farkı yok.</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center">
+            <span class="small text-muted">@Model.Reconciliation.TotalCount fark · sayfa @Model.Reconciliation.PageNumber / @Math.Max(Model.Reconciliation.TotalPages, 1)</span>
+            <div class="d-flex gap-2">
+                @if (Model.Reconciliation.PageNumber > 1)
+                {
+                    <a class="btn btn-sm btn-outline-secondary"
+                       asp-page="./Index"
+                       asp-route-pageNumber="@Model.PageNumber"
+                       asp-route-status="@Model.Status"
+                       asp-route-requestType="@Model.RequestType"
+                       asp-route-currency="@Model.Currency"
+                       asp-route-age="@Model.Age"
+                       asp-route-assignment="@Model.Assignment"
+                       asp-route-reconCurrency="@Model.ReconCurrency"
+                       asp-route-reconFilter="@Model.ReconFilter"
+                       asp-route-reconPage="@(Model.Reconciliation.PageNumber - 1)">Önceki</a>
+                }
+                @if (Model.Reconciliation.HasNextPage)
+                {
+                    <a class="btn btn-sm btn-outline-secondary"
+                       asp-page="./Index"
+                       asp-route-pageNumber="@Model.PageNumber"
+                       asp-route-status="@Model.Status"
+                       asp-route-requestType="@Model.RequestType"
+                       asp-route-currency="@Model.Currency"
+                       asp-route-age="@Model.Age"
+                       asp-route-assignment="@Model.Assignment"
+                       asp-route-reconCurrency="@Model.ReconCurrency"
+                       asp-route-reconFilter="@Model.ReconFilter"
+                       asp-route-reconPage="@(Model.Reconciliation.PageNumber + 1)">Sonraki</a>
+                }
+            </div>
+        </div>
+    </div>
+}

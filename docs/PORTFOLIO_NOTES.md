@@ -12,10 +12,13 @@ made.
 > inclusive per-operation/currency limits (100,000.00 TRY passes, 100,000.01
 > goes to the Owner), owner self-approval blocking, live DB-backed revocation,
 > reserve-aware balances, idempotent posting, customer ownership/IDOR protection,
-> real payment timelines and receipts, and day-end reconciliation with a
-> maker-checker exception workflow. It includes 150 xUnit tests, 280 end-to-end
-> smoke checks, SQL Server migrations documented but not applied, and a clear
-> "demo, not production" boundary.
+> real payment timelines and receipts, day-end reconciliation with a
+> maker-checker exception workflow, an append-only double-entry journal with an
+> explicit Owner baseline, and an operations centre with SLA/age, safe assignment
+> and unresolved reconciliation gaps. It includes 177 xUnit tests, 280 end-to-end
+> smoke checks, 25/25 accounting and 24/24 operations live E2E checks; SQL Server
+> migrations are documented but not applied, with a clear "demo, not production"
+> boundary.
 
 ## CV bullets (3–4)
 
@@ -42,11 +45,12 @@ made.
    Open→InReview→ResolutionProposed→Closed/Rejected exception workflow that never
    adjusts balances.
 
-4. **Produced verifiable engineering evidence.** 150 xUnit tests + 280 end-to-end
-   smoke checks passing locally, 0 build warnings/errors, NuGet audit clean,
-   documented SQL Server migrations and an honest limitations/UAT report. Kept
-   SQLite as a disposable Development playground rather than claiming SQL Server
-   proof.
+4. **Produced verifiable engineering evidence.** 177 xUnit tests, 280 end-to-end
+   smoke checks, 25/25 accounting E2E and 24/24 operations E2E checks passing
+   locally, 0 build warnings/errors, documented SQL Server migrations and an
+   honest limitations/UAT report. Kept SQLite as a disposable Development
+   playground rather than claiming SQL Server proof. Final SQL Server apply,
+   hosted CI and UAT remain explicitly NOT RUN.
 
 ## Türkçe özet (CV/portföy için)
 
@@ -61,8 +65,12 @@ made.
   tekrar, `RowVersion` çift onay koruması; CSV önizleme/import, SHA-256 mükerrer
   kontrolü, eşleşme sınıfları, formül-safe export ve bakiye düzeltmeyen istisna
   akışı.
-- **Kanıt:** 150 xUnit, 280 smoke, 0 uyarı/0 hata; SQL Server migration'ları
-  belgelendi ancak uygulanmadı. SQLite sonucu SQL Server kanıtı değildir.
+- **Çift kayıtlı muhasebe + operasyon:** append-only dengeli journal, atomik
+  onay transaction'ı, Owner baseline, mizan/journal ekranı; SLA/yaş, güvenli
+  atama ve çözülmemiş mutabakat farkları.
+- **Kanıt:** 177 xUnit, 280 smoke, 25/25 muhasebe ve 24/24 operasyon canlı E2E,
+  0 uyarı/0 hata; SQL Server migration'ları belgelendi ancak uygulanmadı.
+  SQLite sonucu SQL Server kanıtı değildir.
 
 ## What not to claim
 

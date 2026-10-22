@@ -173,14 +173,25 @@ public sealed class DemoScenarioService : IDemoScenarioService
             .Where(x => x.IsDemo)
             .ToListAsync(cancellationToken);
 
+        // Journals are append-only in normal operation; demo reset is the one
+        // Development-only exception. Scope it to demo approvals/correlations so
+        // baselines for preserved accounts and all UAT rows stay intact.
+        var demoJournals = await _context.JournalEntries
+            .Where(x => x.IsDemo
+                        && ((x.PaymentApprovalId != null && paymentIds.Contains(x.PaymentApprovalId.Value))
+                            || (x.CorrelationId != null && correlations.Contains(x.CorrelationId.Value))))
+            .ToListAsync(cancellationToken);
+
         _context.PaymentTimelineEvents.RemoveRange(timeline);
         _context.Transactions.RemoveRange(demoTransactions);
         _context.PaymentApprovals.RemoveRange(demoPayments);
         _context.ReconciliationBatches.RemoveRange(batches);
+        _context.JournalEntries.RemoveRange(demoJournals);
 
         _audit.Add("DEMO_RESET", "DemoScenario", null, actor.Username, true,
             $"RemovedPayments: {demoPayments.Count}, RemovedTransactions: {demoTransactions.Count}, " +
-            $"RemovedTimelineEvents: {timeline.Count}, RemovedBatches: {batches.Count}. " +
+            $"RemovedTimelineEvents: {timeline.Count}, RemovedBatches: {batches.Count}, " +
+            $"RemovedJournals: {demoJournals.Count}. " +
             "Users/customers/accounts and non-demo UAT rows were preserved.");
 
         await _context.SaveChangesAsync(cancellationToken);

@@ -38,6 +38,16 @@ does **not** apply these migrations.
    - `PaymentApprovals.RequestedAccountName` / `RequestedAccountType` (nullable).
    - Additive; eski hesaplar **Vadesiz** kabul edilir, hiçbir satır silinmez.
 
+6. `20261022191101_AddDoubleEntryJournalAndApprovalAssignment`
+   - `JournalEntries` / `JournalLines` (append-only double-entry journal).
+   - `SourceKey` unique index (`approval:<id>`, `baseline:<accountId>`,
+     `reversal:<entryId>`); currency/lookup indexes; account FK restrict.
+   - Additive; **hiçbir eski hesap için otomatik baseline/journal üretmez**.
+     Baseline yalnız Owner'ın açık preview/post işlemiyle oluşur.
+   - Aynı additive migration, Stage 4 operasyon ataması için
+     `PaymentApprovals.AssignedToUserId/AssignedToUsername/AssignedAt` ve
+     `(AssignedToUserId, Status)` indeksini de ekler. Atama onay yetkisi vermez.
+
 Eski migration dosyaları değiştirilmedi.
 
 ## Birden fazla Owner bulunduysa (operatör uyarısı)
@@ -140,6 +150,12 @@ WHERE c.Id = '<müşteri-id>';
 ## SQLite (Development)
 
 - `DatabaseSeeder` SQLite'ta `EnsureCreatedAsync()` kullanır. Yeni şema için
-  `.local/digitalbanking.db*` arşivlenip yeniden oluşturulmalıdır.
+  `.local/digitalbanking.db*` arşivlenip yeniden oluşturulabilir.
+- Mevcut bir SQLite demo DB'sini silmeden journal tablolarını eklemek için:
+  ```sh
+  python3 scripts/upgrade_sqlite_journal.py .local/digitalbanking.db          # dry-run
+  python3 scripts/upgrade_sqlite_journal.py .local/digitalbanking.db --apply  # yedek + DDL
+  ```
+  Script UAT görünümlü yolları reddeder; baseline üretmez.
 - SQLite verisi atılabilir demo verisidir; SQL Server davranışının kanıtı değildir.
 - Owner seed edilmez; temiz DB'de `/Setup` bir kez kullanılır.

@@ -1,0 +1,59 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Accounting.DetailsModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Journal Kaydı";
+}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h3 class="mb-1">Journal Kaydı</h3>
+        <div class="text-muted small">Değiştirilemez (append-only) muhasebe kaydı. Düzeltme ancak yeni ters kayıtla yapılır.</div>
+    </div>
+    <a class="btn btn-outline-secondary" href="/Admin/Accounting">Mizana dön</a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Error)) { <div class="alert alert-danger">@Model.Error</div> }
+
+@if (Model.Detail is not null)
+{
+    var e = Model.Detail.Entry;
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between">
+            <span>@e.SourceOperationLabel · @e.Currency</span>
+            <span class="badge bg-success">Borç = Alacak</span>
+        </div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Açıklama</dt><dd class="col-sm-9">@e.Description</dd>
+                <dt class="col-sm-3">SourceKey</dt><dd class="col-sm-9"><code>@e.SourceKey</code></dd>
+                <dt class="col-sm-3">Tarih</dt><dd class="col-sm-9">@DashboardUi.Date(e.CreatedAt)</dd>
+                <dt class="col-sm-3">Onay</dt><dd class="col-sm-9">@(e.PaymentApprovalId?.ToString() ?? "—")</dd>
+                <dt class="col-sm-3">Correlation</dt><dd class="col-sm-9">@(e.CorrelationId?.ToString() ?? "—")</dd>
+                <dt class="col-sm-3">Toplam</dt>
+                <dd class="col-sm-9">Borç @DashboardUi.Money(e.DebitTotal, e.Currency) · Alacak @DashboardUi.Money(e.CreditTotal, e.Currency)</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">Bacaklar</div>
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead class="table-dark"><tr><th>Yön</th><th>Hesap türü</th><th>Hesap</th><th>Tutar</th><th>Transaction</th></tr></thead>
+                <tbody>
+                @foreach (var line in Model.Detail.Lines)
+                {
+                    <tr>
+                        <td><span class="@(line.Side.ToString() == "Debit" ? "badge bg-primary" : "badge bg-success")">@line.SideLabel</span></td>
+                        <td>@line.AccountTypeLabel</td>
+                        <td>@(line.AccountNumber ?? "—")<br /><small class="text-muted">@(line.AccountName ?? "")</small></td>
+                        <td class="text-end">@DashboardUi.Money(line.Amount, line.Currency)</td>
+                        <td><code class="small">@(line.TransactionId?.ToString() ?? "—")</code></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

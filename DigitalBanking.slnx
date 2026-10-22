@@ -5,4 +5,5 @@
   <Project Path="DigitalBanking.Domain/DigitalBanking.Domain.csproj" />
   <Project Path="DigitalBanking.Infrastructure/DigitalBanking.Infrastructure.csproj" />
   <Project Path="DigitalBanking.Tests/DigitalBanking.Tests.csproj" />
+  <Project Path="DigitalBanking.IntegrationTests/DigitalBanking.IntegrationTests.csproj" />
 </Solution>

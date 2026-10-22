@@ -1,0 +1,114 @@
+Stage 3 double-entry accounting — evidence
+Date: 2026-10-22 (Europe/Istanbul)
+Note: sections 1–8 are the historical Stage 3 run. Later regression/baseline
+correction is in section 9; the safe reproducible runner is
+scripts/stage3_stage4_e2e.py (evidence/2026-10-22-stage3-stage4-e2e.txt).
+Environment: macOS arm64, .NET SDK 10.0.402, SQLite Development only
+No SQL Server, UAT database, GitHub Actions run, push or deployment was used.
+
+1) Build
+Command:
+  DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh build DigitalBanking.slnx \
+    -p:UseSharedCompilation=false -m:1 -nr:false
+Result:
+  Build succeeded.
+  0 Warning(s)
+  0 Error(s)
+
+2) Full test suite
+Command:
+  DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh test DigitalBanking.slnx \
+    -p:UseSharedCompilation=false -m:1 -nr:false --no-restore
+Result:
+  DigitalBanking.Tests: Passed! - Failed: 0, Passed: 162, Skipped: 0, Total: 162
+  DigitalBanking.IntegrationTests: Skipped! - Failed: 0, Passed: 0, Skipped: 8, Total: 8
+  (SQL Server tests are env-gated and were NOT run.)
+
+3) Isolated live API E2E
+Environment: worktree SQLite DB .local/stage3-e2e.db, API 127.0.0.1:5198,
+dashboard 127.0.0.1:5199. Credentials were read internally and never printed.
+25 checks, 25 passed:
+  - demo seed and approved transfer created one journal
+  - transfer had two balanced customer-liability legs
+  - trial balance per currency balanced
+  - pending request added no journal
+  - demo reset removed demo journals only
+  - baseline preview eligible=6; first post created=6; second post created=0
+  - post-baseline trial balanced and liability difference=0
+  - customer accounting read = 403
+  - delegated approver read = 200; baseline = 403
+  - PUT journal entry = 405
+Final output:
+  {"checks": 25, "passed": 25}
+
+4) Isolated HTTP smoke
+Environment: temporary worktree snapshot, temp SQLite database,
+CI_API_PORT=5196, CI_DASHBOARD_PORT=5197.
+Command:
+  CI_API_PORT=5196 CI_DASHBOARD_PORT=5197 bash scripts/ci_run_smoke.sh
+Result:
+  PASS: 280 local checks
+  exit 0
+  artifacts/smoke-summary.txt was the only artifact
+  ports 5196/5197 released after cleanup
+
+5) SQL Server migration script generation (NOT an apply)
+Command: EF Core 10.0.3 migrations script from 20261021023000_AddAccountMetadata
+to 20261022191101_AddDoubleEntryJournalAndApprovalAssignment.
+Result:
+  success
+  2 CREATE TABLE statements: [JournalEntries], [JournalLines]
+  UNIQUE INDEX [IX_JournalEntries_SourceKey] present
+  FK JournalLines -> Accounts (NO ACTION)
+  FK JournalLines -> JournalEntries (CASCADE)
+This proves the migration renders SQL Server DDL; it does NOT prove application
+on a real SQL Server.
+
+6) SQLite additive upgrade script
+Command:
+  python3 scripts/upgrade_sqlite_journal.py /tmp/.../test.db
+  python3 scripts/upgrade_sqlite_journal.py /tmp/.../test.db --apply
+  python3 scripts/upgrade_sqlite_journal.py /tmp/.../test.db
+Result:
+  dry-run listed 10 statements
+  apply created 2 tables + 8 indexes and a timestamped backup
+  re-run reported "Already up to date"
+The local 5180/5181 demo DB was upgraded with a backup; UAT was not touched.
+
+7) CI/static checks
+  python3 scripts/ci_check_workflow_guards.py -> PASS: workflow guardrails
+  bash -n scripts/ci_run_smoke.sh scripts/run_sqlserver_integration.sh -> OK
+  python3 -m py_compile scripts/upgrade_sqlite_journal.py scripts/ci_summarize_trx.py -> OK
+  CI unit-test gate updated to 162; smoke gate remains 280.
+
+8) Screenshots
+  docs/screenshots/owner-accounting.png
+  docs/screenshots/owner-journal-detail.png
+Captured from the isolated synthetic demo with Chrome DevTools at 1440x1100, 2x.
+The accounting page HTML contained the expected balanced/liability-reconciled text.
+
+9) Baseline correction regression (2026-10-22, after GPT review)
+Problem found: preview/post treated every nonzero account without a baseline as
+eligible and posted the entire current balance. A legacy account that received a
+post-migration deposit would therefore overstate customer liability.
+Fix:
+  - baseline gap = account balance - net CustomerLiability already in journals;
+  - positive gap: debit OpeningBalanceOffset / credit CustomerLiability;
+  - negative gap: debit CustomerLiability / credit OpeningBalanceOffset;
+  - gap == 0 and accounts with an existing baseline are skipped;
+  - account balance + journal liability are read together and posting uses a
+    serializable transaction + unique baseline SourceKey;
+  - preview/post/audit totals are per currency (TRY/USD/EUR/GBP); no mixed total.
+
+Regression tests (DigitalBanking.Tests):
+  LegacyBalanceThenPostMigrationDepositBaselineCoversOnlyTheLegacyGap
+  NewAccountDepositIsFullyJournaledAndBaselineCreatesNothing
+  BaselineCanExceedCurrentBalanceAfterPostMigrationDebit
+  BaselineDecreasesLiabilityWhenJournalExceedsAccountBalance
+  BaselineTotalsArePerCurrencyAndNeverMixCurrencies
+  AccountingBaselineRaceTests.BaselineAndApprovalRaceLeaveExactlyOneBaselineGap
+
+Verification after the fix:
+  Build: 0 warnings, 0 errors
+  Main xUnit: 177 passed, 0 failed; 8 SQL Server tests skipped — NOT RUN
+  Reproducible Stage 3/4 E2E: 104/104 (financial 25/25)

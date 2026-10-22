@@ -31,6 +31,9 @@ public class PaymentApprovalResponse
     public DateTime? ReviewedAt { get; set; }
 
     public string? RejectionReason { get; set; }
+    public Guid? AssignedToUserId { get; set; }
+    public string? AssignedToUsername { get; set; }
+    public DateTime? AssignedAt { get; set; }
     public Guid? RelatedTransactionId { get; set; }
     public bool IsDemo { get; set; }
 }

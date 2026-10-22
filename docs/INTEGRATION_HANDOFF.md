@@ -1,125 +1,194 @@
-# Integration handoff — account/UI slice
+# Integration handoff — Stages 1–5
 
-- Tarih: **2026-10-20/21**
-- Kaynak worktree: `.dsh-worktrees/dsh-mvh4pdzy-u7y7j4`
-- Kaynak branch: `dsh/dsh-mvh4pdzy-u7y7j4`
-- **Son commit ve integration/local-development: `35f247e`** (Owner invariant + approval hardening + QA evidence)
-- Bu belgedeki **dashboard/UI düzeltmeleri henüz commit edilmedi**; dosyalar korunuyor.
-- Son doğrulanmış kaynak: **150 xUnit / 280 smoke**, 0 build warning/error.
-- UAT: `outputs/DigitalBanking-UAT` (5480/5481) ayrı ve **dokunulmadı**; UAT `.local` kopyalanmadı.
-- Parent kirli kopya, 5280/5281 ve GPT QA ortamı: **dokunulmadı**.
-- SQL Server: migration/model üretildi, **uygulanmadı/doğrulanmadı**.
+- Tarih: **2026-10-22**
+- Worktree: `.dsh-worktrees/dsh-mvh4pdzy-u7y7j4`
+- Branch: `dsh/dsh-mvh4pdzy-u7y7j4`
+- HEAD: **`76ea501`** (account products/UI). Stages 1–5 are **uncommitted** in
+  this worktree.
+- Integration/local-development was already fast-forwarded by GPT to `76ea501`.
+- UAT 5480/5481, UAT `.local`, 5280/5281, parent/main and GPT QA 5680/5681:
+  **not touched**.
+- Real SQL Server: **NOT RUN** (8 integration tests compiled/skipped). SQLite is
+  not SQL Server proof.
+- GitHub Actions: **NOT RUN**. No push/PR/tag/release/deploy was performed.
+- Final push and CV publication are **GPT-controlled at project end**.
 
-## 1. Commit edilmiş temel
+## Manifest (uncommitted)
 
-| Commit | İçerik |
-|---|---|
-| `cac7f00` | Ownership, timeline, receipts, reconciliation backend |
-| `11684b2` | Owner / DelegatedApprover / Customer approval model |
-| `d2e90e3` | Üç rollü dashboard |
-| `7340a1c` | 272-check smoke (historical) |
-| `35f247e` | Single-owner invariant, setup/rate-limit, approval ownership/atomicity, QA evidence; integration fast-forward |
+### Stage 1 — SQL Server verification preparation
 
-## 2. Commit bekleyen dashboard/UI dilimi
+- `DigitalBanking.slnx`
+- `DigitalBanking.IntegrationTests/` (`SqlServerFixture.cs`, `SqlServerIntegrationTests.cs`, `.csproj`)
+- `scripts/run_sqlserver_integration.sh`
+- `docs/PORTFOLIO_ROADMAP.md`, `docs/SQLSERVER_VERIFICATION.md`, `docs/STAGE_01_REPORT.md`
+- `docs/evidence/2026-10-22-sqlserver-integration.txt`
 
-Kod/test:
-- `DigitalBanking.Dashboard/Services/DashboardUi.cs`
-- `DigitalBanking.Dashboard/Services/ApiClient.cs`
-- `DigitalBanking.Dashboard/Services/ApiAuthService.cs`
-- `DigitalBanking.Dashboard/Pages/Shared/_Layout.cshtml`
-- `DigitalBanking.Dashboard/Pages/Login.cshtml`
-- `DigitalBanking.Dashboard/Pages/Register.cshtml` / `Setup.cshtml` labels
-- `DigitalBanking.Dashboard/Pages/Admin/Delegations/Index.cshtml(.cs)`
-- `DigitalBanking.Dashboard/Pages/Admin/Users/Index.cshtml`
-- `DigitalBanking.Dashboard/Pages/Admin/Approvals/Index.cshtml`, `Details.cshtml`
-- `DigitalBanking.Dashboard/Pages/Admin/Requests/New.cshtml`
-- `DigitalBanking.Dashboard/Pages/Admin/Reconciliation/Exceptions.cshtml`
-- `DigitalBanking.Dashboard/Pages/Customer/Home.cshtml`
-- `DigitalBanking.Dashboard/Pages/Customer/Accounts/Index.cshtml(.cs)`
-- `DigitalBanking.Dashboard/Pages/Customer/Accounts/Details.cshtml(.cs)`
-- `DigitalBanking.Dashboard/Pages/Customer/Requests.cshtml(.cs)`
-- `DigitalBanking.Dashboard/Pages/Customer/Transfer.cshtml`
-- `DigitalBanking.Dashboard/Pages/Customer/Payments/Index.cshtml`, `Details.cshtml`
-- `DigitalBanking.Dashboard/wwwroot/css/site.css`
-- `DigitalBanking.Domain/Enums/AccountType.cs`
-- `DigitalBanking.Domain/Entities/Account.cs`
-- `DigitalBanking.Domain/Entities/PaymentApproval.cs`
-- `DigitalBanking.Application/DTOs/Account/*` (name/type/rename)
-- `DigitalBanking.Application/DTOs/ApprovalRequests/*`
-- `DigitalBanking.Application/DTOs/PaymentApprovals/PaymentApprovalResponse.cs`
-- `DigitalBanking.Application/Mappings/MappingProfile.cs`
-- `DigitalBanking.Application/Common/AccountMetadata.cs`
-- `DigitalBanking.Infrastructure/Services/AccountService.cs`
-- `DigitalBanking.Infrastructure/Services/CustomerPortalService.cs`
-- `DigitalBanking.Infrastructure/Services/DelegationService.cs`
-- `DigitalBanking.Infrastructure/Services/PaymentApprovalService.cs`
-- `DigitalBanking.Infrastructure/Services/PaymentTimelineService.cs`
-- `DigitalBanking.Infrastructure/Services/AccountService.cs` / `LedgerOperations.cs` / `TransactionService.cs`
-- `DigitalBanking.Application/Common/Money.cs` / `ReportDateRange.cs`
-- `DigitalBanking.Application/Validators/Auth/LoginRequestValidator.cs`
-- `DigitalBanking.Application/Validators/PaymentApprovals/CreatePaymentApprovalRequestValidator.cs`
-- `DigitalBanking.Tests/AccountServiceTests.cs`
-- `DigitalBanking.Tests/DashboardLoginContractTests.cs`
-- `DigitalBanking.Tests/IdentityAndDelegationTests.cs`
-- `DigitalBanking.Tests/CustomerPortalTests.cs`
-- `scripts/run_local.py` (isolated `--database` for smoke)
-- `scripts/start_local_detached.py` (safe detached demo)
-- `scripts/upgrade_sqlite_account_metadata.py` (additive SQLite upgrade)
-- `scripts/smoke_test.py` (mevcut 280 kapsamı)
+### Stage 2 — GitHub Actions preparation
 
-Doküman/kanıt:
-- `README.md`, `docs/PROGRESS.md`, `docs/TEST_REPORT.md`,
-  `docs/DEVELOPMENT_COMPLETION_REPORT.md`, `docs/VERIFICATION.md`,
-  `docs/UAT_CHECKLIST.md`, `docs/DASHBOARD_PRODUCT_BRIEF.md`,
-  `docs/DEEPSEEK_FINDINGS.md`, `docs/INTEGRATION_HANDOFF.md`
-- `docs/evidence/2026-10-20-{build,test,smoke,nuget-audit}.txt`
-- `docs/screenshots/*` (13 gerçek masaüstü/dar ekran görseli + README)
+- `.github/workflows/ci.yml`, `.github/workflows/sqlserver-integration.yml`
+- `scripts/ci_prepare_credentials.py`, `ci_run_smoke.sh`, `ci_summarize_trx.py`,
+  `verify_sqlserver_trx.py`, `ci_check_workflow_guards.py`
+- `docs/CI_GUIDE.md`, `docs/SECURITY_MATRIX.md`, `docs/STAGE_02_REPORT.md`,
+  `docs/STAGE_02_TASK_NOTES.md`
+- `docs/evidence/2026-10-22-ci-static-checks.txt`, `...-ci-wrapper-e2e.txt`
 
-`.local/`, UAT `.local` ve başka worktree/DB commit kapsamına girmez.
+### Stage 3 — double-entry accounting
 
-## 3. Önerilen yerel commit
+- Domain: `JournalEntry`, `JournalLine`, journal enums
+- `DigitalBanking.Infrastructure/Services/JournalPoster.cs`, `AccountingService.cs`
+- `DigitalBanking.API/Controllers/AccountingController.cs`
+- `DigitalBanking.Dashboard/Pages/Admin/Accounting/`
+- `DigitalBanking.Application/DTOs/Accounting/`, `IAccountingService.cs`,
+  `AccountingLabels.cs`
+- migration `20261022191101_AddDoubleEntryJournalAndApprovalAssignment`
+- `scripts/upgrade_sqlite_journal.py`
+- `DigitalBanking.Tests/AccountingJournalTests.cs`
+- `DigitalBanking.Tests/AccountingBaselineRaceTests.cs`
+- `scripts/stage3_stage4_e2e.py` (reproducible isolated HTTP E2E)
+- `docs/STAGE_03_REPORT.md`, `docs/evidence/2026-10-22-stage3-accounting.txt`,
+  `docs/evidence/2026-10-22-stage3-stage4-e2e.txt`,
+  `docs/adr/0002-double-entry-journal.md`
 
-Sandbox `.git/worktrees` index'ine yazmayı engelliyor. Final hesap/UI değişiklikleri için `git add` denendi ve geniş izin istenmedi:
+### Stage 4 — operations control centre
+
+- `DigitalBanking.Infrastructure/Services/OperationsService.cs`,
+  `OperationsOptions.cs`, `SystemClock.cs`
+- `DigitalBanking.Application/DTOs/Operations/`, `IOperationsService.cs`, `IClock.cs`
+- `DigitalBanking.API/Controllers/OperationsController.cs`
+- `DigitalBanking.Dashboard/Pages/Admin/Operations/`
+- `PaymentApproval` assignment fields + `PaymentApprovalResponse`
+- `BankDbContext` indexes and the combined additive migration (journal + assignment)
+- `DigitalBanking.Tests/OperationsCenterTests.cs`
+- `docs/STAGE_04_REPORT.md`, `docs/evidence/2026-10-22-stage4-operations.txt`
+
+### Stage 5 — portfolio
+
+- `README.md` (English + Turkish summary)
+- `docs/ARCHITECTURE.md`, `docs/DEMO_SCRIPT.md`, `docs/CV_PROJECT_ENTRY.md`,
+  `docs/FINAL_GAPS.md`, `docs/STAGE_05_REPORT.md`
+- `docs/SECURITY_MATRIX.md` expanded
+- `docs/screenshots/owner-accounting.png`, `owner-journal-detail.png`,
+  `owner-operations.png`, `delegated-operations.png`, updated screenshot index
+- `docs/evidence/2026-10-22-stage5-portfolio.txt`
+
+### Shared changes
+
+- `PaymentApprovalService` journal hooks
+- `AccountingService` gap-based baseline + per-currency totals; `JournalPoster.AddBaseline` signed adjustment
+- `DemoScenarioService` scoped demo-journal cleanup
+- `BankDbContext` journal/assignment configuration + snapshot
+- `InfrastructureServiceCollectionExtensions` DI
+- `Program.cs`, `appsettings.json`
+- `_Layout.cshtml` navigation; `DashboardUi.cs` labels
+- `docs/PROGRESS.md`, `docs/TEST_REPORT.md` (historical note), `docs/PORTFOLIO_NOTES.md`,
+  `docs/migrations/README.md`, `docs/INTEGRATION_HANDOFF.md`
+
+## Current verification
+
+```text
+Build:                 0 warnings, 0 errors
+Main xUnit:            177 passed, 0 failed
+SQL integration:       0 passed, 8 skipped — NOT RUN
+Reproducible E2E:      104/104 (scripts/stage3_stage4_e2e.py)
+  Stage 3:             25/25
+  Stage 4:             24/24
+  Financial:           25/25
+  Operations:          12/12
+  CSV/demo:            9/9
+  SQLite upgrade:      9/9
+Isolated smoke:        280/280, exit 0 (temp DB, 5196/5197)
+SQL Server DDL:        rendered, NOT applied
+GitHub Actions:        NOT RUN
+Manual UAT:            NOT DONE
+EULA:                  NOT ACCEPTED
+Video:                 NOT RECORDED
+```
+
+## Exact test commands
+
+Run from this worktree; all commands use disposable synthetic data.
+
+```sh
+# Build (harness flags; normal developer path may omit them)
+DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh build DigitalBanking.slnx \
+  -p:UseSharedCompilation=false -m:1 -nr:false
+
+# Unit + gated SQL integration (8 SQL tests skipped without env)
+DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh test DigitalBanking.slnx \
+  -p:UseSharedCompilation=false -m:1 -nr:false --no-restore
+
+# Reproducible Stage 3 + 4 HTTP E2E (builds, temp DB, ephemeral ports)
+python3 scripts/stage3_stage4_e2e.py
+
+# Isolated 280-check smoke (temporary DB + port pair).
+# Run from a clean snapshot/checkout without .local; the wrapper intentionally
+# refuses to overwrite an existing .local/credentials.json.
+CI_API_PORT=5196 CI_DASHBOARD_PORT=5197 bash scripts/ci_run_smoke.sh
+
+# SQL Server tests only when a supported disposable server + EULA exist
+export DIGITALBANKING_SQLSERVER_CONNECTION='<disposable server connection>'
+export DIGITALBANKING_SQLSERVER_ALLOW_DESTRUCTIVE=1
+bash scripts/run_sqlserver_integration.sh
+```
+
+The E2E script refuses UAT-looking roots and reserved ports, never reads
+`.local`, generates credentials in memory, prints only check names and counts,
+and keeps temp logs only on failure. Evidence:
+`docs/evidence/2026-10-22-stage3-stage4-e2e.txt`.
+
+## Additive SQLite upgrade transfer order
+
+Apply only to a **copy** of a synthetic Development database, never to UAT.
+
+1. Stop the app/dashboard (no open writer).
+2. Take a full backup (both scripts also create their own timestamped backup).
+3. Dry-run the account metadata upgrade; apply only if it reports pending work:
+   `python3 scripts/upgrade_sqlite_account_metadata.py <copy.db>`
+   `python3 scripts/upgrade_sqlite_account_metadata.py <copy.db> --apply`
+4. Dry-run the journal/assignment upgrade, then apply:
+   `python3 scripts/upgrade_sqlite_journal.py <copy.db>`
+   `python3 scripts/upgrade_sqlite_journal.py <copy.db> --apply`
+   This adds `JournalEntries`/`JournalLines`, the unique `SourceKey` index,
+   `PaymentApprovals.Assigned*` columns and the assignment index. It does not
+   create baselines or modify balances.
+   After the schema upgrade, the Owner baseline preview/post is separate and
+   gap-based: it posts only `account balance - journal customer liability`, skips
+   fully journaled accounts and never rewrites an existing baseline. Audit/UI
+   totals are per currency; no mixed total is produced.
+5. Verify row counts / balances before and after; run the upgrade script a second
+   time and require `Already up to date` with no new backup.
+6. Start the app on the upgraded copy, check health/login, then run the Owner
+   baseline preview/post explicitly only if intended.
+7. Re-run Stage 3/4 E2E and smoke on a fresh disposable DB. Do not copy the
+   upgraded DB back into UAT; UAT transfer is GPT/user-owned.
+
+Order matters only in that older databases need account metadata before the
+journal/assignment script; both scripts are additive and idempotent.
+
+## Commit/push boundary
+
+This session did not create a commit: the harness blocked git index writes:
 
 ```text
 fatal: Unable to create '.../.git/worktrees/dsh-mvh4pdzy-u7y7j4/index.lock':
 Operation not permitted
-add_exit=128
 ```
 
-Commit atılmadı; dosyalar korunuyor. Temiz yetkili kabuk/GPT dar kapsamlı araç:
+A suggested review command (do not run blindly; check the final diff and keep the
+unrelated worktree rules):
 
 ```sh
-git add \
-  DigitalBanking.API DigitalBanking.Application DigitalBanking.Domain \
-  DigitalBanking.Infrastructure DigitalBanking.Dashboard DigitalBanking.Tests \
-  scripts/run_local.py scripts/smoke_test.py scripts/start_local_detached.py \
-  scripts/upgrade_sqlite_account_metadata.py README.md DEEPSEEK_START_HERE.md docs
-git -c user.name=Codex -c user.email=codex@local.invalid commit -m \
-  "Add account products, first-account flow and dashboard UX hardening"
+git status --short
+git diff --check
+# After GPT review, stage only the intended files and commit with a clean message.
 ```
 
-Commit öncesi/sonrası doğrula:
-```sh
-DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh build DigitalBanking.slnx \
-  -p:UseSharedCompilation=false -m:1 -nr:false
-DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh test DigitalBanking.slnx \
-  -p:UseSharedCompilation=false -m:1 -nr:false --no-build
-```
-Smoke yalnız ayrı sentetik DB ile:
-```sh
-python3 scripts/run_local.py --api-port 5180 --dashboard-port 5181 \
-  --database "$PWD/.local/qa-smoke-final.db"
-python3 scripts/smoke_test.py --api-port 5180 --dashboard-port 5181
-```
-Beklenen: **150 test**, **280 smoke**, 0 build warning/error.
+No push, PR, tag, release, deployment or external CV edit was performed. GPT owns
+the final integration/push and CV publication after independent verification.
 
-## 4. Entegrasyon notu
+## Demo instances used
 
-- Integration `local-development` artık `35f247e`; eski dirty parent worktree kullanılmadı.
-- Bu UI dilimi commit edildikten sonra temiz integration worktree'ye fast-forward
-  dene; olmazsa yalnız bu commit'i cherry-pick et. Parent kirli kopyada
-  reset/clean/merge yapma.
-- UAT kopyasını ayrı DB ile hazırla; UAT `.local` ve kullanıcı hesabını kopyalama.
-- SQL Server migration'larını uygulama; >1 Owner verisinde migration veri silmeden durur.
-- Push/PR/deploy yok.
+- Main synthetic demo 5180/5181: restarted with the additive SQLite upgrade;
+  health/CSS checked.
+- Isolated Stage 3/4 demo 5198/5199 with `.local/stage3-e2e.db`: used for E2E and
+  screenshots. This is not UAT and is disposable.

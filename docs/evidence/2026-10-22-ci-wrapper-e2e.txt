@@ -1,0 +1,24 @@
+Stage 2 CI wrapper end-to-end evidence — 2026-10-22
+Branch: dsh/dsh-mvh4pdzy-u7y7j4; HEAD 76ea501 + uncommitted Stage 1/2 changes
+Snapshot: fresh isolated temp source copy with .local, .git, bin/obj, TestResults,
+          docs and .github excluded; no developer .local was copied.
+Build in snapshot: succeeded, 0 warnings / 0 errors.
+
+Occupied-port guard (dummy listener on 127.0.0.1:5194):
+  CI_API_PORT=5194 CI_DASHBOARD_PORT=5195 bash scripts/ci_run_smoke.sh
+  -> exit 1
+  -> "Port 5194 is already occupied on loopback."
+  -> "Refusing to start: requested loopback port is occupied."
+  -> no .local/credentials.json created
+
+Real isolated run (latest wrapper, current source):
+  CI_API_PORT=5196 CI_DASHBOARD_PORT=5197 bash scripts/ci_run_smoke.sh
+  -> exit 0
+  -> "Ephemeral CI credentials created (contents not printed)."
+  -> PASS: 280 local checks
+  -> artifacts/smoke-summary.txt is the only artifact file
+  -> no .local directory inside artifacts
+  -> after exit: ports 5196 and 5197 are free (own launched process cleaned up)
+  -> main worktree .local was not read/copied/modified by the snapshot run
+
+No GitHub Actions run, no push/PR/dispatch, no SQL Server claim.

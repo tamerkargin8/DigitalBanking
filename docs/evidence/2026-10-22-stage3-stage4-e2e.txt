@@ -1,0 +1,59 @@
+Stage 3 + Stage 4 reproducible HTTP E2E — safe summary evidence
+Date: 2026-10-22 (Europe/Istanbul)
+Environment: macOS ARM64, .NET SDK 10.0.402, synthetic SQLite only
+
+Command:
+  python3 scripts/stage3_stage4_e2e.py
+
+The script:
+  - creates its own temporary SQLite database and random in-memory credentials;
+  - uses ephemeral loopback ports and refuses reserved/UAT ports;
+  - refuses a UAT-looking worktree root;
+  - does not read, print or write .local credentials;
+  - stops only its own API/dashboard process groups;
+  - removes the temporary directory on success (kept only on failure for debug).
+
+Isolation guard check:
+  python3 scripts/stage3_stage4_e2e.py --api-port 5480
+  -> E2E REFUSED: Refusing reserved/unsafe port 5480. (exit 2)
+
+Result:
+  stage3: 25/25
+  stage4: 24/24
+  financial: 25/25
+  operations: 12/12
+  csv: 4/4
+  demo: 5/5
+  upgrade: 9/9
+  TOTAL: 104/104
+  E2E PASS
+
+Coverage:
+  - balanced deposit/withdrawal/transfer/opening journal, trial balance,
+    journal detail, append-only surface (no PUT);
+  - approval rollback when the journal insert violates the unique SourceKey:
+    balance, legacy transaction, approval and journal-state consistency;
+  - double approval rejection and no duplicate journal;
+  - Idempotency-Key replay (same approval) and payload conflict (409);
+  - 0.01 and 100,000.00 decimal handling; 100,000.01 delegated denial + Owner
+    approval; extra-scale rejection; cross-currency rejection;
+  - Owner baseline preview/post, repeat idempotency, Customer/Delegated 403;
+  - legacy balance + post-migration deposit: baseline amount equals the remaining
+    legacy gap, not the full current balance; fully journaled accounts skip;
+  - scoped delegated operations visibility, self-approval/self-assignment,
+    assignment eligibility/idempotency, no approval-rights bypass;
+  - live delegation revocation with a stale JWT;
+  - exact 30-minute SLA boundary, within-SLA separation, pagination and pageSize
+    guard;
+  - CSV formula-safe export, invalid extension, Customer upload 403, duplicate
+    file+scope replay;
+  - Customer demo seed/reset 403 and demo reset removing only demo journals while
+    preserving non-demo journals/pending requests;
+  - additive SQLite legacy upgrade on a separate DB: row/balance preservation,
+    journal/assignment schema creation, second-run idempotency, no extra backup,
+    app restart and identical account balances.
+
+Not run / not claimed:
+  - real SQL Server application or decimal/concurrency proof;
+  - GitHub Actions/hosted CI;
+  - manual UAT, EULA acceptance or video.

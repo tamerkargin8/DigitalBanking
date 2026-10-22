@@ -37,6 +37,11 @@ public class PaymentApproval
     /// <summary>Stable correlation id used by timeline, receipt and reconciliation.</summary>
     public Guid CorrelationId { get; set; }
 
+    /// <summary>Operational assignment; does not grant approval rights.</summary>
+    public Guid? AssignedToUserId { get; set; }
+    public string? AssignedToUsername { get; set; }
+    public DateTime? AssignedAt { get; set; }
+
     /// <summary>Marks deterministic synthetic demo data for scoped reset.</summary>
     public bool IsDemo { get; set; }
 

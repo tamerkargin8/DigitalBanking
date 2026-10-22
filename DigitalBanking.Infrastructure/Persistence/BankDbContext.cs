@@ -20,6 +20,8 @@ public class BankDbContext : DbContext
     public DbSet<ReconciliationRow> ReconciliationRows => Set<ReconciliationRow>();
     public DbSet<ReconciliationException> ReconciliationExceptions => Set<ReconciliationException>();
     public DbSet<ApprovalDelegation> ApprovalDelegations => Set<ApprovalDelegation>();
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+    public DbSet<JournalLine> JournalLines => Set<JournalLine>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -100,6 +102,8 @@ public class BankDbContext : DbContext
             entity.HasIndex(x => x.CorrelationId);
             entity.HasIndex(x => new { x.Status, x.CreatedAt });
             entity.HasIndex(x => new { x.RequestType, x.Status });
+            entity.HasIndex(x => new { x.AssignedToUserId, x.Status });
+            entity.Property(x => x.AssignedToUsername).HasMaxLength(100);
 
             entity.Property(x => x.RowVersion).IsRowVersion();
             if (Database.IsSqlite())
@@ -125,6 +129,38 @@ public class BankDbContext : DbContext
             entity.Property(x => x.RequestHash).HasMaxLength(64).IsRequired();
             entity.HasIndex(x => new { x.Endpoint, x.Key }).IsUnique();
             entity.HasIndex(x => x.CreatedAt);
+        });
+
+        modelBuilder.Entity<JournalEntry>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.SourceKey).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(x => x.Description).HasMaxLength(250).IsRequired();
+            entity.HasIndex(x => x.SourceKey).IsUnique();
+            entity.HasIndex(x => x.PaymentApprovalId);
+            entity.HasIndex(x => new { x.Currency, x.CreatedAt });
+            entity.HasIndex(x => x.CorrelationId);
+            entity.HasMany(x => x.Lines)
+                .WithOne(x => x.JournalEntry)
+                .HasForeignKey(x => x.JournalEntryId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<JournalLine>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(x => x.Amount).HasPrecision(18, 2);
+            entity.Property(x => x.Description).HasMaxLength(250);
+            entity.HasIndex(x => new { x.JournalEntryId, x.Side });
+            entity.HasIndex(x => x.AccountId);
+            entity.HasIndex(x => x.TransactionId);
+            entity.HasIndex(x => x.CorrelationId);
+            entity.HasOne<Account>()
+                .WithMany()
+                .HasForeignKey(x => x.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ApprovalDelegation>(entity =>

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DigitalBanking.Application\DigitalBanking.Application.csproj" />
+    <ProjectReference Include="..\DigitalBanking.Domain\DigitalBanking.Domain.csproj" />
+    <ProjectReference Include="..\DigitalBanking.Infrastructure\DigitalBanking.Infrastructure.csproj" />
+    <ProjectReference Include="..\DigitalBanking.API\DigitalBanking.API.csproj" />
+  </ItemGroup>
+
+</Project>

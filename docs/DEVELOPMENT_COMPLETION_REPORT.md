@@ -1,5 +1,11 @@
 # Development completion report — Owner model, approvals, reconciliation and dashboard
 
+> **Historical scope:** this report reflects the 2026-10-20/21 slice. Current
+> verification after Stages 3–5 is **177 xUnit**, **280 smoke**, **25/25
+> accounting E2E** and **24/24 operations E2E**; SQL Server, hosted CI and UAT
+> remain **NOT RUN**. See `FINAL_GAPS.md` and `STAGE_05_REPORT.md`.
+
+
 - Tarih: **2026-10-20** (Europe/Istanbul)
 - Ortam: macOS ARM64, .NET SDK **10.0.402** (runtime 10.0.13), EF Core **10.0.3**
 - Dal: `dsh/dsh-mvh4pdzy-u7y7j4` (izole worktree)

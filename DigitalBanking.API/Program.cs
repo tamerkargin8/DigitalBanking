@@ -144,7 +144,7 @@ try
         else options.UseSqlServer(connection);
     });
 
-    builder.Services.AddInfrastructureServices();
+    builder.Services.AddInfrastructureServices(builder.Configuration);
     builder.Services.AddScoped<IdempotencyFilter>();
 
     builder.Services.AddEndpointsApiExplorer();

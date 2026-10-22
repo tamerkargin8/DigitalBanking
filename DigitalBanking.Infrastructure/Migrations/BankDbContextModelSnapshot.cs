@@ -30,6 +30,7 @@ namespace DigitalBanking.Infrastructure.Migrations
 
                     b.Property<string>("AccountName")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)")
                         .HasDefaultValue("Vadesiz Hesap");
@@ -263,6 +264,112 @@ namespace DigitalBanking.Infrastructure.Migrations
                     b.ToTable("IdempotencyRecords");
                 });
 
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.JournalEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsBaseline")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDemo")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("PaymentApprovalId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ReversalOfJournalEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SourceOperation")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CorrelationId");
+
+                    b.HasIndex("PaymentApprovalId");
+
+                    b.HasIndex("SourceKey")
+                        .IsUnique();
+
+                    b.HasIndex("Currency", "CreatedAt");
+
+                    b.ToTable("JournalEntries");
+                });
+
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.JournalLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AccountType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<Guid>("JournalEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Side")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("TransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("CorrelationId");
+
+                    b.HasIndex("TransactionId");
+
+                    b.HasIndex("JournalEntryId", "Side");
+
+                    b.ToTable("JournalLines");
+                });
+
             modelBuilder.Entity("DigitalBanking.Domain.Entities.PaymentApproval", b =>
                 {
                     b.Property<int>("Id")
@@ -278,6 +385,16 @@ namespace DigitalBanking.Infrastructure.Migrations
                     b.Property<string>("ApprovalReason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("AssignedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("AssignedToUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AssignedToUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<Guid>("CorrelationId")
                         .HasColumnType("uniqueidentifier");
@@ -313,6 +430,13 @@ namespace DigitalBanking.Infrastructure.Migrations
                     b.Property<int>("RequestType")
                         .HasColumnType("int");
 
+                    b.Property<string>("RequestedAccountName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("RequestedAccountType")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("RequestedByUserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -321,13 +445,6 @@ namespace DigitalBanking.Infrastructure.Migrations
 
                     b.Property<decimal?>("RequestedInitialBalance")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("RequestedAccountName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int?>("RequestedAccountType")
-                        .HasColumnType("int");
 
                     b.Property<DateTime?>("ReviewedAt")
                         .HasColumnType("datetime2");
@@ -353,6 +470,8 @@ namespace DigitalBanking.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CorrelationId");
+
+                    b.HasIndex("AssignedToUserId", "Status");
 
                     b.HasIndex("RequestType", "Status");
 
@@ -760,14 +879,14 @@ namespace DigitalBanking.Infrastructure.Migrations
 
                     b.HasIndex("Email");
 
-                    b.HasIndex("Username");
-
-                    b.HasIndex("Role", "Status");
-
                     b.HasIndex("Role")
                         .IsUnique()
                         .HasDatabaseName("IX_Users_Role_OwnerUnique")
                         .HasFilter("[Role] = 3");
+
+                    b.HasIndex("Username");
+
+                    b.HasIndex("Role", "Status");
 
                     b.ToTable("Users");
                 });
@@ -792,6 +911,22 @@ namespace DigitalBanking.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.JournalLine", b =>
+                {
+                    b.HasOne("DigitalBanking.Domain.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("DigitalBanking.Domain.Entities.JournalEntry", "JournalEntry")
+                        .WithMany("Lines")
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("JournalEntry");
                 });
 
             modelBuilder.Entity("DigitalBanking.Domain.Entities.ReconciliationException", b =>
@@ -837,6 +972,11 @@ namespace DigitalBanking.Infrastructure.Migrations
             modelBuilder.Entity("DigitalBanking.Domain.Entities.Customer", b =>
                 {
                     b.Navigation("Accounts");
+                });
+
+            modelBuilder.Entity("DigitalBanking.Domain.Entities.JournalEntry", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("DigitalBanking.Domain.Entities.ReconciliationBatch", b =>

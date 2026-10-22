@@ -1,0 +1,96 @@
+Stage 4 operations control centre — evidence
+Date: 2026-10-22 (Europe/Istanbul)
+Environment: macOS arm64, .NET SDK 10.0.402, synthetic SQLite only
+No SQL Server, UAT database, GitHub Actions run, push or deployment was used.
+
+1) Build
+Command:
+  DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh build DigitalBanking.slnx \
+    -p:UseSharedCompilation=false -m:1 -nr:false
+Result:
+  Build succeeded.
+  0 Warning(s)
+  0 Error(s)
+
+2) Full test suite
+Command:
+  DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh test DigitalBanking.slnx \
+    -p:UseSharedCompilation=false -m:1 -nr:false --no-restore
+Result:
+  DigitalBanking.Tests: Passed! - Failed: 0, Passed: 170, Skipped: 0, Total: 170
+  DigitalBanking.IntegrationTests: Skipped! - Failed: 0, Passed: 0, Skipped: 8, Total: 8
+  (SQL Server env-gated tests were NOT run.)
+
+3) Live API E2E
+Environment: isolated SQLite .local/stage3-e2e.db, API 127.0.0.1:5198,
+dashboard 127.0.0.1:5199. Credentials were read internally and never printed.
+Result: 24/24 checks passed:
+  - owner summary pending=9 (accumulated synthetic runs), overdue=3, SLA=30
+  - overdue filter returns the backdated row; all rows flagged isOverdue
+  - owner sees eligible assignees and can assign
+  - assignment is idempotent on replay
+  - delegated sees only permitted pending rows; assignedToMe=1
+  - customer operations summary = 403
+  - delegated cannot list closed status = 403
+  - delegated cannot assign another user = 403
+  - Customer target assignment rejected = 400
+  - mismatch CSV preview/import succeeded
+  - unresolved reconciliation batch counted and listed
+  - no-exception filter includes the imported mismatch batch
+  - combined requestType/currency filter works; pageSize preserved
+  - assigned-to-me filter returns only assigned rows
+Final output:
+  {"checks": 24, "passed": 24}
+
+4) Dashboard assignment form
+Authenticated Owner session loaded /Admin/Operations, rendered 9 assignment forms.
+Posting the first form (clear assignment) returned the page with flash
+"Atama kaldırıldı." via the Razor handler; API and Dashboard stayed consistent.
+Page HTML contained: "Operasyon Kontrol Merkezi", "SLA geciken",
+"Çözülmemiş mutabakat", "SLA 30 dk" and Istanbul-formatted timestamps.
+
+5) Isolated HTTP smoke
+Temporary worktree snapshot, temp SQLite DB, ports 5196/5197.
+Command:
+  CI_API_PORT=5196 CI_DASHBOARD_PORT=5197 bash scripts/ci_run_smoke.sh
+Result:
+  PASS: 280 local checks
+  exit 0
+  only artifacts/smoke-summary.txt produced
+  ports released after cleanup
+
+6) SQL Server migration render (NOT applied)
+Command: EF Core 10.0.3 migrations script from
+20261021023000_AddAccountMetadata to
+20261022191101_AddDoubleEntryJournalAndApprovalAssignment.
+Result:
+  success
+  ALTER PaymentApprovals ADD AssignedAt, AssignedToUserId, AssignedToUsername
+  CREATE UNIQUE INDEX IX_PaymentApprovals_AssignedToUserId_Status
+  2 CREATE TABLE (JournalEntries, JournalLines) + journal indexes
+This proves the migration renders SQL Server DDL; it does NOT prove application.
+
+7) SQLite additive upgrade
+Command:
+  python3 scripts/upgrade_sqlite_journal.py <synthetic.db>
+  python3 scripts/upgrade_sqlite_journal.py <synthetic.db> --apply
+  python3 scripts/upgrade_sqlite_journal.py <synthetic.db>
+Result:
+  plan/apply added journal tables, assignment columns and assignment index
+  timestamped backup created
+  re-run reported "Already up to date"
+  local isolated demo DB upgraded; UAT was not touched
+
+8) Static checks
+  python3 scripts/ci_check_workflow_guards.py -> PASS: workflow guardrails
+  bash -n scripts/ci_run_smoke.sh scripts/run_sqlserver_integration.sh -> OK
+  python3 -m py_compile scripts/upgrade_sqlite_journal.py scripts/ci_summarize_trx.py -> OK
+  CI main-test gate updated to 170; smoke gate remains 280.
+
+9) Screenshots
+  docs/screenshots/owner-operations.png (2880x3130)
+  docs/screenshots/delegated-operations.png (2880x2826)
+Captured from the isolated synthetic demo with Chrome DevTools at 1440px CSS
+width, 2x DPR, full content height.
+
+Later baseline fix (2026-10-22): 177 xUnit passed, 8 SQL skipped; reproducible Stage 3/4 E2E 104/104. See docs/evidence/2026-10-22-stage3-stage4-e2e.txt.

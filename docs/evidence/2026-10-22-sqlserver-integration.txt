@@ -1,0 +1,35 @@
+SQL Server integration environment evidence — 2026-10-22
+Worktree: /Users/tamerkargin/Documents/Codex/2026-10-20/gpt-imdi-x20/outputs/DigitalBanking-DeepSeek/.dsh-worktrees/dsh-mvh4pdzy-u7y7j4
+Branch: dsh/dsh-mvh4pdzy-u7y7j4
+HEAD: 76ea501 + stage-1 uncommitted changes
+OS: Darwin arm64; 26.7.1
+Docker: not installed
+Podman: not installed
+Colima: not installed
+sqlcmd: not installed
+
+Official Microsoft support boundary: SQL Server Linux container images are supported only on Linux hosts running Intel/AMD x86-64 CPUs; Rosetta 2/QEMU/Prism emulation is not tested or supported.
+Source: https://learn.microsoft.com/en-us/sql/linux/containers/deploy?view=sql-server-ver17
+
+Command: bash scripts/run_sqlserver_integration.sh
+NOT RUN: DIGITALBANKING_SQLSERVER_CONNECTION is not set.
+Set it to a disposable SQL Server connection with CREATE DATABASE permission.
+
+Build/test with no SQL Server env:
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.40
+  Skipped DigitalBanking.IntegrationTests.SqlServerIntegrationTests.MigrationsApplyOnAnEmptyDatabaseAndAccountMetadataDefaultsExist [1 ms]
+  Skipped DigitalBanking.IntegrationTests.SqlServerIntegrationTests.SelfApprovalRevocationAndStaleRoleAreRejectedByLiveState [1 ms]
+  Skipped DigitalBanking.IntegrationTests.SqlServerIntegrationTests.ReconciliationReplayAndDifferentReviewerExceptionFlowKeepBalancesUnchanged [1 ms]
+  Skipped DigitalBanking.IntegrationTests.SqlServerIntegrationTests.ApprovalFailureRollsBackBalanceApprovalLedgerAndAudit [1 ms]
+
+Skipped! - Failed:     0, Passed:     0, Skipped:     8, Total:     8, Duration: 6 ms - DigitalBanking.IntegrationTests.dll (net10.0)
+Test run for /Users/tamerkargin/Documents/Codex/2026-10-20/gpt-imdi-x20/outputs/DigitalBanking-DeepSeek/.dsh-worktrees/dsh-mvh4pdzy-u7y7j4/DigitalBanking.Tests/bin/Debug/net10.0/DigitalBanking.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   150, Skipped:     0, Total:   150, Duration: 2 s - DigitalBanking.Tests.dll (net10.0)
+
+Conclusion: real SQL Server migration/apply/concurrency tests were BUILT but SKIPPED; they are not passed.

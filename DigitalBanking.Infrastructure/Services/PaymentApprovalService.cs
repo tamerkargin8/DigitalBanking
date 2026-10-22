@@ -367,8 +367,9 @@ public class PaymentApprovalService : IPaymentApprovalService
                     if (!string.Equals(from.Currency, approval.Currency, StringComparison.OrdinalIgnoreCase)
                         || !string.Equals(to.Currency, approval.Currency, StringComparison.OrdinalIgnoreCase))
                         throw new BusinessRuleException("Para birimi hesaplarla uyuşmuyor.");
-                    var (debit, _) = LedgerOperations.ApplyTransfer(
+                    var (debit, credit) = LedgerOperations.ApplyTransfer(
                         _context, from, to, approval.Amount, approval.Description, now, approval.CorrelationId, approval.IsDemo);
+                    JournalPoster.AddTransfer(_context, approval, from, to, debit.Id, credit.Id, now);
                     relatedTransactionId = debit.Id;
                     break;
                 }
@@ -380,6 +381,7 @@ public class PaymentApprovalService : IPaymentApprovalService
                     var tx = LedgerOperations.ApplyDeposit(
                         _context, account, approval.Amount, approval.Description, now,
                         "Onaylanan demo yatırma", approval.CorrelationId, approval.IsDemo);
+                    JournalPoster.AddDeposit(_context, approval, account, tx.Id, now);
                     relatedTransactionId = tx.Id;
                     break;
                 }
@@ -391,6 +393,7 @@ public class PaymentApprovalService : IPaymentApprovalService
                     var tx = LedgerOperations.ApplyWithdraw(
                         _context, account, approval.Amount, approval.Description, now,
                         "Onaylanan demo çekme", approval.CorrelationId, approval.IsDemo);
+                    JournalPoster.AddWithdrawal(_context, approval, account, tx.Id, now);
                     relatedTransactionId = tx.Id;
                     break;
                 }
@@ -429,6 +432,7 @@ public class PaymentApprovalService : IPaymentApprovalService
                         };
                         _context.Transactions.Add(opening);
                         relatedTransactionId = opening.Id;
+                        JournalPoster.AddAccountOpening(_context, approval, account, opening.Id, now);
                     }
                     break;
                 }

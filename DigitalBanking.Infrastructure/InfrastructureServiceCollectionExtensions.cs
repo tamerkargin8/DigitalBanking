@@ -1,13 +1,15 @@
 using DigitalBanking.Application.Abstractions.Services;
 using DigitalBanking.Infrastructure.Security;
 using DigitalBanking.Infrastructure.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DigitalBanking.Infrastructure;
 
 public static class InfrastructureServiceCollectionExtensions
 {
-    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
+    public static IServiceCollection AddInfrastructureServices(
+        this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IAccountService, AccountService>();
         services.AddScoped<ITransactionService, TransactionService>();
@@ -23,6 +25,10 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IUserIdentityService, UserIdentityService>();
         services.AddScoped<IDelegationService, DelegationService>();
         services.AddScoped<IApprovalAuthorizationService, ApprovalAuthorizationService>();
+        services.AddScoped<IAccountingService, AccountingService>();
+        services.AddScoped<IOperationsService, OperationsService>();
+        services.Configure<OperationsOptions>(configuration.GetSection(OperationsOptions.SectionName));
+        services.AddSingleton<IClock, SystemClock>();
 
         services.AddSingleton<ILoginAttemptLimiter, InMemoryLoginAttemptLimiter>();
 

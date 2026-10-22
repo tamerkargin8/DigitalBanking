@@ -1,0 +1,28 @@
+Stage 2 CI static evidence — 2026-10-22
+Branch: dsh/dsh-mvh4pdzy-u7y7j4; HEAD 76ea501
+No push/PR/dispatch was performed.
+
+YAML parse:
+YAML OK
+
+Workflow guardrails:
+PASS: workflow guardrails
+
+Bash syntax:
+bash -n OK
+
+Python compile:
+py_compile OK
+
+SQL runner without environment:
+NOT RUN: DIGITALBANKING_SQLSERVER_CONNECTION is not set.
+Set it to a disposable SQL Server connection with CREATE DATABASE permission.
+exit=2
+
+TRX skip gate (synthetic 8 skipped):
+total=8 passed=0 failed=0 skipped=8 expected=8
+FAIL: SQL Server tests were skipped or did not all pass; this is NOT a valid SQL Server run.
+skip_exit=1
+TRX pass gate (synthetic 8 passed):
+total=8 passed=8 failed=0 skipped=0 expected=8
+pass_exit=0

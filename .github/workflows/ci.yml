@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # actions/checkout v7.0.1, commit verified from the official tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      # actions/setup-dotnet v6.0.0, commit verified from the official tag.
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: '10.0.402'
+          global-json-file: global.json
+
+      - name: Restore and build
+        run: |
+          bash scripts/dotnet.sh restore DigitalBanking.slnx --nologo
+          bash scripts/dotnet.sh build DigitalBanking.slnx --no-restore --nologo
+
+      - name: Main unit tests (177 required)
+        run: |
+          mkdir -p artifacts/main
+          bash scripts/dotnet.sh test DigitalBanking.Tests/DigitalBanking.Tests.csproj \
+            --no-build --nologo --results-directory "$PWD/artifacts/main" \
+            --logger "trx;LogFileName=main.trx"
+          python3 scripts/ci_summarize_trx.py "$PWD/artifacts/main/main.trx" \
+            --expect-total 177 --output "$PWD/artifacts/main/summary.txt"
+
+      - name: SQL Server integration (not configured; expected skips)
+        env:
+          DIGITALBANKING_SQLSERVER_CONNECTION: ''
+          DIGITALBANKING_SQLSERVER_ALLOW_DESTRUCTIVE: ''
+        run: |
+          mkdir -p artifacts/integration
+          bash scripts/dotnet.sh test DigitalBanking.IntegrationTests/DigitalBanking.IntegrationTests.csproj \
+            --no-build --nologo --results-directory "$PWD/artifacts/integration" \
+            --logger "trx;LogFileName=integration.trx"
+          python3 scripts/ci_summarize_trx.py "$PWD/artifacts/integration/integration.trx" \
+            --expect-total 8 --expect-skipped 8 --output "$PWD/artifacts/integration/summary.txt"
+
+      - name: Explain SQL Server boundary
+        if: always()
+        run: |
+          {
+            echo '## CI result'
+            echo '- Main unit tests: required 177.'
+            echo '- SQL Server integration: **NOT RUN in normal CI**; the 8 tests are expected to be skipped.'
+            echo '- A green CI result is not SQL Server verification. Use the manual SQL Server workflow on a supported x86-64 server.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload sanitized summaries
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ci-test-summaries
+          path: |
+            artifacts/main/summary.txt
+            artifacts/integration/summary.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  smoke:
+    needs: build-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: '10.0.402'
+          global-json-file: global.json
+
+      - name: Build synthetic app
+        run: |
+          bash scripts/dotnet.sh restore DigitalBanking.slnx --nologo
+          bash scripts/dotnet.sh build DigitalBanking.slnx --no-restore --nologo
+
+      - name: Isolated SQLite HTTP smoke (280 required)
+        run: bash scripts/ci_run_smoke.sh
+
+      - name: Upload smoke summary
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: smoke-summary
+          path: artifacts/smoke-summary.txt
+          if-no-files-found: ignore
+          retention-days: 7

@@ -129,6 +129,7 @@ public static class DashboardUi
         "Withdrawal" => "Çekme",
         "AccountOpening" => "Hesap açılışı",
         "ReconciliationException" => "Mutabakat istisnası",
+        "NoException" => "İstisna yok",
         "Checking" => "Vadesiz",
         "TimeDeposit" => "Vadeli",
         "Investment" => "Yatırım",

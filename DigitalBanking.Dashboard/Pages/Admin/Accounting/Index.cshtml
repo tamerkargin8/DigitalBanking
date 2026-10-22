@@ -1,0 +1,204 @@
+@page
+@model DigitalBanking.Dashboard.Pages.Admin.Accounting.IndexModel
+@using DigitalBanking.Dashboard.Services
+@{
+    ViewData["Title"] = "Muhasebe";
+}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h3 class="mb-1">Muhasebe &amp; Mizan</h3>
+        <div class="text-muted small">Çift kayıtlı, tek para birimli, değiştirilemez journal kayıtları. Kayıtlar yalnız onaylı finansal işlemlerden üretilir.</div>
+    </div>
+    <a class="btn btn-outline-secondary" href="/Admin/Approvals">Onay Kuyruğu</a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Flash)) { <div class="alert alert-info">@Model.Flash</div> }
+@if (!string.IsNullOrEmpty(Model.Error)) { <div class="alert alert-danger">@Model.Error</div> }
+
+@if (Model.TrialBalance is not null)
+{
+    <div class="row g-3 mb-4">
+        @foreach (var c in Model.TrialBalance.Currencies)
+        {
+            <div class="col-xl-6">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between">
+                        <span>@c.Currency mizanı</span>
+                        <span class="@(c.IsBalanced ? "badge bg-success" : "badge bg-danger")">@(c.IsBalanced ? "Dengeli" : "Dengesiz")</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>Hesap türü</th><th>Hesap</th><th class="text-end">Borç</th><th class="text-end">Alacak</th><th class="text-end">Net</th></tr></thead>
+                            <tbody>
+                            @foreach (var row in c.Rows)
+                            {
+                                <tr>
+                                    <td>@row.AccountTypeLabel</td>
+                                    <td>@(row.AccountNumber ?? "—")<br /><small class="text-muted">@(row.AccountName ?? "")</small></td>
+                                    <td class="text-end">@DashboardUi.Money(row.DebitTotal, row.Currency)</td>
+                                    <td class="text-end">@DashboardUi.Money(row.CreditTotal, row.Currency)</td>
+                                    <td class="text-end">@DashboardUi.Money(row.NetDebit, row.Currency)</td>
+                                </tr>
+                            }
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th colspan="2">Toplam</th>
+                                    <th class="text-end">@DashboardUi.Money(c.DebitTotal, c.Currency)</th>
+                                    <th class="text-end">@DashboardUi.Money(c.CreditTotal, c.Currency)</th>
+                                    <th></th>
+                                </tr>
+                                <tr>
+                                    <td colspan="5" class="small text-muted">
+                                        Müşteri yükümlülüğü journal toplamı @DashboardUi.Money(c.JournalLiabilityTotal, c.Currency);
+                                        hesap bakiyesi toplamı @DashboardUi.Money(c.AccountBalanceTotal, c.Currency).
+                                        @if (c.LiabilityDifference != 0)
+                                        {
+                                            <span class="text-warning"> Fark @DashboardUi.Money(c.LiabilityDifference, c.Currency) — baseline bekleyen hesaplar olabilir.</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-success"> Hesap bakiyeleri journal ile uyumlu.</span>
+                                        }
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (Model.TrialBalance.Currencies.Count == 0)
+        {
+            <div class="col-12"><div class="alert alert-secondary mb-0">Henüz journal kaydı yok. Onaylanan işlemler burada görünür.</div></div>
+        }
+    </div>
+}
+
+@if (Model.IsOwner && Model.Baseline is not null)
+{
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Baseline (eski hesaplar)</span>
+            <span class="badge bg-secondary">Yalnız Owner</span>
+        </div>
+        <div class="card-body">
+            <p class="mb-2 small text-muted">
+                Baseline otomatik çalışmaz. Uygun hesaplar: <strong>@Model.Baseline.EligibleCount</strong>,
+                zaten baseline'lı: @Model.Baseline.AlreadyBaselinedCount,
+                fark gerektirmeyen: @Model.Baseline.FullyJournaledCount.
+                Her hesap için fark, güncel bakiye ile journal'daki net müşteri yükümlülüğü arasındaki
+                tutardır; mevcut baseline asla yeniden yazılmaz ve bakiye değiştirilmez.
+            </p>
+            @if (Model.Baseline.CurrencyTotals.Count > 0)
+            {
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Para birimi</th><th class="text-end">Uygun</th><th class="text-end">Artış</th><th class="text-end">Azalış</th><th class="text-end">Net</th><th class="text-end">Baseline'lı</th><th class="text-end">Fark yok</th><th class="text-end">Baseline farkı</th></tr></thead>
+                        <tbody>
+                        @foreach (var total in Model.Baseline.CurrencyTotals)
+                        {
+                            var culture = new System.Globalization.CultureInfo("tr-TR");
+                            <tr>
+                                <td>@total.Currency</td>
+                                <td class="text-end">@total.EligibleCount</td>
+                                <td class="text-end">@total.IncreaseTotal.ToString("N2", culture)</td>
+                                <td class="text-end">@total.DecreaseTotal.ToString("N2", culture)</td>
+                                <td class="text-end">@total.NetAdjustment.ToString("N2", culture)</td>
+                                <td class="text-end">@total.AlreadyBaselinedCount</td>
+                                <td class="text-end">@total.FullyJournaledCount</td>
+                                <td class="text-end">@total.ExistingBaselineGapCount</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            @if (Model.Baseline.EligibleCount > 0)
+            {
+                <form method="post" asp-page-handler="Baseline" onsubmit="return confirm('Baseline journal kayıtları üretilecek. Hesap bakiyeleri değişmez. Devam?');">
+                    <button class="btn btn-warning" type="submit">Baseline üret</button>
+                </form>
+            }
+            else
+            {
+                <div class="text-success small">Yeni baseline üretilecek hesap yok; mevcut baseline'lar ve bakiyeler değiştirilmedi.</div>
+            }
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-header">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label mb-1">Para birimi</label>
+                <select class="form-select form-select-sm" name="currency">
+                    <option value="">Tümü</option>
+                    @foreach (var c in new[] { "TRY", "USD", "EUR", "GBP" })
+                    {
+                        <option value="@c" selected="@(Model.Currency == c)">@c</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1">İşlem türü</label>
+                <select class="form-select form-select-sm" name="sourceOperation">
+                    <option value="">Tümü</option>
+                    @foreach (var op in new[] { "Deposit", "Withdrawal", "Transfer", "AccountOpening", "Baseline" })
+                    {
+                        <option value="@op" selected="@(Model.SourceOperation == op)">@op</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1">Hesap ID</label>
+                <input class="form-control form-control-sm" name="accountId" value="@Model.AccountId" placeholder="GUID" />
+            </div>
+            <div class="col-md-2"><button class="btn btn-sm btn-primary" type="submit">Filtrele</button></div>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr><th>Tarih</th><th>Tür</th><th>Açıklama</th><th class="text-end">Borç</th><th class="text-end">Alacak</th><th>Durum</th><th></th></tr>
+            </thead>
+            <tbody>
+            @foreach (var e in Model.Entries.Items)
+            {
+                <tr>
+                    <td>@DashboardUi.Date(e.CreatedAt)</td>
+                    <td>@e.SourceOperationLabel</td>
+                    <td>@e.Description<br /><small class="text-muted">@e.SourceKey</small></td>
+                    <td class="text-end">@DashboardUi.Money(e.DebitTotal, e.Currency)</td>
+                    <td class="text-end">@DashboardUi.Money(e.CreditTotal, e.Currency)</td>
+                    <td>
+                        <span class="badge bg-success">Dengeli</span>
+                        @if (e.IsDemo) { <span class="badge bg-info text-dark">Demo</span> }
+                        @if (e.IsBaseline) { <span class="badge bg-warning text-dark">Baseline</span> }
+                    </td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/Admin/Accounting/Details?id=@e.Id">Aç</a></td>
+                </tr>
+            }
+            @if (Model.Entries.Items.Count == 0)
+            {
+                <tr><td colspan="7" class="text-muted">Kayıt bulunamadı.</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <span class="small text-muted">@Model.Entries.TotalCount kayıt · sayfa @Model.Entries.PageNumber / @Math.Max(Model.Entries.TotalPages, 1)</span>
+        <div class="d-flex gap-2">
+            @if (Model.Entries.PageNumber > 1)
+            {
+                <a class="btn btn-sm btn-outline-secondary" href="?page=@(Model.Entries.PageNumber - 1)&currency=@Model.Currency&sourceOperation=@Model.SourceOperation&accountId=@Model.AccountId">Önceki</a>
+            }
+            @if (Model.Entries.HasNextPage)
+            {
+                <a class="btn btn-sm btn-outline-secondary" href="?page=@(Model.Entries.PageNumber + 1)&currency=@Model.Currency&sourceOperation=@Model.SourceOperation&accountId=@Model.AccountId">Sonraki</a>
+            }
+        </div>
+    </div>
+</div>
