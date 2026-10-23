@@ -29,7 +29,7 @@ and an operations control centre (.NET 10, ASP.NET Core, EF Core, Razor Pages).*
   unassigned counts, type/currency/status/age filters, bounded pagination, safe
   assignment (no approval-rights bypass), live delegation-scoped visibility and
   unresolved reconciliation differences.
-- Delivered **177 passing xUnit tests**, **280 isolated HTTP smoke checks**, and
+- Delivered **178 passing xUnit tests**, **280 isolated HTTP smoke checks**, and
   **25/25 accounting + 24/24 operations** live E2E checks on synthetic SQLite,
   with real screenshots and evidence reports.
 - Practiced security-relevant engineering: database-backed authorization, IDOR
@@ -51,7 +51,7 @@ and an operations control centre (.NET 10, ASP.NET Core, EF Core, Razor Pages).*
 - **Operasyon kontrol merkezi**: bekleyen yaş/SLA, geciken/atanmamış sayıları,
   tür/para birimi/durum/yaş filtreleri, sınırlı sayfalama, güvenli atama ve
   çözülmemiş mutabakat farkları; Delegated yalnız canlı yetkisini görür.
-- **177 xUnit**, **280 smoke**, **25/25 muhasebe** ve **24/24 operasyon** canlı
+- **178 xUnit**, **280 smoke**, **25/25 muhasebe** ve **24/24 operasyon** canlı
   E2E testi; gerçek ekran görüntüleri ve kanıt raporları.
 - Veritabanı tabanlı yetkilendirme, IDOR koruması, JWT kimlik, PBKDF2, rate
   limit, idempotency, audit, CSV formül enjeksiyonu koruması ve secretsız
@@ -66,7 +66,7 @@ are re-read from the database on every decision. Approved movements write a
 balanced, append-only double-entry journal in the same transaction as the
 balance, approval and audit, and old balances are handled by an explicit Owner
 baseline instead of a silent backfill. An operations centre adds SLA/age,
-safe assignment and unresolved reconciliation gaps. It is verified with 177 unit
+safe assignment and unresolved reconciliation gaps. It is verified with 178 unit
 tests, 280 smoke checks and two live E2E suites on synthetic data. SQL Server and
 hosted CI are deliberately not claimed — they were not run here.”
 
@@ -78,7 +78,7 @@ operasyon, para birimi, limit ve süre ile sınırlıdır ve her kararda veritab
 yeniden okunur. Onaylanan hareketler bakiye, onay ve audit ile aynı transaction’da
 dengeli ve append-only bir çift kayıt journal’ı üretir. Eski bakiyeler sessizce
 doldurulmaz; Owner açık baseline uygular. Operasyon merkezi SLA/yaş, güvenli atama
-ve çözülmemiş mutabakat farklarını ekler. 177 unit, 280 smoke ve iki canlı E2E
+ve çözülmemiş mutabakat farklarını ekler. 178 unit, 280 smoke ve iki canlı E2E
 sentetik veriyle doğrulandı. SQL Server ve hosted CI burada çalıştırılmadığı için
 iddia edilmiyor.”
 

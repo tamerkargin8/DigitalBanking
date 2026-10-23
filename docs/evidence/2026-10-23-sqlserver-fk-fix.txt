@@ -1,0 +1,37 @@
+SQL Server reconciliation FK fix — safe evidence
+Date: 2026-10-23
+Trigger: GitHub Actions run 39984232994, real SQL Server 2022, 8/8 required.
+Failure: FK_ReconciliationExceptions_ReconciliationRows_RowId may cause cycles
+or multiple cascade paths. Schema creation failed before tests.
+
+Change:
+  ReconciliationExceptions.RowId -> ReconciliationRows.Id is NO ACTION.
+  Batch -> Rows and Batch -> Exceptions remain CASCADE.
+  Model, original migration, all designers and the model snapshot are aligned.
+
+Rendered SQL Server DDL (EF Core 10.0.3 migrations script, idempotent):
+  CONSTRAINT [FK_ReconciliationExceptions_ReconciliationRows_RowId]
+    FOREIGN KEY ([RowId]) REFERENCES [ReconciliationRows] ([Id])
+  (no ON DELETE SET NULL; default NO ACTION)
+  No SQL Server database was opened or migrated here.
+
+Local verification:
+  Build: 0 warnings, 0 errors
+  Main unit tests: 178 passed, 0 failed
+  SQL integration: 8 skipped — NOT RUN (Mac has no SQL Server runtime)
+  Stage 3/4 SQLite E2E: 104/104
+  Isolated HTTP smoke: 280/280, exit 0
+  SQLite demo cleanup regression: passed (exceptions -> rows -> batch)
+  Model/snapshot/designer alignment:
+    `dotnet ef migrations has-pending-model-changes`
+    -> No changes have been made to the model since the last migration.
+  Workflow guard/static checks: PASS
+
+Existing installation:
+  docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql
+  Conditional drop/recreate of only that FK; no rows dropped/reset.
+  Fresh corrected migration needs no follow-up EF migration.
+
+Not performed:
+  No SQL Server apply, no GitHub dispatch, no EULA acceptance, no push/deploy.
+  UAT, main/parent copies and GPT snapshots untouched.

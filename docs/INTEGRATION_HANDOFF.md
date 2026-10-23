@@ -19,6 +19,9 @@
 
 - `DigitalBanking.slnx`
 - `DigitalBanking.IntegrationTests/` (`SqlServerFixture.cs`, `SqlServerIntegrationTests.cs`, `.csproj`)
+- SQL fix: `docs/SQLSERVER_FIX_REPORT.md`,
+  `docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`,
+  `docs/evidence/2026-10-23-sqlserver-fk-fix.txt`
 - `scripts/run_sqlserver_integration.sh`
 - `docs/PORTFOLIO_ROADMAP.md`, `docs/SQLSERVER_VERIFICATION.md`, `docs/STAGE_01_REPORT.md`
 - `docs/evidence/2026-10-22-sqlserver-integration.txt`
@@ -44,6 +47,7 @@
 - `scripts/upgrade_sqlite_journal.py`
 - `DigitalBanking.Tests/AccountingJournalTests.cs`
 - `DigitalBanking.Tests/AccountingBaselineRaceTests.cs`
+- `DigitalBanking.Tests/DemoScenarioCleanupTests.cs`
 - `scripts/stage3_stage4_e2e.py` (reproducible isolated HTTP E2E)
 - `docs/STAGE_03_REPORT.md`, `docs/evidence/2026-10-22-stage3-accounting.txt`,
   `docs/evidence/2026-10-22-stage3-stage4-e2e.txt`,
@@ -87,7 +91,7 @@
 
 ```text
 Build:                 0 warnings, 0 errors
-Main xUnit:            177 passed, 0 failed
+Main xUnit:            178 passed, 0 failed
 SQL integration:       0 passed, 8 skipped — NOT RUN
 Reproducible E2E:      104/104 (scripts/stage3_stage4_e2e.py)
   Stage 3:             25/25
@@ -97,7 +101,8 @@ Reproducible E2E:      104/104 (scripts/stage3_stage4_e2e.py)
   CSV/demo:            9/9
   SQLite upgrade:      9/9
 Isolated smoke:        280/280, exit 0 (temp DB, 5196/5197)
-SQL Server DDL:        rendered, NOT applied
+SQL Server DDL:        rendered, NOT applied (FK fixed; run 39984232994 failure addressed)
+SQL Server tests:      8 strengthened but still SKIPPED on this Mac — NOT RUN
 GitHub Actions:        NOT RUN
 Manual UAT:            NOT DONE
 EULA:                  NOT ACCEPTED
@@ -129,7 +134,17 @@ CI_API_PORT=5196 CI_DASHBOARD_PORT=5197 bash scripts/ci_run_smoke.sh
 export DIGITALBANKING_SQLSERVER_CONNECTION='<disposable server connection>'
 export DIGITALBANKING_SQLSERVER_ALLOW_DESTRUCTIVE=1
 bash scripts/run_sqlserver_integration.sh
+
+# Existing SQL schema only: repair an old SET NULL row FK (no data reset)
+# docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql
 ```
+
+The SQL Server fix for GitHub run 39984232994 changes
+`FK_ReconciliationExceptions_ReconciliationRows_RowId` to NO ACTION in the
+model, original migration, designers and snapshot. Fresh migrations no longer
+create a second cascade path. The 8 SQL tests were strengthened (journal table/
+index, assignment schema, balanced journal, rollback, cleanup ordering) but this
+Mac still skips them; local skips are not PASS.
 
 The E2E script refuses UAT-looking roots and reserved ports, never reads
 `.local`, generates credentials in memory, prints only check names and counts,

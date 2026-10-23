@@ -41,7 +41,7 @@ and the final push remain open.** Do not mark a stage complete without its own e
 - A missing SQL Server runtime is a documented blocker, not a passing result.
 - Destructive integration tests may only use a randomly prefixed database created
   by that test run, with an allowlist guard; never an existing/UAT database.
-- Existing test/smoke coverage must stay green; current gate is 177 xUnit + 280 smoke.
+- Existing test/smoke coverage must stay green; current gate is 178 xUnit + 280 smoke.
 
 ## Final publish and CV deliverable (user-approved, GPT-controlled)
 

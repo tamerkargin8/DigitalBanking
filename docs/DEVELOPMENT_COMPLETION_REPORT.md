@@ -1,7 +1,7 @@
 # Development completion report — Owner model, approvals, reconciliation and dashboard
 
 > **Historical scope:** this report reflects the 2026-10-20/21 slice. Current
-> verification after Stages 3–5 is **177 xUnit**, **280 smoke**, **25/25
+> verification after Stages 3–5 is **178 xUnit**, **280 smoke**, **25/25
 > accounting E2E** and **24/24 operations E2E**; SQL Server, hosted CI and UAT
 > remain **NOT RUN**. See `FINAL_GAPS.md` and `STAGE_05_REPORT.md`.
 

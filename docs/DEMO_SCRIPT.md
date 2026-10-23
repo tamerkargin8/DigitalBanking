@@ -73,7 +73,7 @@ Do not show `.local/credentials.json`, tokens or the terminal secrets.
 - Owner → **Denetim**. Show request creation, approval, journal/accounting and
   assignment audit events.
 - Close: “Synthetic demo. SQL Server and GitHub Actions are not verified here;
-  177 unit tests, 280 smoke checks, and the accounting/operations E2E suites are
+  178 unit tests, 280 smoke checks, and the accounting/operations E2E suites are
   the real local evidence. Video is prepared, not recorded.”
 
 ## Short version (if time is tight)

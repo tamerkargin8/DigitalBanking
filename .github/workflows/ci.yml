@@ -32,14 +32,14 @@ jobs:
           bash scripts/dotnet.sh restore DigitalBanking.slnx --nologo
           bash scripts/dotnet.sh build DigitalBanking.slnx --no-restore --nologo
 
-      - name: Main unit tests (177 required)
+      - name: Main unit tests (178 required)
         run: |
           mkdir -p artifacts/main
           bash scripts/dotnet.sh test DigitalBanking.Tests/DigitalBanking.Tests.csproj \
             --no-build --nologo --results-directory "$PWD/artifacts/main" \
             --logger "trx;LogFileName=main.trx"
           python3 scripts/ci_summarize_trx.py "$PWD/artifacts/main/main.trx" \
-            --expect-total 177 --output "$PWD/artifacts/main/summary.txt"
+            --expect-total 178 --output "$PWD/artifacts/main/summary.txt"
 
       - name: SQL Server integration (not configured; expected skips)
         env:
@@ -58,7 +58,7 @@ jobs:
         run: |
           {
             echo '## CI result'
-            echo '- Main unit tests: required 177.'
+            echo '- Main unit tests: required 178.'
             echo '- SQL Server integration: **NOT RUN in normal CI**; the 8 tests are expected to be skipped.'
             echo '- A green CI result is not SQL Server verification. Use the manual SQL Server workflow on a supported x86-64 server.'
           } >> "$GITHUB_STEP_SUMMARY"

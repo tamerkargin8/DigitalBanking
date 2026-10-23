@@ -1,6 +1,6 @@
 # DigitalBanking — banking controls portfolio demo
 
-> **Status (2026-10-22):** working .NET 10 API + Razor dashboard with **177 xUnit tests**, **280 isolated HTTP smoke checks**, **25/25 double-entry E2E checks** and **24/24 operations E2E checks** passing locally. SQL Server migrations are generated but **not applied or verified**; GitHub Actions is **not run**. This is an educational, synthetic demo — not production banking software.
+> **Status (2026-10-22):** working .NET 10 API + Razor dashboard with **178 xUnit tests**, **280 isolated HTTP smoke checks**, **25/25 double-entry E2E checks** and **24/24 operations E2E checks** passing locally. SQL Server migrations are generated but **not applied or verified**; GitHub Actions is **not run**. This is an educational, synthetic demo — not production banking software.
 
 DigitalBanking is a small retail-banking back office that makes the controls behind money movement visible: a **one-time Owner**, **delegated approval authority**, **maker-checker for every financial request**, **inclusive per-operation limits**, **live revocation**, **idempotent posting**, **customer ownership**, **double-entry accounting**, **pending-age/SLA operations**, **day-end reconciliation with exceptions**, and an **append-only audit trail**.
 
@@ -17,7 +17,7 @@ Every customer financial request — transfer, deposit, withdrawal, account open
 - **Yetki:** Delegasyon operasyon + para birimi + limit + opsiyonel günlük limit/süre ile sınırlıdır. `100.000,00 TRY` dahil, `100.000,01 TRY` Owner'a gider. İptal/rol değişikliği eski JWT'de bile anında etkilidir.
 - **Muhasebe:** Onaylanan her hareket tek para birimli, borç=alacak journal üretir. Eski hesaplar sessizce doldurulmaz; Owner açık baseline preview/post yapar.
 - **Operasyon:** Bekleyen yaş/SLA, geciken talepler, atama, çözülmemiş mutabakat farkları; Delegated yalnız canlı yetkisinin kapsadığını görür.
-- **Kanıt:** 177 xUnit, 280 smoke, 25/25 muhasebe E2E, 24/24 operasyon E2E; ekran görüntüleri sentetik masked veridir.
+- **Kanıt:** 178 xUnit, 280 smoke, 25/25 muhasebe E2E, 24/24 operasyon E2E; ekran görüntüleri sentetik masked veridir.
 - **Sınır:** Gerçek SQL Server uygulaması, GitHub Actions, manuel UAT ve video **yapılmadı/doğrulanmadı**. Bu bir üretim veya sertifikasyon iddiası değildir.
 
 ## Problem → workflow
@@ -168,7 +168,7 @@ Development only.
 | Check | Result |
 |---|---|
 | `bash scripts/dotnet.sh build DigitalBanking.slnx` | **0 warnings, 0 errors** |
-| `bash scripts/dotnet.sh test DigitalBanking.slnx` | **177 passed, 0 failed**, 8 SQL Server tests **skipped** |
+| `bash scripts/dotnet.sh test DigitalBanking.slnx` | **178 passed, 0 failed**, 8 SQL Server tests **skipped** |
 | Reproducible Stage 3 + 4 E2E (`scripts/stage3_stage4_e2e.py`) | **104/104** (Stage 3 **25/25**, Stage 4 **24/24**) |
 | Isolated HTTP smoke (temp DB, 5196/5197) | **280/280 checks, exit 0** |
 | SQL Server migration script render | succeeded; **not applied** |
@@ -285,7 +285,7 @@ only synthetic data and are not mockups. No automated visual-regression claim.
 
 ## Limitations / not verified
 
-- **SQL Server**: migrations compile/render but were not applied; 8 integration tests remain skipped. SQLite is not SQL Server proof.
+- **SQL Server**: migrations compile/render and the reconciliation FK multiple-cascade-path failure from real run 39984232994 was fixed, but the fixed migration has not been applied here; 8 integration tests remain skipped. SQLite is not SQL Server proof.
 - **GitHub Actions**: workflows are written and statically checked, but **NOT RUN**; no green badge or hosted-CI claim.
 - **Manual UAT** in the separate 5480/5481 environment is user-owned and not performed here.
 - **EULA/licensing**, real credentials/secret manager, deployment, load/penetration/accessibility audits and video recording are out of scope.

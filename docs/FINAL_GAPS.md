@@ -8,6 +8,9 @@ this environment”. A written workflow or migration is not a run.
 - Stage 1: SQL Server integration harness, 8 env-gated tests, runner/doc.
 - Stage 2: GitHub Actions workflows, smoke/TRX/secret-preparation scripts,
   workflow guardrails, CI guide and security matrix.
+- SQL Server migration repair after real run 39984232994: reconciliation row FK
+  is NO ACTION, model/snapshot/designers aligned, demo cleanup ordering fixed,
+  8 SQL tests strengthened. See `SQLSERVER_FIX_REPORT.md`.
 - Stage 3: append-only double-entry journal, atomic approval integration,
   gap-based Owner baseline (legacy balance minus already journaled liability;
   fully journaled/existing-baseline accounts skipped; per-currency totals),
@@ -28,11 +31,11 @@ this environment”. A written workflow or migration is not a run.
 | Check | Result | Evidence |
 |---|---|---|
 | Solution build | 0 warnings / 0 errors | command output |
-| Unit tests | **177 passed, 0 failed** | `docs/evidence/2026-10-22-stage3-accounting.txt`, `...stage4-operations.txt` |
+| Unit tests | **178 passed, 0 failed** | `docs/evidence/2026-10-22-stage3-accounting.txt`, `...stage4-operations.txt` |
 | SQL Server integration tests | **8 skipped — NOT RUN** | test output |
 | Stage 3 + 4 reproducible E2E | **104/104**: Stage 3 **25/25**, Stage 4 **24/24**, financial 25/25, operations 12/12, CSV/demo 9/9, SQLite upgrade 9/9 | `scripts/stage3_stage4_e2e.py`; `docs/evidence/2026-10-22-stage3-stage4-e2e.txt` |
 | Earlier ad-hoc Stage 3/4 E2E | 25/25 and 24/24 on isolated 5198/5199 | Stage 3/4 evidence (historical run) |
-| Baseline regression | legacy+deposit, new account, debit/negative direction, multi-currency, repeat, race | `AccountingJournalTests`, `AccountingBaselineRaceTests`; 177 unit tests |
+| Baseline regression | legacy+deposit, new account, debit/negative direction, multi-currency, repeat, race | `AccountingJournalTests`, `AccountingBaselineRaceTests`; 178 unit tests |
 | Isolated smoke | **280/280, exit 0**, temp DB, ports 5196/5197 | smoke summary run |
 | SQL Server DDL render | succeeded; **not applied** | migration script output |
 | SQLite additive upgrade | dry-run + apply + idempotent re-run on synthetic DB | Stage 3/4 evidence |
@@ -45,8 +48,10 @@ this environment”. A written workflow or migration is not a run.
 ### C1. Real SQL Server
 
 - No supported SQL Server runtime on this macOS ARM64 host.
-- Migration `20261022191101_AddDoubleEntryJournalAndApprovalAssignment` compiles
-  and renders SQL Server DDL, but was **not applied**.
+- Migration chain now renders with NO ACTION on
+  `FK_ReconciliationExceptions_ReconciliationRows_RowId`; the prior fresh-create
+  failure in real run 39984232994 is addressed in model, original migration,
+  designers and snapshot. It was **not applied** from this worktree.
 - SQL Server decimal/concurrency/transaction behavior, migration ordering and
   rowversion semantics are **not proven**.
 - 8 SQL Server tests remain **skipped**, not passed.

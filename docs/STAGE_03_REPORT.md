@@ -148,9 +148,10 @@ All commands were run in this worktree with the pinned .NET 10.0.402 SDK.
 | Check | Result |
 |---|---|
 | `dotnet build DigitalBanking.slnx` | **0 warnings, 0 errors** |
-| `dotnet test DigitalBanking.slnx` | **177 passed, 0 failed**, 8 SQL Server integration tests **skipped** |
+| `dotnet test DigitalBanking.slnx` | **178 passed, 0 failed**, 8 SQL Server integration tests **skipped** |
 | Accounting test class | 18 tests, all passing |
 | Baseline/approval race test | 1 test, passing (file SQLite, serializable baseline) |
+| Demo cleanup ordering test | 1 test, passing (exceptions -> rows -> batch) |
 | Live API E2E (isolated SQLite, ports 5198/5199) | **25/25 checks passed** |
 | Isolated HTTP smoke (ports 5196/5197, temp DB) | **280/280 checks passed**, exit 0, ports released |
 | SQL Server migration script generation | succeeded (DDL rendered, not applied) |
@@ -206,7 +207,7 @@ made beyond these real captures.
 - **SQL Server is still not verified.** The 8 env-gated SQL Server tests remain
   skipped; a migration compiling/rendering SQL is not an applied-database proof.
 - GitHub Actions is **NOT RUN**. The CI unit-test gate was updated from 150 to
-  162 at Stage 3 and later to 177 at Stage 4; the smoke gate remains 280.
+  162 at Stage 3 and later to 178 at Stage 4; the smoke gate remains 280.
 - The accounting UI is operational/read-only and Turkish; it is not a full
   finance back-office.
 - There is no automatic reversal endpoint yet. A reversal entry type and source

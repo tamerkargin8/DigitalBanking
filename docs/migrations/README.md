@@ -48,7 +48,20 @@ does **not** apply these migrations.
      `PaymentApprovals.AssignedToUserId/AssignedToUsername/AssignedAt` ve
      `(AssignedToUserId, Status)` indeksini de ekler. Atama onay yetkisi vermez.
 
-Eski migration dosyaları değiştirilmedi.
+Eski migration dosyaları korunur; yalnız 2026-10-23 reconciliation FK düzeltmesi için ilgili migration/designer/snapshot satırı NO ACTION olarak güncellendi.
+
+### Reconciliation FK düzeltmesi (2026-10-23)
+
+Gerçek SQL Server run 39984232994, taze migration zincirinde
+`FK_ReconciliationExceptions_ReconciliationRows_RowId` için multiple cascade
+paths hatası verdi. Model, ilk reconciliation migration'ı, designer'lar ve
+snapshot hizalandı; bu FK artık **NO ACTION**. Batch -> Rows ve Batch ->
+Exceptions CASCADE kalır. Taze kurulumda ek migration gerekmez.
+
+Mevcut/elle oluşturulmuş bir SQL Server şemasında eski `SET_NULL` FK varsa,
+satır silmeyen koşullu onarım script'i:
+`docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`.
+Ayrıntı: [`../SQLSERVER_FIX_REPORT.md`](../SQLSERVER_FIX_REPORT.md).
 
 ## Birden fazla Owner bulunduysa (operatör uyarısı)
 

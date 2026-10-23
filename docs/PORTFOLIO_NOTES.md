@@ -15,7 +15,7 @@ made.
 > real payment timelines and receipts, day-end reconciliation with a
 > maker-checker exception workflow, an append-only double-entry journal with an
 > explicit Owner baseline, and an operations centre with SLA/age, safe assignment
-> and unresolved reconciliation gaps. It includes 177 xUnit tests, 280 end-to-end
+> and unresolved reconciliation gaps. It includes 178 xUnit tests, 280 end-to-end
 > smoke checks, 25/25 accounting and 24/24 operations live E2E checks; SQL Server
 > migrations are documented but not applied, with a clear "demo, not production"
 > boundary.
@@ -45,7 +45,7 @@ made.
    Open→InReview→ResolutionProposed→Closed/Rejected exception workflow that never
    adjusts balances.
 
-4. **Produced verifiable engineering evidence.** 177 xUnit tests, 280 end-to-end
+4. **Produced verifiable engineering evidence.** 178 xUnit tests, 280 end-to-end
    smoke checks, 25/25 accounting E2E and 24/24 operations E2E checks passing
    locally, 0 build warnings/errors, documented SQL Server migrations and an
    honest limitations/UAT report. Kept SQLite as a disposable Development
@@ -68,7 +68,7 @@ made.
 - **Çift kayıtlı muhasebe + operasyon:** append-only dengeli journal, atomik
   onay transaction'ı, Owner baseline, mizan/journal ekranı; SLA/yaş, güvenli
   atama ve çözülmemiş mutabakat farkları.
-- **Kanıt:** 177 xUnit, 280 smoke, 25/25 muhasebe ve 24/24 operasyon canlı E2E,
+- **Kanıt:** 178 xUnit, 280 smoke, 25/25 muhasebe ve 24/24 operasyon canlı E2E,
   0 uyarı/0 hata; SQL Server migration'ları belgelendi ancak uygulanmadı.
   SQLite sonucu SQL Server kanıtı değildir.
 

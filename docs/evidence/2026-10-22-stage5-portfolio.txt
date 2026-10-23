@@ -32,7 +32,7 @@ Environment: macOS arm64, .NET SDK 10.0.402, synthetic SQLite only
   Tests:
     DOTNET_CLI_USE_MSBUILD_SERVER=0 bash scripts/dotnet.sh test DigitalBanking.slnx \
       -p:UseSharedCompilation=false -m:1 -nr:false --no-restore
-    Result: DigitalBanking.Tests 177 passed, 0 failed; IntegrationTests 8 skipped.
+    Result: DigitalBanking.Tests 178 passed, 0 failed; IntegrationTests 8 skipped.
   Stage 3 E2E: 25/25 (isolated SQLite 5198/5199).
   Stage 4 E2E: 24/24 (isolated SQLite 5198/5199).
   Isolated smoke: 280/280, exit 0 (temp DB, ports 5196/5197).
@@ -41,7 +41,7 @@ Environment: macOS arm64, .NET SDK 10.0.402, synthetic SQLite only
   Manual UAT / EULA / video: NOT DONE / NOT ACCEPTED / NOT RECORDED.
 
 4) Documentation claims cross-check
-  README current counts: 177 xUnit, 280 smoke, 104/104 accounting/operations E2E
+  README current counts: 178 xUnit, 280 smoke, 104/104 accounting/operations E2E
   operations E2E. SQL Server apply and hosted CI are explicitly not claimed.
   FINAL_GAPS lists environment/manual/push/secret gaps and the git-index block.
   DEMO_SCRIPT labels video as prepared, not recorded.

@@ -943,7 +943,7 @@ namespace DigitalBanking.Infrastructure.Migrations
                     b.HasOne("DigitalBanking.Domain.Entities.ReconciliationRow", "Row")
                         .WithMany("Exceptions")
                         .HasForeignKey("RowId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Batch");
 

@@ -172,6 +172,13 @@ public sealed class DemoScenarioService : IDemoScenarioService
         var batches = await _context.ReconciliationBatches
             .Where(x => x.IsDemo)
             .ToListAsync(cancellationToken);
+        var batchIds = batches.Select(x => x.Id).ToList();
+        var reconciliationExceptions = await _context.ReconciliationExceptions
+            .Where(x => batchIds.Contains(x.BatchId))
+            .ToListAsync(cancellationToken);
+        var reconciliationRows = await _context.ReconciliationRows
+            .Where(x => batchIds.Contains(x.BatchId))
+            .ToListAsync(cancellationToken);
 
         // Journals are append-only in normal operation; demo reset is the one
         // Development-only exception. Scope it to demo approvals/correlations so
@@ -185,12 +192,19 @@ public sealed class DemoScenarioService : IDemoScenarioService
         _context.PaymentTimelineEvents.RemoveRange(timeline);
         _context.Transactions.RemoveRange(demoTransactions);
         _context.PaymentApprovals.RemoveRange(demoPayments);
+        // Batch -> Rows and Batch -> Exceptions cascade, but the Row -> Exceptions
+        // FK is NO ACTION (SQL Server multiple-cascade-path fix). Remove dependents
+        // explicitly, in dependency order, before the demo batches.
+        _context.ReconciliationExceptions.RemoveRange(reconciliationExceptions);
+        _context.ReconciliationRows.RemoveRange(reconciliationRows);
         _context.ReconciliationBatches.RemoveRange(batches);
         _context.JournalEntries.RemoveRange(demoJournals);
 
         _audit.Add("DEMO_RESET", "DemoScenario", null, actor.Username, true,
             $"RemovedPayments: {demoPayments.Count}, RemovedTransactions: {demoTransactions.Count}, " +
             $"RemovedTimelineEvents: {timeline.Count}, RemovedBatches: {batches.Count}, " +
+            $"RemovedReconciliationRows: {reconciliationRows.Count}, " +
+            $"RemovedReconciliationExceptions: {reconciliationExceptions.Count}, " +
             $"RemovedJournals: {demoJournals.Count}. " +
             "Users/customers/accounts and non-demo UAT rows were preserved.");
 
