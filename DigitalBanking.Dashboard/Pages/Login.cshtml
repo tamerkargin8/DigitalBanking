@@ -4,11 +4,12 @@
     ViewData["Title"] = "Giriş";
 }
 
-<div class="row justify-content-center">
-    <div class="col-md-5">
+<div class="auth-login">
+    <div class="auth-login-content">
         <div class="card shadow-sm">
             <div class="card-body">
-                <h4 class="mb-3">Giriş</h4>
+                <div class="eyebrow mb-2">DigitalBanking</div>
+                <h1 class="h3 mb-3">Giriş</h1>
 
                 @if (!string.IsNullOrEmpty(Model.Info))
                 {
@@ -34,7 +35,7 @@
                     <button class="btn btn-primary w-100" type="submit">Giriş yap</button>
                 </form>
 
-                <div class="d-flex justify-content-between mt-3 small">
+                <div class="d-flex flex-wrap gap-2 justify-content-between mt-3 small">
                     <a href="/Register">Üye ol</a>
                     <span class="text-muted">Şifrenizi kimseyle paylaşmayın.</span>
                 </div>
