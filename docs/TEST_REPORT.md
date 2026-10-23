@@ -1,7 +1,7 @@
 # Test report — Owner model, approvals, reconciliation and dashboard
 
 > **Historical scope:** this file records the Stage 2 baseline (150 xUnit + 280
-> smoke). Current counts after Stages 3–4 are **177 xUnit**, **280 smoke**,
+> smoke). Current counts after Stages 3–4 are **178 xUnit**, **280 smoke**,
 > **25/25 accounting E2E** and **24/24 operations E2E**. See
 > [`STAGE_03_REPORT.md`](STAGE_03_REPORT.md),
 > [`STAGE_04_REPORT.md`](STAGE_04_REPORT.md) and

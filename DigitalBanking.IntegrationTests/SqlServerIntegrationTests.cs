@@ -39,10 +39,19 @@ public class SqlServerIntegrationTests
         Assert.Contains("20261020213624_AddOwnerDelegationAndApprovalRequests", applied);
         Assert.Contains("20261021011500_EnforceSingleOwner", applied);
         Assert.Contains("20261021023000_AddAccountMetadata", applied);
+        Assert.Contains("20261022191101_AddDoubleEntryJournalAndApprovalAssignment", applied);
 
         Assert.True(await TableExistsAsync(context, "LegacyPaymentApprovalIds"));
+        Assert.True(await TableExistsAsync(context, "JournalEntries"));
+        Assert.True(await TableExistsAsync(context, "JournalLines"));
         Assert.Equal(1, await ScalarAsync(context,
             "SELECT COUNT(*) FROM sys.indexes WHERE name='IX_Users_Role_OwnerUnique' AND is_unique=1"));
+        Assert.Equal(1, await ScalarAsync(context,
+            "SELECT COUNT(*) FROM sys.indexes WHERE name='IX_JournalEntries_SourceKey' AND is_unique=1"));
+        Assert.Equal(1, await ScalarAsync(context,
+            "SELECT COUNT(*) FROM sys.indexes WHERE name='IX_PaymentApprovals_AssignedToUserId_Status'"));
+        Assert.Equal(1, await ScalarAsync(context,
+            "SELECT COUNT(*) FROM sys.foreign_keys WHERE name='FK_ReconciliationExceptions_ReconciliationRows_RowId' AND delete_referential_action_desc='NO_ACTION'"));
 
         var customer = await _db.AddCustomerAsync(context);
         await using (var command = context.Database.GetDbConnection().CreateCommand())
@@ -92,6 +101,9 @@ public class SqlServerIntegrationTests
         var approvalColumns = await ColumnsAsync(context, "PaymentApprovals");
         Assert.True(approvalColumns.TryGetValue("RequestedAccountName", out _));
         Assert.True(approvalColumns.TryGetValue("RequestedAccountType", out _));
+        Assert.True(approvalColumns.TryGetValue("AssignedToUserId", out _));
+        Assert.True(approvalColumns.TryGetValue("AssignedToUsername", out _));
+        Assert.True(approvalColumns.TryGetValue("AssignedAt", out _));
     }
 
     [SqlServerFact]
@@ -135,6 +147,18 @@ public class SqlServerIntegrationTests
         Assert.Equal(0.10m, (await context.Accounts.SingleAsync(x => x.Id == source.Id)).Balance);
         Assert.Equal(300_000.00m, (await context.Accounts.SingleAsync(x => x.Id == destination.Id)).Balance);
         Assert.Equal(0.10m, decimal.Round((await context.Accounts.SingleAsync(x => x.Id == source.Id)).Balance, 2));
+
+        var journals = await context.JournalEntries.Include(x => x.Lines).ToListAsync();
+        Assert.NotEmpty(journals);
+        Assert.All(journals, entry =>
+        {
+            Assert.Equal(entry.Lines.Sum(x => x.Side == JournalSide.Debit ? x.Amount : 0m),
+                entry.Lines.Sum(x => x.Side == JournalSide.Credit ? x.Amount : 0m));
+            Assert.Single(entry.Lines.Select(x => x.Currency).Distinct());
+        });
+        var atLimitJournal = journals.Single(x => x.PaymentApprovalId == atLimit.Id);
+        Assert.Equal(2, atLimitJournal.Lines.Count);
+        Assert.Equal(100_000m, atLimitJournal.Lines.Sum(x => x.Side == JournalSide.Debit ? x.Amount : 0m));
     }
 
     [SqlServerFact]
@@ -159,6 +183,37 @@ public class SqlServerIntegrationTests
         Assert.Equal(100m, (await context.Accounts.SingleAsync(x => x.Id == source.Id)).Balance);
         Assert.False(await context.Transactions.AnyAsync(x => x.CorrelationId == payment.CorrelationId));
         Assert.False(await context.AuditLogs.AnyAsync(x => x.Action == "APPROVAL_REQUEST_APPROVED" && x.EntityId == payment.Id.ToString()));
+
+        // Force the journal insert to violate the unique SourceKey after balance
+        // and legacy transaction writes, proving the whole approval rolls back.
+        context.ChangeTracker.Clear();
+        var deposit = await service.CreateCustomerOperationRequestAsync(new CreateCustomerOperationRequest
+        {
+            RequestType = "Deposit", AccountId = source.Id, Amount = 5m,
+            Description = "journal rollback probe"
+        }, customerActor);
+        var sourceBalance = (await context.Accounts.SingleAsync(x => x.Id == source.Id)).Balance;
+        context.JournalEntries.Add(new JournalEntry
+        {
+            Id = Guid.NewGuid(),
+            SourceKey = JournalPoster.SourceKeyForApproval(deposit.Id),
+            SourceOperation = JournalSourceOperation.Deposit,
+            PaymentApprovalId = deposit.Id,
+            CorrelationId = deposit.CorrelationId,
+            Currency = "TRY",
+            Description = "pre-existing duplicate",
+            CreatedAt = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        await Assert.ThrowsAnyAsync<Exception>(() => service.ApprovePaymentAsync(deposit.Id, ownerActor));
+        context.ChangeTracker.Clear();
+        Assert.Equal(PaymentApprovalStatus.Pending,
+            (await context.PaymentApprovals.SingleAsync(x => x.Id == deposit.Id)).Status);
+        Assert.Equal(sourceBalance, (await context.Accounts.SingleAsync(x => x.Id == source.Id)).Balance);
+        Assert.False(await context.Transactions.AnyAsync(x => x.CorrelationId == deposit.CorrelationId));
+        Assert.Equal(1, await context.JournalEntries.CountAsync(x => x.PaymentApprovalId == deposit.Id));
+        Assert.False(await context.AuditLogs.AnyAsync(x => x.Action == "APPROVAL_REQUEST_APPROVED" && x.EntityId == deposit.Id.ToString()));
     }
 
     [SqlServerFact]
@@ -194,6 +249,7 @@ public class SqlServerIntegrationTests
             (await verify.PaymentApprovals.SingleAsync(x => x.Id == payment.Id)).Status);
         Assert.Equal(90m, (await verify.Accounts.SingleAsync(x => x.Id == source.Id)).Balance);
         Assert.Equal(2, await verify.Transactions.CountAsync(x => x.CorrelationId == payment.CorrelationId));
+        Assert.Equal(1, await verify.JournalEntries.CountAsync(x => x.PaymentApprovalId == payment.Id));
     }
 
     [SqlServerFact]
@@ -245,6 +301,23 @@ public class SqlServerIntegrationTests
         var closed = await recon.GetExceptionAsync(exception.Id, ownerActor);
         Assert.Equal("Closed", closed.Status);
         Assert.Equal(balanceBefore, (await context.Accounts.SingleAsync(x => x.Id == source.Id)).Balance);
+
+        // NO ACTION on Row -> Exceptions requires explicit dependent cleanup. The
+        // demo reset uses this order; verify it also works on real SQL Server.
+        await using var cleanup = _db.NewContext();
+        var batchId = imported.Batch.Id;
+        var cleanupExceptions = await cleanup.ReconciliationExceptions
+            .Where(x => x.BatchId == batchId).ToListAsync();
+        var cleanupRows = await cleanup.ReconciliationRows
+            .Where(x => x.BatchId == batchId).ToListAsync();
+        var cleanupBatch = await cleanup.ReconciliationBatches.SingleAsync(x => x.Id == batchId);
+        cleanup.ReconciliationExceptions.RemoveRange(cleanupExceptions);
+        cleanup.ReconciliationRows.RemoveRange(cleanupRows);
+        cleanup.ReconciliationBatches.Remove(cleanupBatch);
+        await cleanup.SaveChangesAsync();
+        Assert.False(await cleanup.ReconciliationExceptions.AnyAsync(x => x.BatchId == batchId));
+        Assert.False(await cleanup.ReconciliationRows.AnyAsync(x => x.BatchId == batchId));
+        Assert.False(await cleanup.ReconciliationBatches.AnyAsync(x => x.Id == batchId));
     }
 
     [SqlServerFact]

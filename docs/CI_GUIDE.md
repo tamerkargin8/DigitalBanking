@@ -3,7 +3,7 @@
 ## What exists
 
 - `.github/workflows/ci.yml` — push/pull-request CI.
-  - `build-test`: restore/build, main **177-test** gate, then the integration
+  - `build-test`: restore/build, main **178-test** gate, then the integration
     project with no connection env. The 8 SQL Server tests are expected to skip
     and are reported separately; this job never claims SQL Server verification.
   - `smoke`: isolated SQLite HTTP smoke on loopback 5180/5181 using a temporary
@@ -51,7 +51,7 @@ the explicit `dotnet-version: '10.0.402'`.
 
 ## Normal CI job separation
 
-1. **build-test** — main tests must be exactly 177; SQL Server integration tests
+1. **build-test** — main tests must be exactly 178; SQL Server integration tests
    run only to demonstrate that they skip (8 skipped expected). The job summary
    says **NOT RUN** for SQL Server.
 2. **smoke** — builds, starts the app on loopback with a temp DB, waits for health,
@@ -109,7 +109,7 @@ uploaded. Artifact names and paths contain no secrets.
 - `run_sqlserver_integration.sh` tested without env: `NOT RUN`, `exit 2`.
 - `verify_sqlserver_trx.py` self-check with synthetic TRX:
   skipped run fails; fully passed run succeeds.
-- Solution build passes; main tests 177; integration tests 8 skipped; smoke 280
+- Solution build passes; main tests 178; integration tests 8 skipped; smoke 280
   was verified on an isolated synthetic DB.
 
 ## NOT RUN

@@ -93,4 +93,4 @@ Result:
 Captured from the isolated synthetic demo with Chrome DevTools at 1440px CSS
 width, 2x DPR, full content height.
 
-Later baseline fix (2026-10-22): 177 xUnit passed, 8 SQL skipped; reproducible Stage 3/4 E2E 104/104. See docs/evidence/2026-10-22-stage3-stage4-e2e.txt.
+Later baseline fix (2026-10-22): 178 xUnit passed, 8 SQL skipped; reproducible Stage 3/4 E2E 104/104. See docs/evidence/2026-10-22-stage3-stage4-e2e.txt.

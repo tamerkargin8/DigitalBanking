@@ -227,7 +227,7 @@ namespace DigitalBanking.Infrastructure.Migrations
                         column: x => x.RowId,
                         principalTable: "ReconciliationRows",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateIndex(

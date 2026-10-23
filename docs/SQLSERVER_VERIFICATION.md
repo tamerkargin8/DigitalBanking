@@ -7,6 +7,14 @@ in this environment. The integration tests are written and compile, but were
 **skipped** because the environment gate is not configured. Their skip is not a
 pass and must not be reported as SQL Server evidence.
 
+**2026-10-23 update:** a real SQL Server 2022 GitHub run (39984232994) started
+successfully but all 8 tests failed in fixture migration because
+`FK_ReconciliationExceptions_ReconciliationRows_RowId` created multiple cascade
+paths. The model/original migration/designers/snapshot now use NO ACTION for that
+FK, demo cleanup ordering was fixed, and the 8 SQL tests were strengthened. This
+fix has **not** been applied to SQL Server here; rerun is required. See
+[`SQLSERVER_FIX_REPORT.md`](SQLSERVER_FIX_REPORT.md).
+
 - Worktree: `.dsh-worktrees/dsh-mvh4pdzy-u7y7j4`
 - Branch: `dsh/dsh-mvh4pdzy-u7y7j4`
 - Starting HEAD: **`76ea501`** plus uncommitted Stage 1 changes

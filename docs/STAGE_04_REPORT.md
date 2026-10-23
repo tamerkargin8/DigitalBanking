@@ -141,7 +141,7 @@ inspected only.
 | Check | Result |
 |---|---|
 | Solution build | **0 warnings, 0 errors** |
-| Full xUnit | **177 passed, 0 failed**, 8 SQL Server integration tests **skipped** |
+| Full xUnit | **178 passed, 0 failed**, 8 SQL Server integration tests **skipped** |
 | Operations test class | 8 tests, all passing |
 | Live API E2E (isolated SQLite, 5198/5199) | **24/24 checks passed** |
 | Isolated HTTP smoke (5196/5197) | **280/280, exit 0** |
@@ -174,7 +174,7 @@ Evidence: [`evidence/2026-10-22-stage4-operations.txt`](evidence/2026-10-22-stag
 
 - **SQL Server still not verified**; the 8 env-gated tests are skipped. A rendered
   DDL script is not an applied-database proof.
-- **GitHub Actions not run**. The main-test gate is now 177; smoke is 280.
+- **GitHub Actions not run**. The main-test gate is now 178; smoke is 280.
 - SLA is a configurable demo value, not a legal/regulatory SLA.
 - The operations page uses server-rendered tables, not live polling; a manual
   refresh picks up new data.

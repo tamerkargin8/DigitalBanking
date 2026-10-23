@@ -110,5 +110,5 @@ Regression tests (DigitalBanking.Tests):
 
 Verification after the fix:
   Build: 0 warnings, 0 errors
-  Main xUnit: 177 passed, 0 failed; 8 SQL Server tests skipped — NOT RUN
+  Main xUnit: 178 passed, 0 failed; 8 SQL Server tests skipped — NOT RUN
   Reproducible Stage 3/4 E2E: 104/104 (financial 25/25)

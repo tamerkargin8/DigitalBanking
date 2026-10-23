@@ -79,7 +79,7 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
 ## Son doğrulanan sonuçlar
 
 - Build: **0 uyarı, 0 hata**.
-- xUnit: **177 geçti, 0 kaldı, 0 atlandı**; SQL Server integration **8 atlandı (koşulmadı)**.
+- xUnit: **178 geçti, 0 kaldı, 0 atlandı**; SQL Server integration **8 atlandı (koşulmadı)**.
 - Smoke: **280 kontrol geçti** (temiz Development DB; Stage 3 öncesi kapsam).
 - Yeni tekrarlanabilir E2E: **104/104** (`scripts/stage3_stage4_e2e.py`; Stage 3 **25/25**, Stage 4 **24/24**, finansal 25/25, operasyon 12/12, CSV/demo 9/9, SQLite upgrade 9/9).
 - Önceki ad-hoc Stage 3 E2E: **25/25**, Stage 4 E2E: **24/24** (izole SQLite 5198/5199; tarihsel kanıt).
@@ -212,11 +212,11 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
   pending/environment-blocked; they are not blocking development.
 - Stage 3 completed on synthetic SQLite/local: balanced journal, atomic approval
   integration, Owner baseline, read-only accounting view, additive migration,
-  177 unit tests and 25/25 live E2E checks; the baseline was later corrected to
+  178 unit tests and 25/25 live E2E checks; the baseline was later corrected to
   gap-based, with new regression/race tests. SQL Server application and GitHub
   Actions remain NOT RUN. Report: [`STAGE_03_REPORT.md`](STAGE_03_REPORT.md).
 - Stage 4 completed on synthetic SQLite/local: operations centre, SLA/age,
-  assignment, reconciliation gaps, 177 unit tests and 24/24 live E2E checks.
+  assignment, reconciliation gaps, 178 unit tests and 24/24 live E2E checks.
   The same 25/25 + 24/24 surface is now reproducible with
   `scripts/stage3_stage4_e2e.py` (**104/104**, financial 25/25, CSV/demo 9/9,
   upgrade 9/9). Report: [`STAGE_04_REPORT.md`](STAGE_04_REPORT.md). SQL Server
@@ -224,3 +224,22 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
 - Stage 5 completed as documentation/portfolio deliverable. Final GitHub push,
   release and CV publication remain **GPT-controlled** and were **not done**.
   SQL Server, GitHub Actions, UAT and EULA remain unverified/open.
+
+## 2026-10-23 — SQL Server FK migration fix (real run 39984232994)
+
+- Gerçek SQL Server 2022 run'ında 8/8 test fixture migration'da fail etti:
+  `FK_ReconciliationExceptions_ReconciliationRows_RowId` multiple cascade paths.
+- Model, ilk reconciliation migration'ı, tüm designer'lar ve snapshot
+  `ReconciliationRows -> ReconciliationExceptions` FK'si **NO ACTION** olacak
+  şekilde hizalandı. Batch -> Rows ve Batch -> Exceptions CASCADE kalıyor.
+- Demo reset artık exception -> row -> batch sırasıyla siliyor; SQLite cleanup
+  regression'ı eklendi. SQL integration testleri journal tablo/index, assignment
+  şema, balanced journal, rollback, concurrency ve cleanup sırasını doğrulayacak
+  şekilde güçlendirildi; test sayısı **8** kaldı.
+- Yerel: **178 unit passed**, 8 SQL skipped (PASS sayılmaz), **104/104 E2E**,
+  build 0/0. SQL Server DDL render edildi, uygulanmadı.
+- Rapor: [`SQLSERVER_FIX_REPORT.md`](SQLSERVER_FIX_REPORT.md).
+  Mevcut kurulum için koşullu FK onarım script'i:
+  [`sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`](sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql).
+- UAT/ana/parent/GPT snapshotlarına dokunulmadı; push/deploy/gh dispatch/EULA
+  yok. GPT fix'i inceleyip commit/push ve EULA onaylı run'ı tekrar çalıştıracak.

@@ -242,10 +242,14 @@ public class BankDbContext : DbContext
             entity.Property(x => x.RejectionReason).HasMaxLength(500);
             entity.HasIndex(x => x.BatchId);
             entity.HasIndex(x => new { x.Status, x.UpdatedAt });
+            // SQL Server rejects the Batch -> Rows -> Exceptions SET NULL path
+            // alongside Batch -> Exceptions cascade as multiple cascade paths.
+            // Keep the row link NO ACTION; demo cleanup removes exceptions before
+            // rows, and production rows/batches are immutable.
             entity.HasOne(x => x.Row)
                 .WithMany(x => x.Exceptions)
                 .HasForeignKey(x => x.RowId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.NoAction);
 
             entity.Property(x => x.RowVersion).IsRowVersion();
             if (Database.IsSqlite())

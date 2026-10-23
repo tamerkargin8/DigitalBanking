@@ -30,7 +30,7 @@ The README now follows problem → workflow → architecture → real evidence:
   explicit Owner baseline, no silent backfill.
 - **Operations:** SLA/age, overdue, filters, bounded pagination, safe assignment,
   delegation-scoped visibility, unresolved reconciliation differences.
-- **Evidence:** 177 xUnit, 280 smoke, 104/104 accounting/operations E2E,
+- **Evidence:** 178 xUnit, 280 smoke, 104/104 accounting/operations E2E,
   real screenshots, and explicit non-claims.
 
 The Turkish summary is near the top; the body is English.
@@ -106,10 +106,10 @@ re-verified:
 | Check | Result |
 |---|---|
 | Build | **0 warnings, 0 errors** |
-| Full xUnit | **177 passed**, 8 SQL Server skipped |
+| Full xUnit | **178 passed**, 8 SQL Server skipped |
 | Reproducible Stage 3+4 E2E | **104/104** (Stage 3 25/25, Stage 4 24/24) |
 | Isolated smoke | **280/280, exit 0** |
-| SQL Server migration | rendered, **not applied** |
+| SQL Server migration | DDL rendered; reconciliation FK fixed after real run 39984232994; **not applied** |
 | GitHub Actions | **NOT RUN** |
 | Manual UAT / EULA / video | **NOT DONE / NOT ACCEPTED / NOT RECORDED** |
 
