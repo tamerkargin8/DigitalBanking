@@ -1,6 +1,6 @@
 # DigitalBanking — banking controls portfolio demo
 
-> **Status (2026-10-23):** 178 unit tests, 280 general smoke checks and 104 reproducible accounting/operations checks passed locally. Hosted [CI](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39990773127) passed; real SQL Server [integration tests](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39990772442) passed **8/8, 0 failed, 0 skipped**, including migrations. Manual user acceptance remains pending. Educational synthetic demo; not production banking software.
+> **Status (2026-10-23):** 178 unit tests, 280 general smoke checks and 104 reproducible accounting/operations checks passed locally. Hosted [CI](https://github.com/tamerkargin8/DigitalBanking/actions/runs/40014165687) passed; real SQL Server [integration tests](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39990772442) passed **8/8, 0 failed, 0 skipped**, including migrations. Manual user acceptance remains pending. Educational synthetic demo; not production banking software.
 
 DigitalBanking is a small retail-banking back office that makes the controls behind money movement visible: a **one-time Owner**, **delegated approval authority**, **maker-checker for every financial request**, **inclusive per-operation limits**, **live revocation**, **idempotent posting**, **customer ownership**, **double-entry accounting**, **pending-age/SLA operations**, **day-end reconciliation with exceptions**, and an **append-only audit trail**.
 
@@ -307,3 +307,7 @@ only synthetic data and are not mockups. No automated visual-regression claim.
 Owner and customer views now share a navy/teal responsive design: grouped navigation, actionable operation cards, per-currency balance summaries, masked account/product cards and quick financial-request links. Mobile navigation supports expansion and Escape. No financial or authorization behavior changed.
 
 Independent checks passed: 178 unit tests, 280 general smoke checks and 104 supplemental checks. Server-rendered synthetic previews were reviewed at 1440 px and 390 px; this is separate from manual user acceptance, which remains pending. See [refinement evidence](docs/DASHBOARD_REFINEMENT_REPORT.md) and [last user test](docs/UAT_QUICKSTART_TR.md). Existing gallery captures predate this visual refinement.
+
+## Portfolio and CV
+
+[CV-ready Turkish and English project entries](docs/CV_PROJECT_ENTRY.md) describe the implemented scope and executed checks. The latest responsive correction was validated at 320, 390, 768, 1024 and 1440 px; see [responsive evidence](docs/RESPONSIVE_FIX_20261023.md). Manual role/transaction acceptance remains the final user step.
