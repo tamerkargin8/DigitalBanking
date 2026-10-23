@@ -15,6 +15,13 @@ FK, demo cleanup ordering was fixed, and the 8 SQL tests were strengthened. This
 fix has **not** been applied to SQL Server here; rerun is required. See
 [`SQLSERVER_FIX_REPORT.md`](SQLSERVER_FIX_REPORT.md).
 
+A **second** real run (39988214854) passed migration but exposed a missing
+`Accounts.Currency` column and a fixture username substring bug. The original
+empty `AddCurrencyColumnToAccounts` migration was corrected and an additive
+`RepairMissingAccountsCurrency` migration was added for existing histories.
+Legacy balances default to TRY explicitly (no FX). The 8 SQL tests were
+strengthened; local SQL remains **skipped/not run**.
+
 - Worktree: `.dsh-worktrees/dsh-mvh4pdzy-u7y7j4`
 - Branch: `dsh/dsh-mvh4pdzy-u7y7j4`
 - Starting HEAD: **`76ea501`** plus uncommitted Stage 1 changes
