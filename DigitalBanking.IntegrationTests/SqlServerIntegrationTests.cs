@@ -22,11 +22,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace DigitalBanking.IntegrationTests;
 
 [Collection("SqlServerIntegration")]
-public class SqlServerIntegrationTests
+public class SqlServerIntegrationTests : IAsyncLifetime
 {
-    private readonly SqlServerDatabaseFixture _db;
+    // xUnit creates a class instance per test. Each instance owns a separate
+    // random database so the single-Owner invariant and rows cannot leak across tests.
+    private readonly SqlServerDatabaseFixture _db = new();
 
-    public SqlServerIntegrationTests(SqlServerDatabaseFixture db) => _db = db;
+    public Task InitializeAsync() => _db.InitializeAsync();
+    public Task DisposeAsync() => _db.DisposeAsync();
 
     [SqlServerFact]
     public async Task MigrationsApplyOnAnEmptyDatabaseAndAccountMetadataDefaultsExist()

@@ -198,5 +198,5 @@ public sealed class SqlServerFactAttribute : FactAttribute
     }
 }
 
-[CollectionDefinition("SqlServerIntegration")]
-public sealed class SqlServerIntegrationCollection : ICollectionFixture<SqlServerDatabaseFixture>;
+[CollectionDefinition("SqlServerIntegration", DisableParallelization = true)]
+public sealed class SqlServerIntegrationCollection;
