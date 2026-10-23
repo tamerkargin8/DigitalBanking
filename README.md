@@ -301,3 +301,9 @@ only synthetic data and are not mockups. No automated visual-regression claim.
 - Manual user UAT: **pending**, [short Turkish guide](docs/UAT_QUICKSTART_TR.md).
 - [Final verification and limitations](docs/FINAL_VERIFICATION_20261023.md).
 - Source repository only; no public banking service deployed.
+
+## Dashboard refinement — 2026-10-23
+
+Owner and customer views now share a navy/teal responsive design: grouped navigation, actionable operation cards, per-currency balance summaries, masked account/product cards and quick financial-request links. Mobile navigation supports expansion and Escape. No financial or authorization behavior changed.
+
+Independent checks passed: 178 unit tests, 280 general smoke checks and 104 supplemental checks. Server-rendered synthetic previews were reviewed at 1440 px and 390 px; this is separate from manual user acceptance, which remains pending. See [refinement evidence](docs/DASHBOARD_REFINEMENT_REPORT.md) and [last user test](docs/UAT_QUICKSTART_TR.md). Existing gallery captures predate this visual refinement.

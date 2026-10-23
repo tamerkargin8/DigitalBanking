@@ -23,3 +23,9 @@ Baseline: b10bed3. Scope is Razor presentation, UI labels, shared CSS and naviga
 Files: Pages/Shared/_Layout.cshtml; Pages/Admin/Overview.cshtml, Approvals/Index.cshtml, Users/Index.cshtml; Pages/Customer/Home.cshtml, Accounts/Index.cshtml, Accounts/Details.cshtml, Payments/Index.cshtml, Requests.cshtml, Transfer.cshtml; Services/DashboardUi.cs; wwwroot/css/site.css; wwwroot/js/site.js.
 
 Actual SQL Server8/8 and hosted CI evidence for code862c59c remain in FINAL_VERIFICATION_20261023.md. This presentation-only revision does not claim those earlier runs were executed on the new commit. Hosted CI is rerun after publication. UAT data is protected by source/SQLite backups; never seed/reset it.
+
+## UAT promotion evidence
+
+3491898 copied to the user test source after source and mode0600 SQLite backups. No SQLite schema/data writes. Dashboard/solution build: 0 warnings, 0 errors, API health, login, CSS and JS: HTTP 200. All prior table row counts and account balance digest unchanged after restart; integrity_check: OK. Unauthenticated Owner/customer routes redirect to Login. CSS/JS asset version query strings verified. Manual user UAT pending.
+
+Hosted CI: [run 39993453845](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39993453845), build/test and smoke SUCCESS for design commit3491898. See evidence/2026-10-23-dashboard-hosted-ci.json.

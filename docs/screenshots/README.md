@@ -1,3 +1,5 @@
+> The existing screenshots are historical synthetic captures made before the 2026-10-23 visual refinement. The refined screens were independently reviewed via sanitized server-rendered previews; no new image capture is claimed here. See [refinement report](../DASHBOARD_REFINEMENT_REPORT.md).
+
 # Screenshots
 
 Real captures from the local synthetic demo on **2026-10-20/22**, using headless
