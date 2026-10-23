@@ -1,8 +1,13 @@
 # CV project entry — DigitalBanking
 
 This is a source document for the user’s CV. No external CV/LinkedIn file was
-edited by this project. All numbers below are local, synthetic verification from
-2026-10-22; SQL Server, GitHub Actions, manual UAT and video are **not** claimed.
+edited by this project. Independent local verification: 178 unit tests and 104
+reproducible Stage 3/4 E2E checks passed (2026-10-23); earlier independent general
+smoke: 280/280. GitHub CI passed for 14b0d7f (run 39846065615).
+Real SQL Server verification is in progress and has exposed migration/schema
+issues; do not claim a passing SQL Server suite until all 8 tests pass.
+Manual user UAT and a recorded video remain pending. AI-assisted implementation
+was directed and reviewed through domain requirements and independent tests.
 
 ## One-line title
 

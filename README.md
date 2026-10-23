@@ -291,3 +291,16 @@ only synthetic data and are not mockups. No automated visual-regression claim.
 - **EULA/licensing**, real credentials/secret manager, deployment, load/penetration/accessibility audits and video recording are out of scope.
 - The demo is synthetic; it has no FX, fees, interest, real general-ledger, regulatory reporting or production hardening.
 - The 3-minute demo script is **prepared, video NOT RECORDED**.
+
+
+## Verification update — 2026-10-23
+
+- Independent local checks: 178 unit tests and 104 reproducible accounting,
+  operations, financial, CSV, demo-preservation and additive-upgrade checks passed.
+- Hosted CI passed for commit `14b0d7f`: [run 39846065615](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39846065615).
+- Actual SQL Server testing remains **in progress, not passed**. The first cascade
+  path failure was fixed. The following run applied migrations but returned
+  1 passed / 7 failed / 0 skipped, exposing a fixture username length bug and a
+  missing Currency column; these are being corrected.
+- Manual user acceptance is pending: [short Turkish guide](docs/UAT_QUICKSTART_TR.md).
+- GitHub hosts this source repository; no public banking service was deployed.
