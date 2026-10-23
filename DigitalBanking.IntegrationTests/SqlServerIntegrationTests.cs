@@ -213,7 +213,7 @@ public class SqlServerIntegrationTests : IAsyncLifetime
         });
         await context.SaveChangesAsync();
 
-        await Assert.ThrowsAnyAsync<Exception>(() => service.ApprovePaymentAsync(deposit.Id, ownerActor));
+        await Assert.ThrowsAsync<ConcurrencyException>(() => service.ApprovePaymentAsync(deposit.Id, ownerActor));
         context.ChangeTracker.Clear();
         Assert.Equal(PaymentApprovalStatus.Pending,
             (await context.PaymentApprovals.SingleAsync(x => x.Id == deposit.Id)).Status);
@@ -249,7 +249,10 @@ public class SqlServerIntegrationTests : IAsyncLifetime
 
         var results = await Task.WhenAll(Attempt(), Attempt());
         Assert.Single(results, x => x is null);
-        Assert.Single(results, x => x is BusinessRuleException or ConcurrencyException);
+        Assert.DoesNotContain(results, x => x is DbUpdateException);
+        var loser = Assert.Single(results, x => x is not null);
+        Assert.True(loser is BusinessRuleException or ConcurrencyException,
+            $"Concurrent approval returned {loser.GetType().Name}, expected BusinessRuleException or ConcurrencyException.");
 
         await using var verify = _db.NewContext();
         Assert.Equal(PaymentApprovalStatus.Approved,
@@ -257,6 +260,8 @@ public class SqlServerIntegrationTests : IAsyncLifetime
         Assert.Equal(90m, (await verify.Accounts.SingleAsync(x => x.Id == source.Id)).Balance);
         Assert.Equal(2, await verify.Transactions.CountAsync(x => x.CorrelationId == payment.CorrelationId));
         Assert.Equal(1, await verify.JournalEntries.CountAsync(x => x.PaymentApprovalId == payment.Id));
+        Assert.Equal(1, await verify.AuditLogs.CountAsync(x =>
+            x.Action == "APPROVAL_REQUEST_APPROVED" && x.EntityId == payment.Id.ToString()));
     }
 
     [SqlServerFact]

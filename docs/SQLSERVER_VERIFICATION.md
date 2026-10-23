@@ -22,6 +22,13 @@ empty `AddCurrencyColumnToAccounts` migration was corrected and an additive
 Legacy balances default to TRY explicitly (no FX). The 8 SQL tests were
 strengthened; local SQL remains **skipped/not run**.
 
+A **third** run (39989641833) reached 7/8. The remaining failure was a raw
+`DbUpdateException`/SQL 2601 duplicate journal `SourceKey` during concurrent
+approval. `PaymentApprovalService` now maps only SQL 2601/2627 + journal
+`SourceKey` (and the SQLite equivalent) to a controlled `ConcurrencyException`
+after rollback; all other DB errors are re-thrown. The 8 SQL tests remain
+strengthened and unrun locally.
+
 - Worktree: `.dsh-worktrees/dsh-mvh4pdzy-u7y7j4`
 - Branch: `dsh/dsh-mvh4pdzy-u7y7j4`
 - Starting HEAD: **`76ea501`** plus uncommitted Stage 1 changes

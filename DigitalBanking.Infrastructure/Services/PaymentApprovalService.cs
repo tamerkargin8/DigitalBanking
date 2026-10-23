@@ -459,11 +459,40 @@ public class PaymentApprovalService : IPaymentApprovalService
             await SafeRollbackAsync(dbTransaction, cancellationToken);
             throw new ConcurrencyException("Talep başka bir incelemeci tarafından işlendi.");
         }
+        catch (DbUpdateException ex) when (IsJournalSourceKeyConflict(ex))
+        {
+            // Two approvals of the same request can both reach SaveChanges after
+            // reading Pending. The unique journal SourceKey is the final guard;
+            // convert only this known conflict into a controlled concurrency
+            // result. All other database failures keep their original exception.
+            await SafeRollbackAsync(dbTransaction, cancellationToken);
+            throw new ConcurrencyException("Talep başka bir incelemeci tarafından işlendi.");
+        }
         catch
         {
             await SafeRollbackAsync(dbTransaction, cancellationToken);
             throw;
         }
+    }
+
+    private static bool IsJournalSourceKeyConflict(DbUpdateException exception)
+    {
+        var inner = exception.InnerException;
+        if (inner is Microsoft.Data.SqlClient.SqlException sql)
+        {
+            if (sql.Number is not (2601 or 2627)) return false;
+            return sql.Message.Contains("IX_JournalEntries_SourceKey", StringComparison.OrdinalIgnoreCase)
+                   && sql.Message.Contains("JournalEntries", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (inner is Microsoft.Data.Sqlite.SqliteException sqlite)
+        {
+            // SQLite unique violation: UNIQUE constraint failed: JournalEntries.SourceKey
+            return sqlite.SqliteErrorCode == 19
+                   && sqlite.Message.Contains("JournalEntries.SourceKey", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
     }
 
     public async Task RejectPaymentAsync(int approvalId, ActorContext reviewer, string rejectionReason, CancellationToken cancellationToken = default)

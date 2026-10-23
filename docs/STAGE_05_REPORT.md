@@ -109,7 +109,7 @@ re-verified:
 | Full xUnit | **178 passed**, 8 SQL Server skipped |
 | Reproducible Stage 3+4 E2E | **104/104** (Stage 3 25/25, Stage 4 24/24) |
 | Isolated smoke | **280/280, exit 0** |
-| SQL Server migration | DDL rendered; reconciliation FK + Accounts.Currency fixed after real runs 39984232994/39988214854; **not applied** |
+| SQL Server migration | DDL rendered; reconciliation FK + Accounts.Currency + controlled concurrent journal conflict fixed after real runs 39984232994/39988214854/39989641833; **not applied** |
 | GitHub Actions | **NOT RUN** |
 | Manual UAT / EULA / video | **NOT DONE / NOT ACCEPTED / NOT RECORDED** |
 

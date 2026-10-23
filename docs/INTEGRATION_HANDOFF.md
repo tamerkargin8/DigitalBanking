@@ -22,7 +22,8 @@
 - SQL fixes: `docs/SQLSERVER_FIX_REPORT.md`,
   `docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`,
   `docs/evidence/2026-10-23-sqlserver-fk-fix.txt`,
-  `docs/evidence/2026-10-23-sqlserver-currency-fix.txt`
+  `docs/evidence/2026-10-23-sqlserver-currency-fix.txt`,
+  `docs/evidence/2026-10-23-sqlserver-concurrency-fix.txt`
 - Currency repair migration: `20261023164046_RepairMissingAccountsCurrency`;
   original `20260628212612_AddCurrencyColumnToAccounts` now actually adds
   `Accounts.Currency` (legacy rows default TRY, documented, no FX).
@@ -81,7 +82,7 @@
 
 ### Shared changes
 
-- `PaymentApprovalService` journal hooks
+- `PaymentApprovalService` journal hooks and controlled SQL 2601/2627 journal `SourceKey` conflict -> `ConcurrencyException`
 - `AccountingService` gap-based baseline + per-currency totals; `JournalPoster.AddBaseline` signed adjustment
 - `DemoScenarioService` scoped demo-journal cleanup
 - `BankDbContext` journal/assignment configuration + snapshot

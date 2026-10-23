@@ -12,7 +12,9 @@ this environment”. A written workflow or migration is not a run.
   reconciliation row FK is NO ACTION; `Accounts.Currency` is added by the
   corrected original migration plus a conditional repair migration for existing
   histories; demo cleanup ordering fixed; 8 SQL tests strengthened. Legacy
-  balances default to TRY explicitly (no FX). See `SQLSERVER_FIX_REPORT.md`.
+  balances default to TRY explicitly (no FX). Concurrent approval journal
+  uniqueness now maps only SQL 2601/2627 + journal SourceKey (and SQLite
+  equivalent) to ConcurrencyException. See `SQLSERVER_FIX_REPORT.md`.
 - Stage 3: append-only double-entry journal, atomic approval integration,
   gap-based Owner baseline (legacy balance minus already journaled liability;
   fully journaled/existing-baseline accounts skipped; per-currency totals),
