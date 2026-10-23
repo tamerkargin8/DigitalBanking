@@ -258,3 +258,16 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
 - Yerel: 178 unit, 8 SQL skipped (NOT RUN), 104/104 E2E, 280/280 smoke.
 - Rapor: `SQLSERVER_FIX_REPORT.md`; kanıt:
   `evidence/2026-10-23-sqlserver-currency-fix.txt`.
+
+
+### 2026-10-23 üçüncü SQL run — kontrollü journal çakışması
+
+- Run 39989641833: 7 passed / 1 failed / 0 skipped. Kalan hata concurrent approval
+  sırasında raw `DbUpdateException`/SQL 2601 `IX_JournalEntries_SourceKey`.
+- `PaymentApprovalService` yalnız SQL 2601/2627 + journal SourceKey (ve SQLite
+  karşılığı) unique çakışmasını rollback sonrası `ConcurrencyException`'a çevirir;
+  diğer DB hataları aynen fırlatılır.
+- SQLite duplicate rollback testi controlled conflict + balance/approval/journal/
+  audit assertion'larıyla güncellendi; SQL concurrent testi DbUpdateException'ı
+  reddeder, tek journal/bakiye/approval/audit doğrular. 8 SQL testi korunuyor.
+- Yerel: 178 unit, 8 SQL skipped (NOT RUN), 104/104 E2E, 280/280 smoke.

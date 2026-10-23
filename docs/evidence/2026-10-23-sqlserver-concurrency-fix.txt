@@ -1,0 +1,40 @@
+SQL Server final-run evidence — controlled journal unique conflict
+Date: 2026-10-23
+Run: 39989641833 (real SQL Server 2022, EULA approved by the user)
+Result: 7 passed / 1 failed / 0 skipped
+Log read read-only: /tmp/digitalbanking-sql39989641833-failed.log (masked)
+
+Failure:
+  ConcurrentApprovalsOnSeparateConnectionsMoveMoneyOnce
+  DbUpdateException inner SqlException 2601:
+  duplicate key on IX_JournalEntries_SourceKey, value approval:1.
+
+Production fix:
+  PaymentApprovalService.ApprovePaymentAsync catches DbUpdateException ONLY when
+  it is the known journal SourceKey conflict:
+    - SqlException number 2601 or 2627 and the message names
+      IX_JournalEntries_SourceKey / JournalEntries;
+    - or SQLite error 19 with JournalEntries.SourceKey.
+  It rolls back the approval transaction and throws ConcurrencyException.
+  All other database errors remain unmodified and are not swallowed.
+
+Regression:
+  - SQLite duplicate SourceKey test now asserts ConcurrencyException and checks
+    balance, Pending approval, no legacy transaction, one probe journal and no
+    APPROVAL_REQUEST_APPROVED audit.
+  - SQL concurrent test excludes DbUpdateException, accepts BusinessRuleException
+    or ConcurrencyException, and checks one balance movement, one journal,
+    Approved status and one approved audit row.
+  - Test count remains 8; no assertion was weakened.
+
+Local verification:
+  Build: 0 warnings, 0 errors
+  Unit: 178 passed, 0 failed
+  SQL integration: 8 skipped — NOT RUN on this Mac
+  Stage 3/4 SQLite E2E: 104/104
+  Isolated smoke: 280/280
+  git diff --check: clean
+
+Not performed:
+  No SQL Server apply, no GitHub dispatch, no EULA acceptance, no push/deploy.
+  Main/parent/UAT/GPT snapshots untouched; no secrets read/printed.

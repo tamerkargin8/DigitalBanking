@@ -1,14 +1,15 @@
 # SQL Server migration fixes — FK multiple cascade paths + missing Accounts.Currency
 
 Date: 2026-10-23
-Worktree base: `23b12bd` (own worktree; main/UAT/GPT snapshots untouched)
+Worktree base: `6b3a05b` (own worktree; main/UAT/GPT snapshots untouched)
 
-Two real SQL Server 2022 runs exposed two independent migration/schema gaps:
+Three real SQL Server 2022 runs exposed independent gaps:
 
 | Run | Result | Root cause |
 |---|---|---|
 | 39984232994 | 0 passed / 8 failed, migration aborted | `FK_ReconciliationExceptions_ReconciliationRows_RowId` multiple cascade paths |
 | 39988214854 | 1 passed / 7 failed / 0 skipped | one fixture username bug + `Invalid column name 'Currency'` |
+| 39989641833 | 7 passed / 1 failed / 0 skipped | concurrent approval leaked `DbUpdateException` / SQL 2601 on `IX_JournalEntries_SourceKey` |
 
 Both are addressed here. A real SQL Server rerun is still required; this Mac
 cannot host SQL Server and local skips are **NOT RUN**, not passes.
@@ -127,7 +128,38 @@ All model columns are now present in the migration DDL; the only extra SQL
 columns are the historical temporary approval-id columns. `Accounts.Currency`
 is now present with the model’s `nvarchar(3)`, NOT NULL, default `TRY`.
 
-## 3. Fixture username bug
+## 3. Concurrent approval unique-journal conflict (run 39989641833)
+
+Trigger:
+
+```text
+DbUpdateException
+ ---> SqlException 2601:
+ Cannot insert duplicate key row in object 'dbo.JournalEntries'
+ with unique index 'IX_JournalEntries_SourceKey'. The duplicate key value is (approval:1).
+```
+
+Two approval attempts read `Pending` concurrently. One commits; the other reaches
+the unique `SourceKey` guard. `PaymentApprovalService` rolled back correctly but
+re-threw the raw `DbUpdateException`, so the test (correctly) did not classify it
+as a controlled `ConcurrencyException`.
+
+Fix in production `ApprovePaymentAsync` transaction:
+
+- catch `DbUpdateException` only when the inner exception is:
+  - SQL Server `SqlException` with number **2601 or 2627** and the message names
+    `IX_JournalEntries_SourceKey` / `JournalEntries`, or
+  - SQLite `SqliteException` error 19 with
+    `UNIQUE constraint failed: JournalEntries.SourceKey`.
+- rollback first, then throw `ConcurrencyException` (“başka bir incelemeci”).
+- every other database exception is re-thrown unchanged; no generic swallowing.
+- SQLite duplicate-SourceKey regression now asserts `ConcurrencyException` and
+  the same balance/approval/journal/audit rollback.
+- SQL concurrent-approval test rejects `DbUpdateException`, requires
+  `BusinessRuleException` or `ConcurrencyException`, and checks exactly one
+  journal, one approved audit row, one balance movement and Approved status.
+
+## 4. Fixture username bug
 
 `SqlServerFixture.AddActorAsync` used:
 
@@ -146,7 +178,7 @@ Username = username.Length <= 42 ? username : username[..42]
 
 This is test-fixture code only; no production rule changed.
 
-## 4. SQL integration suite (8 tests preserved)
+## 5. SQL integration suite (8 tests preserved)
 
 `DigitalBanking.IntegrationTests/SqlServerIntegrationTests.cs` was strengthened
 without increasing the 8-test count:
@@ -162,7 +194,7 @@ without increasing the 8-test count:
 - concurrent approval test: exactly one journal for the payment
 - reconciliation test: exception -> row -> batch cleanup on SQL Server
 
-## 5. Verification in this environment
+## 6. Verification in this environment
 
 - Build: **0 warnings / 0 errors**
 - Unit tests: **178 passed, 0 failed**
@@ -177,7 +209,7 @@ without increasing the 8-test count:
 - Workflow guard and Python/Bash syntax checks: PASS
 - `git diff --check`: clean
 
-## 6. Existing installations / deployment boundary
+## 7. Existing installations / deployment boundary
 
 - FK repair for a manually/legacy-created schema:
   `docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`
@@ -189,7 +221,7 @@ without increasing the 8-test count:
 - No UAT/main/parent copy, no secret read/print, no git reset/clean/push/dispatch
   or EULA acceptance was performed here.
 
-## 7. Files
+## 8. Files
 
 - `DigitalBanking.Infrastructure/Persistence/BankDbContext.cs`
 - `DigitalBanking.Infrastructure/Migrations/20261020212050_AddCustomerOwnershipTimelineReconciliation.cs`
@@ -197,12 +229,14 @@ without increasing the 8-test count:
 - `DigitalBanking.Infrastructure/Migrations/20261023164046_RepairMissingAccountsCurrency.cs` (+ designer)
 - `DigitalBanking.Infrastructure/Migrations/*.Designer.cs`, `BankDbContextModelSnapshot.cs`
 - `DigitalBanking.Infrastructure/Services/DemoScenarioService.cs`
+- `DigitalBanking.Infrastructure/Services/PaymentApprovalService.cs`
 - `DigitalBanking.Tests/DemoScenarioCleanupTests.cs`
 - `DigitalBanking.IntegrationTests/SqlServerFixture.cs`
 - `DigitalBanking.IntegrationTests/SqlServerIntegrationTests.cs`
 - `docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`
 - `docs/evidence/2026-10-23-sqlserver-fk-fix.txt`
 - `docs/evidence/2026-10-23-sqlserver-currency-fix.txt`
+- `docs/evidence/2026-10-23-sqlserver-concurrency-fix.txt`
 - `docs/SQLSERVER_FIX_REPORT.md`
 - `docs/SQLSERVER_VERIFICATION.md`, `docs/FINAL_GAPS.md`, `docs/PROGRESS.md`,
   `docs/INTEGRATION_HANDOFF.md`, `docs/migrations/README.md`

@@ -235,7 +235,7 @@ public class AccountingJournalTests
     }
 
     [Fact]
-    public async Task DuplicateJournalSourceKeyRollsBackBalanceLegacyRowApprovalAndAudit()
+    public async Task DuplicateJournalSourceKeyMapsToControlledConflictAndRollsBackBalanceLegacyRowApprovalAndAudit()
     {
         var f = await CreateFixtureAsync();
         await using var _ = f.Db;
@@ -273,7 +273,9 @@ public class AccountingJournalTests
         f.Context.JournalEntries.Add(duplicate);
         await f.Context.SaveChangesAsync();
 
-        await Assert.ThrowsAnyAsync<Exception>(() => f.Payments.ApprovePaymentAsync(pending.Id, f.Owner));
+        var conflict = await Assert.ThrowsAsync<ConcurrencyException>(() =>
+            f.Payments.ApprovePaymentAsync(pending.Id, f.Owner));
+        Assert.Contains("başka bir incelemeci", conflict.Message, StringComparison.OrdinalIgnoreCase);
 
         await using var verify = f.Db.NewContext();
         Assert.Equal(0m, (await verify.Accounts.SingleAsync(x => x.Id == f.AccountTry)).Balance);
@@ -281,6 +283,8 @@ public class AccountingJournalTests
             (await verify.PaymentApprovals.SingleAsync(x => x.Id == pending.Id)).Status);
         Assert.Empty(await verify.Transactions.ToListAsync());
         Assert.Equal(1, await verify.JournalEntries.CountAsync());
+        Assert.False(await verify.AuditLogs.AnyAsync(x =>
+            x.Action == "APPROVAL_REQUEST_APPROVED" && x.EntityId == pending.Id.ToString()));
     }
 
     [Fact]
