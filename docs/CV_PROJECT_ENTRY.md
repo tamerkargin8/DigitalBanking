@@ -4,8 +4,8 @@ This is a source document for the user’s CV. No external CV/LinkedIn file was
 edited by this project. Independent local verification: 178 unit tests and 104
 reproducible Stage 3/4 E2E checks passed (2026-10-23); earlier independent general
 smoke: 280/280. GitHub CI passed for 14b0d7f (run 39846065615).
-Real SQL Server verification is in progress and has exposed migration/schema
-issues; do not claim a passing SQL Server suite until all 8 tests pass.
+Real SQL Server 2022 verification passed 8/8 with zero skips in run 39990772442.
+Hosted build/test/smoke passed in run 39990773127.
 Manual user UAT and a recorded video remain pending. AI-assisted implementation
 was directed and reviewed through domain requirements and independent tests.
 
@@ -133,3 +133,15 @@ transparent about that contribution.
 - “Production banking system”, “real bank integration”, “PCI/SOC2/ASVS certified”.
 - “SQL Server verified”, “GitHub Actions green”, “UAT passed” or “video recorded”.
 - “Handled real customer data”.
+
+## CV-ready short version (Turkish)
+
+**DigitalBanking | C#, .NET 10, ASP.NET Core, EF Core, Razor Pages**
+
+- Bankacılık operasyon deneyimimi; üyelik aktivasyonu, rol ve limit bazlı yetki devri, tüm finansal taleplerde maker-checker onayı ve CSV mutabakat akışları içeren sentetik bir portföy uygulamasına dönüştürdüm.
+- İşlem bütünlüğü için çift taraflı muhasebe, atomik kayıt/geri alma, idempotency, canlı yetki iptali ve hesap sahipliği kontrolleri uyguladım.
+- AI destekli geliştirmeyi iş gereksinimleri, kod incelemesi ve bağımsız doğrulamayla yönettim; 178 birim testi, 104 ek uçtan uca kontrol ve GitHub Actions build/test/smoke kanıtları oluşturdum. Gerçek SQL Server üzerinde 8/8 entegrasyon testi başarıyla tamamlandı.
+
+Repository: https://github.com/tamerkargin8/DigitalBanking
+
+This text is prepared for copying into a CV; no personal CV file has been edited.

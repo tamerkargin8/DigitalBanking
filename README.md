@@ -1,6 +1,6 @@
 # DigitalBanking — banking controls portfolio demo
 
-> **Status (2026-10-22):** working .NET 10 API + Razor dashboard with **178 xUnit tests**, **280 isolated HTTP smoke checks**, **25/25 double-entry E2E checks** and **24/24 operations E2E checks** passing locally. SQL Server migrations are generated but **not applied or verified**; GitHub Actions is **not run**. This is an educational, synthetic demo — not production banking software.
+> **Status (2026-10-23):** 178 unit tests, 280 general smoke checks and 104 reproducible accounting/operations checks passed locally. Hosted [CI](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39990773127) passed; real SQL Server [integration tests](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39990772442) passed **8/8, 0 failed, 0 skipped**, including migrations. Manual user acceptance remains pending. Educational synthetic demo; not production banking software.
 
 DigitalBanking is a small retail-banking back office that makes the controls behind money movement visible: a **one-time Owner**, **delegated approval authority**, **maker-checker for every financial request**, **inclusive per-operation limits**, **live revocation**, **idempotent posting**, **customer ownership**, **double-entry accounting**, **pending-age/SLA operations**, **day-end reconciliation with exceptions**, and an **append-only audit trail**.
 
@@ -18,7 +18,7 @@ Every customer financial request — transfer, deposit, withdrawal, account open
 - **Muhasebe:** Onaylanan her hareket tek para birimli, borç=alacak journal üretir. Eski hesaplar sessizce doldurulmaz; Owner açık baseline preview/post yapar.
 - **Operasyon:** Bekleyen yaş/SLA, geciken talepler, atama, çözülmemiş mutabakat farkları; Delegated yalnız canlı yetkisinin kapsadığını görür.
 - **Kanıt:** 178 xUnit, 280 smoke, 25/25 muhasebe E2E, 24/24 operasyon E2E; ekran görüntüleri sentetik masked veridir.
-- **Sınır:** Gerçek SQL Server uygulaması, GitHub Actions, manuel UAT ve video **yapılmadı/doğrulanmadı**. Bu bir üretim veya sertifikasyon iddiası değildir.
+- **Kanıt:** GitHub CI başarılı; gerçek SQL Server 8/8 test geçti. **Kalan:** Kullanıcının manuel kabul testi ve demo video kaydı. Üretim veya sertifikasyon iddiası yok.
 
 ## Problem → workflow
 
@@ -72,7 +72,7 @@ flowchart LR
     S --> E[EF Core 10]
     J --> E
     L --> E
-    E --> SQL[(SQL Server<br/>default, not verified here)]
+    E --> SQL[(SQL Server<br/>verified in isolated CI)]
     E --> SL[(SQLite<br/>Development only)]
 ```
 
@@ -171,8 +171,8 @@ Development only.
 | `bash scripts/dotnet.sh test DigitalBanking.slnx` | **178 passed, 0 failed**, 8 SQL Server tests **skipped** |
 | Reproducible Stage 3 + 4 E2E (`scripts/stage3_stage4_e2e.py`) | **104/104** (Stage 3 **25/25**, Stage 4 **24/24**) |
 | Isolated HTTP smoke (temp DB, 5196/5197) | **280/280 checks, exit 0** |
-| SQL Server migration script render | succeeded; **not applied** |
-| GitHub Actions | **NOT RUN** |
+| Real SQL Server migrations + integration | **8 passed, 0 failed, 0 skipped** |
+| GitHub Actions | **PASS** — [build/test/smoke](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39990773127) |
 | Manual UAT (5480/5481) | **NOT DONE** |
 
 Reports: [`STAGE_03_REPORT.md`](docs/STAGE_03_REPORT.md),
@@ -209,12 +209,12 @@ choose the local password.
 
 | Provider | Use | Schema path |
 |---|---|---|
-| **SQL Server** (default) | Intended deployment path | EF Core migrations; **not applied/verified in this environment** |
+| **SQL Server** (default) | Intended deployment path | EF Core migrations applied on disposable SQL Server in GitHub CI; 8/8 passed |
 | **SQLite** (Development) | Disposable local demo/tests | `EnsureCreated`; never called SQL Server proof |
 
 SQL Server connection is configured through `ConnectionStrings:DefaultConnection`.
-The repo does **not** include SQL Server credentials, a server, EULA acceptance or
-a hosted run. See [`SQLSERVER_VERIFICATION.md`](docs/SQLSERVER_VERIFICATION.md).
+The repo does **not** include SQL Server credentials, a persistent server or
+a public deployment. See [`SQLSERVER_VERIFICATION.md`](docs/SQLSERVER_VERIFICATION.md).
 
 ### Existing SQLite upgrade
 
@@ -285,8 +285,8 @@ only synthetic data and are not mockups. No automated visual-regression claim.
 
 ## Limitations / not verified
 
-- **SQL Server**: migrations compile/render; the real runs discovered a reconciliation FK cascade-path failure and a missing `Accounts.Currency` column. Both are fixed in the migration chain (plus an additive repair migration for existing histories; legacy balances default to TRY, no FX). The fixed chain has **not** been applied here; 8 integration tests remain skipped. SQLite is not SQL Server proof.
-- **GitHub Actions**: workflows are written and statically checked, but **NOT RUN**; no green badge or hosted-CI claim.
+- **SQL Server**: disposable SQL Server 2022 CI run passed 8/8. The migration, Currency schema and controlled-concurrency defects found during verification were corrected. This does not prove production capacity, backups or legacy customer-data upgrades.
+- **GitHub Actions**: [CI](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39990773127) and [SQL integration](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39990772442) passed for `862c59c`. Normal CI intentionally skips SQL; the separate SQL run is the proof.
 - **Manual UAT** in the separate 5480/5481 environment is user-owned and not performed here.
 - **EULA/licensing**, real credentials/secret manager, deployment, load/penetration/accessibility audits and video recording are out of scope.
 - The demo is synthetic; it has no FX, fees, interest, real general-ledger, regulatory reporting or production hardening.
@@ -295,12 +295,9 @@ only synthetic data and are not mockups. No automated visual-regression claim.
 
 ## Verification update — 2026-10-23
 
-- Independent local checks: 178 unit tests and 104 reproducible accounting,
-  operations, financial, CSV, demo-preservation and additive-upgrade checks passed.
-- Hosted CI passed for commit `14b0d7f`: [run 39846065615](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39846065615).
-- Actual SQL Server testing remains **in progress, not passed**. The first cascade
-  path failure was fixed. The following run applied migrations but returned
-  1 passed / 7 failed / 0 skipped, exposing a fixture username length bug and a
-  missing Currency column; these are being corrected.
-- Manual user acceptance is pending: [short Turkish guide](docs/UAT_QUICKSTART_TR.md).
-- GitHub hosts this source repository; no public banking service was deployed.
+- Independent local: 178 unit tests, 104 Stage3/4 E2E checks; general smoke 280/280.
+- Hosted CI: [passed](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39990773127). Real SQL Server: [8/8 passed, no skips](https://github.com/tamerkargin8/DigitalBanking/actions/runs/39990772442).
+- Verified code commit: `862c59c618e0e010c472fc4e30bc014953a2d7e0`.
+- Manual user UAT: **pending**, [short Turkish guide](docs/UAT_QUICKSTART_TR.md).
+- [Final verification and limitations](docs/FINAL_VERIFICATION_20261023.md).
+- Source repository only; no public banking service deployed.

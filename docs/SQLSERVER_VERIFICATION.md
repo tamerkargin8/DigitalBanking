@@ -1,3 +1,5 @@
+> **Current 2026-10-23:** Hosted CI passed; real SQL Server passed 8/8 with no skips for `862c59c`. Manual user UAT remains pending. See [final verification](FINAL_VERIFICATION_20261023.md). Earlier NOT RUN/failure statements below are historical records.
+
 # SQL Server verification — Stage 1 (2026-10-22)
 
 ## Status
