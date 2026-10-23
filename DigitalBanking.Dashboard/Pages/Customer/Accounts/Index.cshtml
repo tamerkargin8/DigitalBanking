@@ -5,67 +5,69 @@
     ViewData["Title"] = "Hesaplarım";
 }
 
-<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+<div class="page-heading">
     <div>
-        <h3 class="mb-1">Hesaplarım</h3>
-        <div class="text-muted small">Vadesiz, Vadeli ve Yatırım hesaplarınızı ayrı sekmelerde yönetin.</div>
+        <div class="eyebrow">Portföy</div>
+        <h2>Hesaplarım</h2>
+        <p>Vadesiz, Vadeli ve Yatırım hesaplarınızı ayrı sekmelerde yönetin. Hesap adı ve ürün bilgisi hesap detayında düzenlenebilir.</p>
     </div>
-    <a class="btn btn-primary" href="/Customer/Requests?type=AccountOpening">Hesap Aç</a>
+    <div class="heading-actions">
+        <a class="btn btn-primary" href="/Customer/Requests?type=AccountOpening"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>Hesap Aç</a>
+    </div>
 </div>
 
 @if (!string.IsNullOrEmpty(Model.Error))
 {
-    <div class="alert alert-danger">@Model.Error</div>
+    <div class="alert alert-danger" role="alert">@Model.Error</div>
 }
 
-<ul class="nav nav-tabs mb-3">
+<ul class="nav nav-tabs mb-4" aria-label="Hesap türleri">
     @foreach (var tab in Model.Tabs)
     {
         <li class="nav-item">
             <a class="nav-link @(Model.SelectedType == tab.Key ? "active" : "")"
-               href="/Customer/Accounts?type=@tab.Key">@tab.Label <span class="badge bg-secondary ms-1">@tab.Count</span></a>
+               href="/Customer/Accounts?type=@tab.Key"
+               aria-current="@(Model.SelectedType == tab.Key ? "page" : null)">@tab.Label <span class="badge bg-secondary ms-1">@tab.Count</span></a>
         </li>
     }
 </ul>
 
 @if (Model.FilteredAccounts.Count == 0)
 {
-    <div class="card"><div class="empty-state">
-        <h5>@(Model.SelectedType == "All" ? "Henüz hesabınız yok" : $"{Model.Tabs.First(x => x.Key == Model.SelectedType).Label} hesabınız yok")</h5>
-        <p class="mb-3">İlk hesabınızı açmak için tür, hesap adı ve para birimi seçin; Owner/yetkili onayından sonra hesap listelenir.</p>
-        <a class="btn btn-primary" href="/Customer/Requests?type=AccountOpening&accountType=@(Model.SelectedType == "All" ? "Checking" : Model.SelectedType)">Hesap Aç</a>
-    </div></div>
+    <div class="card">
+        <div class="empty-state">
+            <div class="empty-icon" aria-hidden="true"><svg class="icon"><use href="#i-cards"></use></svg></div>
+            <h3>@(Model.SelectedType == "All" ? "Henüz hesabınız yok" : $"{Model.Tabs.First(x => x.Key == Model.SelectedType).Label} hesabınız yok")</h3>
+            <p>İlk hesabınızı açmak için tür, hesap adı ve para birimi seçin; kurucu yönetici veya yetkili onayından sonra hesap listelenir.</p>
+            <a class="btn btn-primary" href="/Customer/Requests?type=AccountOpening&accountType=@(Model.SelectedType == "All" ? "Checking" : Model.SelectedType)">Hesap Aç</a>
+        </div>
+    </div>
 }
 else
 {
-    <div class="row g-4">
+    <div class="account-grid">
         @foreach (var a in Model.FilteredAccounts)
         {
-            <div class="col-md-6 col-xl-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start gap-2">
-                            <div>
-                                <div class="text-muted small">@DashboardUi.Status(a.AccountType) · @a.Currency</div>
-                                <h4 class="mb-1">@a.AccountName</h4>
-                            </div>
-                            <span class="badge bg-secondary">@DashboardUi.Status(a.AccountType)</span>
-                        </div>
-                        <div class="h4 mt-3">@DashboardUi.Money(a.Balance, a.Currency)</div>
-                        <div class="text-muted">@DashboardUi.Account(a.AccountNumber)</div>
-                        <div class="d-flex flex-wrap gap-2 mt-3">
-                            <a class="btn btn-outline-primary btn-sm" href="/Customer/Accounts/Details?id=@a.Id">Hesap detayı</a>
-                            <a class="btn btn-outline-primary btn-sm" href="/Customer/Requests?type=Deposit&accountId=@a.Id">Para Yatır</a>
-                            <a class="btn btn-outline-primary btn-sm" href="/Customer/Requests?type=Withdrawal&accountId=@a.Id">Para Çek</a>
-                        </div>
-                    </div>
+            <article class="account-card">
+                <div class="account-card-top">
+                    <span class="product-tag">@DashboardUi.Status(a.AccountType)</span>
+                    <span class="currency-tag">@a.Currency</span>
                 </div>
-            </div>
+                <h3>@a.AccountName</h3>
+                <div class="account-number">@DashboardUi.Account(a.AccountNumber)</div>
+                <div class="account-balance">@DashboardUi.Money(a.Balance, a.Currency)</div>
+                <div class="account-actions">
+                    <a class="btn btn-sm btn-primary" href="/Customer/Accounts/Details?id=@a.Id">Hesap detayı</a>
+                    <a class="btn btn-sm btn-outline-primary" href="/Customer/Requests?type=Deposit&accountId=@a.Id">Para Yatır</a>
+                    <a class="btn btn-sm btn-outline-primary" href="/Customer/Requests?type=Withdrawal&accountId=@a.Id">Para Çek</a>
+                </div>
+                <a class="account-link mt-3" href="/Customer/Accounts/Details?id=@a.Id#rename">Adı düzenle <span aria-hidden="true">→</span></a>
+            </article>
         }
     </div>
 }
 
 <div class="alert alert-info mt-4 mb-0">
     Vadeli ve Yatırım hesapları bu demo sürümünde yalnız hesap türü/yönetim demosudur;
-    faiz, tahakkuk, alım-satım veya kur getirisi hesaplanmaz.
+    faiz, tahakkuk, alım-satım veya kur getirisi hesaplanmaz. Tüm para talepleri onay bekler.
 </div>

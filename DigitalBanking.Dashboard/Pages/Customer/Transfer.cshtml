@@ -5,8 +5,14 @@
     ViewData["Title"] = "Transfer Talebi";
 }
 
-<h3 class="mb-1">Transfer Talebi</h3>
-<p class="text-muted">Tüm transfer talepleri Pending başlar. Owner veya yetkili onaylayana kadar bakiye değişmez.</p>
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">İşlemler</div>
+        <h2>Transfer Talebi</h2>
+        <p>Tüm transfer talepleri onay bekleyerek başlar. Kurucu yönetici veya yetkili onaylayana kadar bakiye değişmez.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="/Customer/Payments">Taleplerim</a>
+</div>
 
 @if (!string.IsNullOrEmpty(Model.Error))
 {

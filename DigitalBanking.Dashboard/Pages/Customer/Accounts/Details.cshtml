@@ -15,21 +15,21 @@ else if (Model.Account is not null)
     {
         <div class="alert alert-info">@Model.Flash</div>
     }
-    <div class="d-flex justify-content-between align-items-start mb-3">
+    <div class="page-heading">
         <div>
-            <div class="text-muted small">@DashboardUi.Account(Model.Account.AccountNumber)</div>
-            <h3 class="mb-0">@Model.Account.AccountName</h3>
-            <div class="text-muted">@DashboardUi.Status(Model.Account.AccountType) · @Model.Account.Currency hesabı</div>
-            <div class="h4 mt-2">@DashboardUi.Money(Model.Account.Balance, Model.Account.Currency)</div>
+            <div class="eyebrow">@DashboardUi.Status(Model.Account.AccountType) · @Model.Account.Currency hesabı</div>
+            <h2>@Model.Account.AccountName</h2>
+            <p>@DashboardUi.Account(Model.Account.AccountNumber)</p>
+            <div class="h3 mt-2 mb-0">@DashboardUi.Money(Model.Account.Balance, Model.Account.Currency)</div>
         </div>
-        <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-outline-primary" href="/Customer/Transfer?from=@Model.Account.Id">Transfer talebi</a>
+        <div class="heading-actions">
+            <a class="btn btn-primary" href="/Customer/Transfer?from=@Model.Account.Id"><svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg>Transfer talebi</a>
             <a class="btn btn-outline-primary" href="/Customer/Requests?type=Deposit&accountId=@Model.Account.Id">Para Yatır</a>
             <a class="btn btn-outline-primary" href="/Customer/Requests?type=Withdrawal&accountId=@Model.Account.Id">Para Çek</a>
         </div>
     </div>
 
-    <div class="card mb-3">
+    <div class="card mb-3" id="rename">
         <div class="card-header">Hesap adını düzenle</div>
         <div class="card-body">
             <form method="post" asp-page-handler="Rename" class="row g-2">

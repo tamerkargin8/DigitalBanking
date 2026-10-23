@@ -136,7 +136,7 @@ public static class DashboardUi
         "PendingActivation" => "Aktivasyon bekliyor",
         "Active" => "Aktif",
         "Disabled" => "Devre dışı",
-        "Owner" => "Owner",
+        "Owner" => "Kurucu Yönetici",
         "DelegatedApprover" => "Yetkili",
         "Customer" => "Müşteri",
         _ => value ?? "—"

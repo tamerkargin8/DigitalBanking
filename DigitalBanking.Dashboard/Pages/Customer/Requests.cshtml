@@ -5,8 +5,14 @@
     ViewData["Title"] = "Finansal Talep";
 }
 
-<h3 class="mb-1">Yatırma / Çekme / Hesap Açılışı Talebi</h3>
-<p class="text-muted">Tüm talepler Pending başlar; onaylanana kadar bakiye değişmez. Yatırma/çekme demo teller işlemidir; müşteri kendi kendine para yaratamaz.</p>
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">İşlemler</div>
+        <h2>Finansal Talep</h2>
+        <p>Tüm talepler onay bekleyerek başlar; onaylanana kadar bakiye değişmez. Yatırma ve çekme demo teller işlemidir.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="/Customer/Payments">Taleplerim</a>
+</div>
 
 @if (!string.IsNullOrEmpty(Model.Error))
 {

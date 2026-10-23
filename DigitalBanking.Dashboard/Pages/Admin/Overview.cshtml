@@ -10,27 +10,45 @@
     <div class="alert alert-danger">@Model.Error</div>
 }
 
-<div class="stat-grid mb-4">
-    <div class="stat-card">
+<div class="page-heading">
+    <div>
+        <div class="eyebrow">Kurucu Yönetici konsolu</div>
+        <h2>Operasyon Özeti</h2>
+        <p>Onay akışını, üyelikleri ve portföy görünümünü tek yerden izleyin. Geciken veya atanmamış işler için operasyon merkezini kullanın.</p>
+    </div>
+    <div class="heading-actions">
+        <a class="btn btn-primary" href="/Admin/Operations"><svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg>Operasyon Merkezi</a>
+        <a class="btn btn-outline-primary" href="/Admin/Approvals"><svg class="icon" aria-hidden="true"><use href="#i-inbox"></use></svg>Onay Kuyruğu</a>
+    </div>
+</div>
+
+<div class="stat-grid mb-3">
+    <div class="stat-card accent-teal">
         <div class="label">Bekleyen talep</div>
         <div class="value">@Model.Pending.Count</div>
-        <div class="hint">Owner/DelegatedApprover onayı bekliyor</div>
+        <div class="hint">Onay bekleyen finansal talepler</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card accent-amber">
         <div class="label">Aktivasyon bekleyen üye</div>
         <div class="value">@Model.PendingMembers.Count</div>
         <div class="hint"><a href="/Admin/Users?status=PendingActivation">Üyeleri aç</a></div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card accent-navy">
         <div class="label">Müşteri</div>
         <div class="value">@Model.CustomerCount</div>
         <div class="hint"><a href="/Admin/Customers">Müşterileri aç</a></div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card accent-teal">
         <div class="label">Hesap</div>
         <div class="value">@Model.AccountCount</div>
         <div class="hint"><a href="/Admin/Accounts">Hesapları aç</a></div>
     </div>
+</div>
+<div class="control-strip">
+    <a class="control-link" href="/Admin/Operations"><svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg>Geciken / atanmamış işler</a>
+    <a class="control-link" href="/Admin/Users?status=PendingActivation"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg>Üyelik aktivasyonu</a>
+    <a class="control-link" href="/Admin/Delegations"><svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg>Yetki ve limitler</a>
+    <a class="control-link" href="/Admin/Accounting"><svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>Muhasebe ve mizan</a>
 </div>
 
 <div class="row g-4">
@@ -121,15 +139,15 @@
             <div class="card-body">
                 @if (Model.Delegations.Count == 0)
                 {
-                    <div class="text-muted">Yetki devri yok. Onay için Owner veya delegated yetki gerekir.</div>
+                    <div class="text-muted">Yetki devri yok. Onay için kurucu yönetici veya uygun kapsamlı yetkili gerekir.</div>
                 }
                 else
                 {
                     @foreach (var d in Model.Delegations.Where(x => x.IsActive).Take(6))
                     {
                         <div class="d-flex justify-content-between border-bottom py-2 small">
-                            <span>@d.Username · @d.Operation</span>
-                            <span>@(d.MaxAmount is null ? "Limitsiz/istisna" : DashboardUi.Money(d.MaxAmount.Value, d.Currency ?? ""))</span>
+                            <span>@d.Username · @DashboardUi.Status(d.Operation)</span>
+                            <span>@(d.MaxAmount is null ? "Limitsiz / istisna" : DashboardUi.Money(d.MaxAmount.Value, d.Currency ?? ""))</span>
                         </div>
                     }
                 }

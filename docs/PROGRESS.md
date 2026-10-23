@@ -273,3 +273,7 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
   audit assertion'larıyla güncellendi; SQL concurrent testi DbUpdateException'ı
   reddeder, tek journal/bakiye/approval/audit doğrular. 8 SQL testi korunuyor.
 - Yerel: 178 unit, 8 SQL skipped (NOT RUN), 104/104 E2E, 280/280 smoke.
+
+## 2026-10-23 — Dashboard visual refinement
+
+Owner/customer shell, account cards, quick actions, queue hierarchy, responsive navigation and consistent forms/tables refined. Scope: presentation only. Independent178unit/280smoke passed; desktop1440/mobile390 visual snapshots and menu behavior reviewed. Final104 E2E and hosted CI recorded separately. Manual user UAT remains last and pending. See DASHBOARD_REFINEMENT_REPORT.md.

@@ -19,3 +19,7 @@ Mevcut Owner ve kayıtlarınızı kullanın. Demo sıfırlama/seed çalıştırm
 Eski bakiye muhasebe açılışı ayrı bir Owner işlemidir: önce önizlemeyi inceleyin; otomatik baseline gönderilmedi. Vadeli/yatırım türleri demo hesap sınıflarıdır; gerçek faiz veya menkul kıymet alım satımı yapılmaz.
 
 Hata bildirimi: adım numarası, rol, beklenen ve görülen sonuç. Görsel paylaşırsanız ad, hesap no, bakiye ve gizli bilgileri maskeleyin. Ayrıntılı kapsam: UAT_CHECKLIST.md.
+
+## Yeni görünümün son kontrolü
+
+Müşteride Hesap Özeti → hesap kartları ve Hızlı İşlemler; kurucu yöneticide Genel Bakış → Onay Kuyruğu/Operasyon Merkezi bağlantıları kullanılır. Mobilde üstteki menü düğmesiyle gezinme açılır, Escape ile kapanır. Bakiye ve hesapları para birimi bazında ayrı değerlendirin. Bu tasarım kontrolünü kullanıcı olarak henüz tamamlamadınız; sonuç alanları bekliyor.

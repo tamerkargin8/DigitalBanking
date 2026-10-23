@@ -1,0 +1,7 @@
+Independent source snapshot: work/dashboard-verification-20261023
+Unit tests:178passed0failed; SQL8skipped locally (previous realSQL8/8 evidence separate).
+General smoke280/280:API5792/dashboard5793,synthDB.
+Supplemental E2E104/104:API5794/dashboard5795,tempDB.
+Dashboard final build:0warnings0errors.
+Browser visual snapshots:desktop1440x1000,mobile390x844;Owner/customer home inspected,8screens measured390width/no page overflow;mobilemenuopen/Escapeclosed.
+Visual snapshots are sanitized server-rendered synthetic HTML;not livebrowser banking acceptance. ManualuserUATpending.
