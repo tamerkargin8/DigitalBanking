@@ -243,3 +243,18 @@ smoke geçiyor. **Üretim veya SQL Server doğrulaması değildir.**
   [`sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`](sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql).
 - UAT/ana/parent/GPT snapshotlarına dokunulmadı; push/deploy/gh dispatch/EULA
   yok. GPT fix'i inceleyip commit/push ve EULA onaylı run'ı tekrar çalıştıracak.
+
+### 2026-10-23 ikinci SQL run — Accounts.Currency
+
+- Run 39988214854: migration geçti; 1 passed / 7 failed / 0 skipped.
+- İki bulgu: `SqlServerFixture.AddActorAsync` kısa rolde 42 karakter substring
+  hatası; `Accounts.Currency` migration DDL'de yok.
+- `AddCurrencyColumnToAccounts` boş migration'ı düzeltildi; eski migration
+  geçmişi için `RepairMissingAccountsCurrency` koşullu additive migration eklendi.
+- Eski bakiyeler açıkça TRY varsayılır (FX yok); non-TRY legacy hesap operatör
+  düzeltmesi gerektirir. Test fixture username'i bounded üretir.
+- 8 SQL testi migration/table/index/FK/currency/journal/rollback/cleanup
+  assertion'larıyla güçlendirildi; sayı 8.
+- Yerel: 178 unit, 8 SQL skipped (NOT RUN), 104/104 E2E, 280/280 smoke.
+- Rapor: `SQLSERVER_FIX_REPORT.md`; kanıt:
+  `evidence/2026-10-23-sqlserver-currency-fix.txt`.

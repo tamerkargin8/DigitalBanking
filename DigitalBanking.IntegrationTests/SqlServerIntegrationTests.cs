@@ -40,6 +40,7 @@ public class SqlServerIntegrationTests
         Assert.Contains("20261021011500_EnforceSingleOwner", applied);
         Assert.Contains("20261021023000_AddAccountMetadata", applied);
         Assert.Contains("20261022191101_AddDoubleEntryJournalAndApprovalAssignment", applied);
+        Assert.Contains("20261023164046_RepairMissingAccountsCurrency", applied);
 
         Assert.True(await TableExistsAsync(context, "LegacyPaymentApprovalIds"));
         Assert.True(await TableExistsAsync(context, "JournalEntries"));
@@ -97,6 +98,9 @@ public class SqlServerIntegrationTests
         Assert.True(columns.TryGetValue("AccountType", out var accountType));
         Assert.Equal("NO", accountType.Nullable);
         Assert.NotNull(accountType.Default);
+        Assert.True(columns.TryGetValue("Currency", out var currencyColumn));
+        Assert.Equal("NO", currencyColumn.Nullable);
+        Assert.NotNull(currencyColumn.Default);
 
         var approvalColumns = await ColumnsAsync(context, "PaymentApprovals");
         Assert.True(approvalColumns.TryGetValue("RequestedAccountName", out _));

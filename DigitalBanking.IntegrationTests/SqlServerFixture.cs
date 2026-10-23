@@ -106,10 +106,11 @@ public sealed class SqlServerDatabaseFixture : IAsyncLifetime
     public async Task<(User User, ActorContext Actor)> AddActorAsync(
         BankDbContext context, UserRole role, UserStatus status = UserStatus.Active)
     {
+        var username = $"it-{role}-{Guid.NewGuid():N}";
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Username = $"it-{role}-{Guid.NewGuid():N}"[..42],
+            Username = username.Length <= 42 ? username : username[..42],
             Email = $"it-{Guid.NewGuid():N}@demo.invalid",
             FirstName = "Integration",
             LastName = "Test",

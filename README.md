@@ -285,7 +285,7 @@ only synthetic data and are not mockups. No automated visual-regression claim.
 
 ## Limitations / not verified
 
-- **SQL Server**: migrations compile/render and the reconciliation FK multiple-cascade-path failure from real run 39984232994 was fixed, but the fixed migration has not been applied here; 8 integration tests remain skipped. SQLite is not SQL Server proof.
+- **SQL Server**: migrations compile/render; the real runs discovered a reconciliation FK cascade-path failure and a missing `Accounts.Currency` column. Both are fixed in the migration chain (plus an additive repair migration for existing histories; legacy balances default to TRY, no FX). The fixed chain has **not** been applied here; 8 integration tests remain skipped. SQLite is not SQL Server proof.
 - **GitHub Actions**: workflows are written and statically checked, but **NOT RUN**; no green badge or hosted-CI claim.
 - **Manual UAT** in the separate 5480/5481 environment is user-owned and not performed here.
 - **EULA/licensing**, real credentials/secret manager, deployment, load/penetration/accessibility audits and video recording are out of scope.

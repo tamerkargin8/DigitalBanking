@@ -1,133 +1,208 @@
-# SQL Server migration fix — reconciliation FK multiple cascade paths
+# SQL Server migration fixes — FK multiple cascade paths + missing Accounts.Currency
 
 Date: 2026-10-23
-Trigger: GitHub Actions run **39984232994** (real SQL Server 2022), job
-`Real SQL Server integration (8/8 required)`.
+Worktree base: `23b12bd` (own worktree; main/UAT/GPT snapshots untouched)
 
-## Finding
+Two real SQL Server 2022 runs exposed two independent migration/schema gaps:
 
-All 8 SQL Server tests failed in fixture migration with:
+| Run | Result | Root cause |
+|---|---|---|
+| 39984232994 | 0 passed / 8 failed, migration aborted | `FK_ReconciliationExceptions_ReconciliationRows_RowId` multiple cascade paths |
+| 39988214854 | 1 passed / 7 failed / 0 skipped | one fixture username bug + `Invalid column name 'Currency'` |
+
+Both are addressed here. A real SQL Server rerun is still required; this Mac
+cannot host SQL Server and local skips are **NOT RUN**, not passes.
+
+## 1. Reconciliation FK multiple cascade paths (run 39984232994)
+
+Trigger:
 
 ```text
-Microsoft.Data.SqlClient.SqlException:
 Introducing FOREIGN KEY constraint
 'FK_ReconciliationExceptions_ReconciliationRows_RowId' on table
 'ReconciliationExceptions' may cause cycles or multiple cascade paths.
-Specify ON DELETE NO ACTION or ON UPDATE NO ACTION, or modify other FOREIGN KEY
-constraints.
 ```
 
-The failure is at `SqlServerDatabaseFixture.InitializeAsync` before any test
-body, so it is a schema/migration failure, not a test assertion failure. The
-safe masked log was read read-only from
-`/tmp/digitalbanking-sql39984232994-failed.log`; no credentials/tokens were
-printed or transmitted.
+Relationships before the fix:
 
-## Root cause
+- `ReconciliationBatches -> ReconciliationRows` = CASCADE
+- `ReconciliationBatches -> ReconciliationExceptions` = CASCADE
+- `ReconciliationRows -> ReconciliationExceptions` = SET NULL
 
-The reconciliation model had three relevant relationships:
+SQL Server rejects the third path. The fix is the smallest schema change:
 
-- `ReconciliationBatches -> ReconciliationRows` — CASCADE
-- `ReconciliationBatches -> ReconciliationExceptions` — CASCADE
-- `ReconciliationRows -> ReconciliationExceptions` — SET NULL
+- `ReconciliationExceptions.RowId -> ReconciliationRows.Id` is **NO ACTION**
+- `BankDbContext.OnModelCreating` uses `DeleteBehavior.NoAction`
+- the original migration `20261020212050_AddCustomerOwnershipTimelineReconciliation`
+  was corrected (`ReferentialAction.NoAction`), not merely patched by a later
+  migration
+- all migration designers and `BankDbContextModelSnapshot` are aligned
+- `Batch -> Rows` and `Batch -> Exceptions` stay CASCADE
 
-SQL Server rejects the third path because deleting a batch can reach
-`ReconciliationExceptions` directly and via `ReconciliationRows`, producing
-multiple cascade paths / a cycle. SQLite tolerates this, so local SQLite runs
-never exposed it.
+Rendered fresh SQL Server DDL now contains:
 
-## Fix (smallest schema change)
+```sql
+CONSTRAINT [FK_ReconciliationExceptions_ReconciliationRows_RowId]
+  FOREIGN KEY ([RowId]) REFERENCES [ReconciliationRows] ([Id])
+```
 
-`ReconciliationExceptions.RowId -> ReconciliationRows.Id` is now **NO ACTION**:
+with default NO ACTION; no `ON DELETE SET NULL`.
 
-- `BankDbContext.OnModelCreating`: `DeleteBehavior.NoAction`
-- original migration `20261020212050_AddCustomerOwnershipTimelineReconciliation`:
-  `onDelete: ReferentialAction.NoAction` for that FK
-- all migration designers + `BankDbContextModelSnapshot` updated
-- fresh SQL Server DDL now renders the FK without `ON DELETE SET NULL`
+### Demo cleanup ordering
 
-The two batch relationships remain CASCADE. The row link is nullable and is not
-used as a deletion path by the application; reconciliation rows/batches are
-immutable after import.
+Because the row link is NO ACTION, dependents must be removed first.
+`DemoScenarioService.ResetAsync` explicitly removes:
 
-## Existing installations
+1. demo reconciliation exceptions
+2. demo reconciliation rows
+3. demo reconciliation batches
 
-A fresh SQL Server could not have created this FK with SET NULL, because SQL
-Server rejects it. If an operator has a manually/legacy-created schema where the
-constraint exists with `SET_NULL`, run the idempotent manual script:
+inside the existing reset transaction. Audit includes removed row/exception
+counts. `DemoScenarioCleanupTests` covers the SQLite behavior; the SQL
+integration reconciliation test covers the same order on SQL Server.
 
-`docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`
+## 2. Missing `Accounts.Currency` (run 39988214854)
 
-It drops/recreates only that constraint (no row deletion, no table drop, no
-reset) and is a no-op on a corrected schema. No EF follow-up migration is needed
-for the normal fresh chain; this is documented rather than silently changing a
-database that cannot have been created by the failed migration.
+Trigger:
 
-## Demo cleanup ordering
+```text
+Microsoft.Data.SqlClient.SqlException : Invalid column name 'Currency'.
+```
 
-Because row -> exceptions is NO ACTION, deletion must remove dependents first.
-`DemoScenarioService.ResetAsync` now explicitly removes:
+`20260628212612_AddCurrencyColumnToAccounts` was an **empty migration** even
+though its target model and the current model contain `Accounts.Currency`. The
+initial `Accounts` DDL never created the column. Therefore fresh SQL Server
+schema was inconsistent with the EF model:
 
-1. demo reconciliation exceptions,
-2. demo reconciliation rows,
-3. demo reconciliation batches,
+```text
+Accounts: Id, AccountNumber, Balance, CustomerId, CreatedDate, RowVersion
+model:    ... + Currency (nvarchar(3), NOT NULL, default TRY)
+```
 
-inside the existing reset transaction, before other demo data. Audit details
-include removed row/exception counts. The SQL integration reconciliation test
-also deletes exceptions -> rows -> batch to verify the order on real SQL Server.
+`dotnet ef migrations has-pending-model-changes` reporting “no changes” only
+means the model and snapshot agree; it does **not** prove the migration DDL
+matches the model.
 
-## Integration suite changes (still 8 tests)
+### Fix for a fresh migration chain
+
+The original empty migration now adds the column:
+
+```csharp
+migrationBuilder.AddColumn<string>(
+    name: "Currency", table: "Accounts", type: "nvarchar(3)",
+    maxLength: 3, nullable: false, defaultValue: "TRY");
+```
+
+### Fix for an existing migration history
+
+A conditional additive migration `20261023164046_RepairMissingAccountsCurrency`
+adds the column only if it is absent:
+
+```sql
+IF COL_LENGTH(N'Accounts', N'Currency') IS NULL
+    ALTER TABLE [Accounts]
+        ADD [Currency] nvarchar(3) NOT NULL
+        CONSTRAINT [DF_Accounts_Currency_LegacyRepair] DEFAULT N'TRY';
+```
+
+- No row, balance, approval or journal is deleted.
+- No table is dropped or reset.
+- Fresh databases get the column from the corrected original migration; the
+  repair migration is a no-op.
+- Databases that already recorded the old empty migration get the column from
+  the repair migration.
+- Both `Up` methods preserve existing rows. `Down` methods are intentionally
+  no-op for this repair because dropping `Currency` would destroy operator data.
+
+**Data assumption:** the old schema had no currency value. Existing account
+balances are therefore defaulted to **TRY**. If an operator knows a legacy
+account was USD/EUR/GBP, they must correct its `Currency` explicitly after a
+backup; this project performs no FX conversion and makes no silent cross-currency
+claim. This is documented here and in `docs/migrations/README.md`.
+
+### Schema comparison
+
+A model-versus-rendered-DDL column comparison was run over all 14 mapped tables.
+All model columns are now present in the migration DDL; the only extra SQL
+columns are the historical temporary approval-id columns. `Accounts.Currency`
+is now present with the model’s `nvarchar(3)`, NOT NULL, default `TRY`.
+
+## 3. Fixture username bug
+
+`SqlServerFixture.AddActorAsync` used:
+
+```csharp
+Username = $"it-{role}-{Guid.NewGuid():N}"[..42]
+```
+
+`Owner` is shorter than 42 characters after the prefix and GUID, so the range
+threw `ArgumentOutOfRangeException` before test setup. It now builds the string
+first and truncates only when longer than 42:
+
+```csharp
+var username = $"it-{role}-{Guid.NewGuid():N}";
+Username = username.Length <= 42 ? username : username[..42]
+```
+
+This is test-fixture code only; no production rule changed.
+
+## 4. SQL integration suite (8 tests preserved)
 
 `DigitalBanking.IntegrationTests/SqlServerIntegrationTests.cs` was strengthened
-without increasing the test count:
+without increasing the 8-test count:
 
-- migration test now asserts the journal/assignment migration, tables,
-  unique `SourceKey` index, assignment index/columns, and
-  `FK_ReconciliationExceptions_ReconciliationRows_RowId` delete action =
-  `NO_ACTION`;
-- decimal test asserts every journal entry is balanced, one currency per entry,
-  and the 100,000.00 transfer has two legs;
-- rollback test now forces a duplicate journal `SourceKey` after balance/legacy
-  writes and asserts balance, approval, transaction and audit rollback;
-- concurrent approval test asserts exactly one journal for the payment;
-- reconciliation test verifies exceptions -> rows -> batch cleanup on SQL Server.
+- migration test: journal/assignment migration and repair migration applied,
+  `JournalEntries`/`JournalLines`, unique `SourceKey` index, assignment
+  index/columns, `Accounts.Currency` non-null/default, reconciliation row FK
+  `NO_ACTION`
+- decimal test: every journal entry balanced, one currency per entry, 100,000.00
+  transfer has two legs
+- rollback test: duplicate journal `SourceKey` after balance/legacy writes;
+  balance, approval, transaction and audit roll back
+- concurrent approval test: exactly one journal for the payment
+- reconciliation test: exception -> row -> batch cleanup on SQL Server
 
-## Verification in this environment
+## 5. Verification in this environment
 
 - Build: **0 warnings / 0 errors**
 - Unit tests: **178 passed, 0 failed**
-- SQL integration tests: **8 skipped — NOT RUN** (no SQL runtime on this Mac);
-  local skip is **not** a pass.
-- SQLite Stage 3/4 E2E: **104/104** (includes demo reset and additive upgrade)
-- Isolated HTTP smoke: **280/280**, exit 0
-- SQL Server DDL rendered and inspected: `FK ... REFERENCES ... ([Id])` with no
-  `ON DELETE SET NULL`; no SQL Server apply was performed.
+- SQL integration tests: **8 skipped — NOT RUN**; local skip is not PASS
+- Stage 3/4 SQLite E2E: **104/104**
+- Isolated smoke: **280/280**
+- Stage 3/4 SQLite E2E includes demo reset and additive SQLite upgrade
 - `dotnet ef migrations has-pending-model-changes`:
   **No changes have been made to the model since the last migration.**
-- `docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql` is read-only
-  documentation until an operator applies it to a compatible database.
+- Rendered SQL Server script includes `ALTER TABLE [Accounts] ADD [Currency]`
+  and the reconciliation FK without `ON DELETE SET NULL`
+- Workflow guard and Python/Bash syntax checks: PASS
+- `git diff --check`: clean
 
-## Residual risk / boundary
+## 6. Existing installations / deployment boundary
 
-- A real SQL Server apply of the fixed migration is still required; the GitHub
-  run must be repeated by GPT after review.
-- The foreign key is NO ACTION, so any future code that deletes reconciliation
-  rows must delete/clear exceptions first. Current application code only deletes
-  them together in demo cleanup, and rows/batches are immutable otherwise.
-- No customer data, balance, approval, limit or journal semantics changed.
-- No UAT database, parent/main copy or GPT snapshot was modified. No push,
-  deployment, GitHub dispatch or EULA acceptance was performed here.
+- FK repair for a manually/legacy-created schema:
+  `docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`
+  (conditional; no row deletion).
+- Currency repair is the EF migration
+  `20261023164046_RepairMissingAccountsCurrency`; run normal migrations.
+- No SQL Server database was opened or changed here. GPT must review, commit/push,
+  and rerun the EULA-approved SQL workflow; this report is not a SQL pass.
+- No UAT/main/parent copy, no secret read/print, no git reset/clean/push/dispatch
+  or EULA acceptance was performed here.
 
-## Files
+## 7. Files
 
 - `DigitalBanking.Infrastructure/Persistence/BankDbContext.cs`
 - `DigitalBanking.Infrastructure/Migrations/20261020212050_AddCustomerOwnershipTimelineReconciliation.cs`
+- `DigitalBanking.Infrastructure/Migrations/20260628212612_AddCurrencyColumnToAccounts.cs`
+- `DigitalBanking.Infrastructure/Migrations/20261023164046_RepairMissingAccountsCurrency.cs` (+ designer)
 - `DigitalBanking.Infrastructure/Migrations/*.Designer.cs`, `BankDbContextModelSnapshot.cs`
 - `DigitalBanking.Infrastructure/Services/DemoScenarioService.cs`
 - `DigitalBanking.Tests/DemoScenarioCleanupTests.cs`
+- `DigitalBanking.IntegrationTests/SqlServerFixture.cs`
 - `DigitalBanking.IntegrationTests/SqlServerIntegrationTests.cs`
 - `docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`
 - `docs/evidence/2026-10-23-sqlserver-fk-fix.txt`
+- `docs/evidence/2026-10-23-sqlserver-currency-fix.txt`
 - `docs/SQLSERVER_FIX_REPORT.md`
 - `docs/SQLSERVER_VERIFICATION.md`, `docs/FINAL_GAPS.md`, `docs/PROGRESS.md`,
-  `docs/INTEGRATION_HANDOFF.md` (updated status/manifest)
+  `docs/INTEGRATION_HANDOFF.md`, `docs/migrations/README.md`

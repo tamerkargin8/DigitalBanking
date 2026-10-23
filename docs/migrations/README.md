@@ -63,6 +63,16 @@ satır silmeyen koşullu onarım script'i:
 `docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`.
 Ayrıntı: [`../SQLSERVER_FIX_REPORT.md`](../SQLSERVER_FIX_REPORT.md).
 
+### Accounts.Currency onarımı (2026-10-23)
+
+`20260628212612_AddCurrencyColumnToAccounts` yanlışlıkla boş bırakılmıştı; model
+`Accounts.Currency` beklerken SQL Server şemasında kolon yoktu. Orijinal migration
+artık `nvarchar(3) NOT NULL DEFAULT 'TRY'` ekler. Eski migration geçmişi olan
+kurulumlar için yeni `20261023164046_RepairMissingAccountsCurrency` migration'ı
+kolon yoksa koşullu ekler; satır/bakiye silmez. Eski bakiyeler açıkça **TRY**
+varsayılır; USD/EUR/GBP legacy hesap varsa operatör yedek sonrası Currency'yi
+düzeltmelidir (FX dönüşümü yok).
+
 ## Birden fazla Owner bulunduysa (operatör uyarısı)
 
 Eski bir yarış/hatalı kurulum nedeniyle `Role=3` kullanıcı sayısı 1'den fazlaysa:

@@ -1,0 +1,48 @@
+SQL Server second-run evidence — missing Accounts.Currency + fixture username
+Date: 2026-10-23
+Run: 39988214854 (real SQL Server 2022, EULA approved by the user)
+Result: 1 passed / 7 failed / 0 skipped
+Log read read-only: /tmp/digitalbanking-sql39988214854-failed.log (masked)
+
+Failures:
+  1) ArgumentOutOfRangeException in SqlServerFixture.AddActorAsync
+     Username = $"it-{role}-{Guid...}"[..42] for short role names.
+  2) Microsoft.Data.SqlClient.SqlException: Invalid column name 'Currency'
+     while inserting/reading Accounts.
+  3) Migration test also failed on the same missing column.
+
+Root cause:
+  Migration 20260628212612_AddCurrencyColumnToAccounts had an empty Up, while
+  the target/current model contained Accounts.Currency. InitialCreate never
+  created the column. The model/snapshot agreed with each other but not with
+  the migration DDL.
+
+Fix:
+  - Original AddCurrencyColumnToAccounts migration now adds
+    Accounts.Currency nvarchar(3) NOT NULL DEFAULT 'TRY'.
+  - Additive RepairMissingAccountsCurrency migration conditionally adds the
+    column for databases that already recorded the old empty migration.
+  - No rows, balances, approvals or journals are deleted.
+  - Existing legacy balances are explicitly assumed TRY; a non-TRY legacy
+    account must be corrected by an operator with a backup (no FX conversion).
+  - SqlServerFixture now builds the username first and truncates only when
+    longer than 42 characters; no short-role substring exception.
+
+Schema check:
+  Model columns versus rendered migration DDL across 14 mapped tables:
+  all model columns present, including Accounts.Currency.
+  `dotnet ef migrations has-pending-model-changes`:
+  No changes have been made to the model since the last migration.
+
+Local verification:
+  Build: 0 warnings, 0 errors
+  Unit: 178 passed, 0 failed
+  SQL integration: 8 skipped — NOT RUN (no SQL Server on this Mac)
+  Stage 3/4 SQLite E2E: 104/104
+  Isolated HTTP smoke: 280/280
+  Rendered SQL includes ALTER TABLE [Accounts] ADD [Currency] and the
+  reconciliation FK without ON DELETE SET NULL.
+
+Not performed:
+  No SQL Server apply, no GitHub dispatch, no EULA acceptance, no push/deploy.
+  UAT/main/parent/GPT snapshots untouched; no secrets read/printed.

@@ -19,9 +19,13 @@
 
 - `DigitalBanking.slnx`
 - `DigitalBanking.IntegrationTests/` (`SqlServerFixture.cs`, `SqlServerIntegrationTests.cs`, `.csproj`)
-- SQL fix: `docs/SQLSERVER_FIX_REPORT.md`,
+- SQL fixes: `docs/SQLSERVER_FIX_REPORT.md`,
   `docs/sqlserver/2026-10-23-reconciliation-row-fk-noaction.sql`,
-  `docs/evidence/2026-10-23-sqlserver-fk-fix.txt`
+  `docs/evidence/2026-10-23-sqlserver-fk-fix.txt`,
+  `docs/evidence/2026-10-23-sqlserver-currency-fix.txt`
+- Currency repair migration: `20261023164046_RepairMissingAccountsCurrency`;
+  original `20260628212612_AddCurrencyColumnToAccounts` now actually adds
+  `Accounts.Currency` (legacy rows default TRY, documented, no FX).
 - `scripts/run_sqlserver_integration.sh`
 - `docs/PORTFOLIO_ROADMAP.md`, `docs/SQLSERVER_VERIFICATION.md`, `docs/STAGE_01_REPORT.md`
 - `docs/evidence/2026-10-22-sqlserver-integration.txt`
@@ -101,7 +105,7 @@ Reproducible E2E:      104/104 (scripts/stage3_stage4_e2e.py)
   CSV/demo:            9/9
   SQLite upgrade:      9/9
 Isolated smoke:        280/280, exit 0 (temp DB, 5196/5197)
-SQL Server DDL:        rendered, NOT applied (FK fixed; run 39984232994 failure addressed)
+SQL Server DDL:        rendered, NOT applied (FK + Accounts.Currency fixed; runs 39984232994/39988214854 addressed)
 SQL Server tests:      8 strengthened but still SKIPPED on this Mac — NOT RUN
 GitHub Actions:        NOT RUN
 Manual UAT:            NOT DONE

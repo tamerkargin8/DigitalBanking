@@ -8,9 +8,11 @@ this environment”. A written workflow or migration is not a run.
 - Stage 1: SQL Server integration harness, 8 env-gated tests, runner/doc.
 - Stage 2: GitHub Actions workflows, smoke/TRX/secret-preparation scripts,
   workflow guardrails, CI guide and security matrix.
-- SQL Server migration repair after real run 39984232994: reconciliation row FK
-  is NO ACTION, model/snapshot/designers aligned, demo cleanup ordering fixed,
-  8 SQL tests strengthened. See `SQLSERVER_FIX_REPORT.md`.
+- SQL Server migration repairs after real runs 39984232994/39988214854:
+  reconciliation row FK is NO ACTION; `Accounts.Currency` is added by the
+  corrected original migration plus a conditional repair migration for existing
+  histories; demo cleanup ordering fixed; 8 SQL tests strengthened. Legacy
+  balances default to TRY explicitly (no FX). See `SQLSERVER_FIX_REPORT.md`.
 - Stage 3: append-only double-entry journal, atomic approval integration,
   gap-based Owner baseline (legacy balance minus already journaled liability;
   fully journaled/existing-baseline accounts skipped; per-currency totals),
@@ -51,7 +53,10 @@ this environment”. A written workflow or migration is not a run.
 - Migration chain now renders with NO ACTION on
   `FK_ReconciliationExceptions_ReconciliationRows_RowId`; the prior fresh-create
   failure in real run 39984232994 is addressed in model, original migration,
-  designers and snapshot. It was **not applied** from this worktree.
+  designers and snapshot. Run 39988214854 also exposed missing
+  `Accounts.Currency`; the empty original migration and an additive repair
+  migration now cover fresh and existing histories. It was **not applied** from
+  this worktree.
 - SQL Server decimal/concurrency/transaction behavior, migration ordering and
   rowversion semantics are **not proven**.
 - 8 SQL Server tests remain **skipped**, not passed.
